@@ -1,0 +1,13 @@
+target/
+
+# IDE
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+
+# Local runtime data
+history.json
+summary.md
+application.config
