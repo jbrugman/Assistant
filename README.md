@@ -106,7 +106,7 @@ Gebruik in dat geval liever de aanbevolen startmethode hierboven met directe `ja
 - `canonical-state.yaml`: actuele canonieke verhaaltoestand voor story-mode
 - `history.json`: volledige chatgeschiedenis
 
-De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns plus de summary.
+De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns, plus de summary en in `story` mode ook de canonical state.
 
 ## Configuratie
 
