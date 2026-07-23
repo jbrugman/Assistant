@@ -283,7 +283,7 @@ final class AppConfig {
 
     private static String getAppMode(Properties baseProperties, Properties overrideProperties) {
         String mode = getString(baseProperties, overrideProperties, "appmode", DEFAULT_APP_MODE).toLowerCase();
-        if ("default".equals(mode) || "story".equals(mode)) {
+        if (DEFAULT_APP_MODE.equals(mode) || "story".equals(mode)) {
             return mode;
         }
         throw new IllegalArgumentException("appmode moet 'default' of 'story' zijn.");

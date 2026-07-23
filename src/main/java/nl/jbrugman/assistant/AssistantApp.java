@@ -16,6 +16,7 @@ public final class AssistantApp {
     private static final String APP_NAME = "assistant";
     private static final String EXIT_COMMAND = "exit";
     private static final String QUIT_COMMAND = "quit";
+    private static final String SYSTEM = "system";
 
     private AssistantApp() {
     }
@@ -166,12 +167,12 @@ public final class AssistantApp {
         String userInput
     ) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", systemPrompt));
+        messages.add(new Message(SYSTEM, systemPrompt));
 
         if (canonicalState != null && !canonicalState.isBlank()) {
             messages.add(
                 new Message(
-                    "system",
+                  SYSTEM,
                     "Actuele canonieke verhaaltoestand. "
                         + "Gebruik dit als primaire bron voor bevestigde story-state zolang recentere berichten het niet tegenspreken.\n\n"
                         + canonicalState
@@ -182,7 +183,7 @@ public final class AssistantApp {
         if (summary != null && !summary.isBlank()) {
             messages.add(
                 new Message(
-                    "system",
+                  SYSTEM,
                     "Langetermijngeheugen uit eerdere gesprekken. "
                         + "Gebruik dit alleen als achtergrond en geef prioriteit aan recente instructies.\n\n"
                         + summary
