@@ -99,8 +99,11 @@ Gebruik in dat geval liever de aanbevolen startmethode hierboven met directe `ja
 
 - `systemprompt.md`: system prompt
 - `rules.md`: guardrails/regels voor de validator-check
+- `summarysystemprompt.md`: instructies voor het bijwerken van de summary
+- `canonicalstatesystemprompt.md`: instructies voor het bijwerken van de canonieke story-state
 - `assistant.properties`: configuratie voor modellen, paden, timeouts en modelopties
 - `summary.md`: samenvatting van oudere context
+- `canonical-state.yaml`: actuele canonieke verhaaltoestand voor story-mode
 - `history.json`: volledige chatgeschiedenis
 
 De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns plus de summary.
@@ -112,7 +115,20 @@ De meeste hard-coded waarden zijn verplaatst naar `assistant.properties`, waaron
 - LM Studio endpoint
 - chat- en validator-model
 - paden naar `systemprompt.md`, `rules.md`, `summary.md` en `history.json`
+- paden naar `summarysystemprompt.md`, `canonicalstatesystemprompt.md` en `canonical-state.yaml`
 - timeouts
 - modelopties zoals `temperature`, `topP` en `repeatPenalty`
 
 Zo kun je gedrag aanpassen zonder Java-code te wijzigen.
+
+## Story-mode geheugen
+
+In `story` appmode zijn er twee achtergrondprocessen voor langetermijncontext:
+
+- `canonical-state.yaml` wordt onafhankelijk bijgewerkt op basis van oudere turns en is bedoeld voor actuele, bevestigde canonieke feiten.
+- `summary.md` blijft een compactere samenvatting voor bredere context en blijvende achtergrond.
+
+Standaard draait de canonical state 2x zo vaak als de summary via:
+
+- `summary.batchMessages=10`
+- `canonicalState.batchMessages=5`

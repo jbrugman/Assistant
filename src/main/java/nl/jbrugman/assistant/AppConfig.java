@@ -69,13 +69,34 @@ final class AppConfig {
             new FilesConfig(
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.systemPrompt", "systemprompt.md"),
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.rules", "rules.md"),
+                resolvePath(
+                    baseProperties,
+                    overrideProperties,
+                    overrideBaseDir,
+                    "file.summarySystemPrompt",
+                    "summarysystemprompt.md"
+                ),
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.summary", "summary.md"),
+                resolvePath(
+                    baseProperties,
+                    overrideProperties,
+                    overrideBaseDir,
+                    "file.canonicalStateSystemPrompt",
+                    "canonicalstatesystemprompt.md"
+                ),
+                resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.canonicalState", "canonical-state.yaml"),
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.history", "history.json"),
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.legacyHistory", "history.md")
             ),
             new ConversationConfig(
                 getInt(baseProperties, overrideProperties, "chat.maxRecentTurns", 6),
-                getInt(baseProperties, overrideProperties, "summary.batchMessages", 8)
+                getInt(baseProperties, overrideProperties, "summary.batchMessages", 8),
+                getInt(
+                    baseProperties,
+                    overrideProperties,
+                    "canonicalState.batchMessages",
+                    Math.max(1, getInt(baseProperties, overrideProperties, "summary.batchMessages", 8) / 2)
+                )
             ),
             new TimeoutConfig(
                 getInt(baseProperties, overrideProperties, "timeout.chatSeconds", 220),
@@ -121,6 +142,10 @@ final class AppConfig {
         return appMode;
     }
 
+    boolean isStoryMode() {
+        return "story".equals(appMode);
+    }
+
     String chatModel() {
         return models.chatModel();
     }
@@ -141,6 +166,18 @@ final class AppConfig {
         return files.summaryFile();
     }
 
+    Path summarySystemPromptFile() {
+        return files.summarySystemPromptFile();
+    }
+
+    Path canonicalStateSystemPromptFile() {
+        return files.canonicalStateSystemPromptFile();
+    }
+
+    Path canonicalStateFile() {
+        return files.canonicalStateFile();
+    }
+
     Path historyFile() {
         return files.historyFile();
     }
@@ -155,6 +192,10 @@ final class AppConfig {
 
     int summaryBatchMessages() {
         return conversation.summaryBatchMessages();
+    }
+
+    int canonicalStateBatchMessages() {
+        return conversation.canonicalStateBatchMessages();
     }
 
     int requestTimeoutSeconds() {
@@ -283,12 +324,15 @@ final class AppConfig {
     private record FilesConfig(
         Path systemPromptFile,
         Path rulesFile,
+        Path summarySystemPromptFile,
         Path summaryFile,
+        Path canonicalStateSystemPromptFile,
+        Path canonicalStateFile,
         Path historyFile,
         Path legacyHistoryFile
     ) {}
 
-    private record ConversationConfig(int maxRecentTurns, int summaryBatchMessages) {}
+    private record ConversationConfig(int maxRecentTurns, int summaryBatchMessages, int canonicalStateBatchMessages) {}
 
     private record TimeoutConfig(
         int requestTimeoutSeconds,

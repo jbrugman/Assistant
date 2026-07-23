@@ -30,12 +30,16 @@ public final class AssistantApp {
             runChatLoop(reader, output, context);
         } finally {
             context.summaryManager().shutdown();
+            if (context.canonicalStateManager() != null) {
+                context.canonicalStateManager().shutdown();
+            }
         }
     }
 
     private static AppContext createAppContext() {
         AppConfig config = AppConfig.load();
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
+        PromptLoader promptLoader = new PromptLoader(config);
         LMStudioClient client = new LMStudioClient(
             config.lmStudioUrl(),
             config.chatModel(),
@@ -46,13 +50,17 @@ public final class AssistantApp {
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
+        CanonicalStateManager canonicalStateManager = config.isStoryMode()
+            ? new CanonicalStateManager(historyStore, client, config, promptLoader)
+            : null;
         return new AppContext(
             config,
             historyStore,
             client,
             new ResponseGuard(validatorClient, config),
-            new SummaryManager(historyStore, client, config),
-            new PromptLoader(config)
+            new SummaryManager(historyStore, client, config, promptLoader),
+            canonicalStateManager,
+            promptLoader
         );
     }
 
@@ -103,6 +111,7 @@ public final class AssistantApp {
         try {
             List<Message> messages = buildChatMessages(
                 context.promptLoader().loadSystemPrompt(),
+                context.canonicalStateManager() == null ? "" : context.canonicalStateManager().loadCanonicalState(),
                 context.summaryManager().loadSummary(),
                 context.historyStore().recentMessages(context.config().maxRecentTurns()),
                 userInput
@@ -121,6 +130,9 @@ public final class AssistantApp {
             printMessage(output, response);
 
             context.historyStore().appendTurn(userInput, response);
+            if (context.canonicalStateManager() != null) {
+                context.canonicalStateManager().startUpdateIfNeeded();
+            }
             context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
@@ -148,12 +160,24 @@ public final class AssistantApp {
 
     private static List<Message> buildChatMessages(
         String systemPrompt,
+        String canonicalState,
         String summary,
         List<Message> recentMessages,
         String userInput
     ) {
         List<Message> messages = new ArrayList<>();
         messages.add(new Message("system", systemPrompt));
+
+        if (canonicalState != null && !canonicalState.isBlank()) {
+            messages.add(
+                new Message(
+                    "system",
+                    "Actuele canonieke verhaaltoestand. "
+                        + "Gebruik dit als primaire bron voor bevestigde story-state zolang recentere berichten het niet tegenspreken.\n\n"
+                        + canonicalState
+                )
+            );
+        }
 
         if (summary != null && !summary.isBlank()) {
             messages.add(
@@ -177,6 +201,7 @@ public final class AssistantApp {
         LMStudioClient client,
         ResponseGuard responseGuard,
         SummaryManager summaryManager,
+        CanonicalStateManager canonicalStateManager,
         PromptLoader promptLoader
     ) {}
 }
