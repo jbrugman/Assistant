@@ -22,8 +22,10 @@ final class AppConfig {
     private static final String OPTION_TOP_P = "top_p";
     private static final String OPTION_MIN_P = "min_p";
     private static final String OPTION_REPEAT_PENALTY = "repeat_penalty";
+    private static final String DEFAULT_APP_MODE = "default";
 
     private final String lmStudioUrl;
+    private final String appMode;
     private final Models models;
     private final FilesConfig files;
     private final ConversationConfig conversation;
@@ -33,6 +35,7 @@ final class AppConfig {
 
     private AppConfig(
         String lmStudioUrl,
+        String appMode,
         Models models,
         FilesConfig files,
         ConversationConfig conversation,
@@ -41,6 +44,7 @@ final class AppConfig {
         OptionsConfig options
     ) {
         this.lmStudioUrl = lmStudioUrl;
+        this.appMode = appMode;
         this.models = models;
         this.files = files;
         this.conversation = conversation;
@@ -57,6 +61,7 @@ final class AppConfig {
 
         return new AppConfig(
             getString(baseProperties, overrideProperties, "lmstudio.url", "http://localhost:1234/v1/chat/completions"),
+            getAppMode(baseProperties, overrideProperties),
             new Models(
                 getString(baseProperties, overrideProperties, "model.chat", DEFAULT_MODEL),
                 getString(baseProperties, overrideProperties, "model.validator", DEFAULT_MODEL)
@@ -110,6 +115,10 @@ final class AppConfig {
 
     String lmStudioUrl() {
         return lmStudioUrl;
+    }
+
+    String appMode() {
+        return appMode;
     }
 
     String chatModel() {
@@ -229,6 +238,14 @@ final class AppConfig {
 
         Path basePath = overrideProperties.containsKey(key) ? overrideBaseDir : BASE_DIR;
         return basePath.resolve(path).normalize();
+    }
+
+    private static String getAppMode(Properties baseProperties, Properties overrideProperties) {
+        String mode = getString(baseProperties, overrideProperties, "appmode", DEFAULT_APP_MODE).toLowerCase();
+        if ("default".equals(mode) || "story".equals(mode)) {
+            return mode;
+        }
+        throw new IllegalArgumentException("appmode moet 'default' of 'story' zijn.");
     }
 
     private static String getString(
