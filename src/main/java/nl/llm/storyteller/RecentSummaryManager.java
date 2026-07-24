@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -8,7 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-final class CanonicalStateManager {
+final class RecentSummaryManager {
     private final HistoryStore historyStore;
     private final LMStudioClient client;
     private final AppConfig config;
@@ -17,7 +17,7 @@ final class CanonicalStateManager {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Object lock = new Object();
 
-    CanonicalStateManager(HistoryStore historyStore, LMStudioClient client, AppConfig config, PromptLoader promptLoader) {
+    RecentSummaryManager(HistoryStore historyStore, LMStudioClient client, AppConfig config, PromptLoader promptLoader) {
         this.historyStore = historyStore;
         this.client = client;
         this.config = config;
@@ -25,11 +25,11 @@ final class CanonicalStateManager {
         this.executor = Executors.newSingleThreadExecutor(new DaemonThreadFactory());
     }
 
-    String loadCanonicalState() {
+    String loadRecentSummary() {
         if (!isEnabled()) {
             return "";
         }
-        return FileSupport.readTextFile(config.canonicalStateFile(), "");
+        return FileSupport.readTextFile(config.recentSummaryFile(), "");
     }
 
     void startUpdateIfNeeded() {
@@ -42,7 +42,7 @@ final class CanonicalStateManager {
                 return;
             }
 
-            CanonicalStateJob job = prepareJob();
+            RecentSummaryJob job = prepareJob();
             if (job == null) {
                 return;
             }
@@ -57,48 +57,53 @@ final class CanonicalStateManager {
     }
 
     private boolean isEnabled() {
-        return "story".equals(config.appMode());
+        return config.recentSummaryMaxTurns() > config.maxRecentTurns();
     }
 
-    private CanonicalStateJob prepareJob() {
+    private RecentSummaryJob prepareJob() {
         HistoryState state = historyStore.load();
         List<Message> recent = historyStore.recentMessages(config.maxRecentTurns());
         int cutoffIndex = state.messages().size() - recent.size();
-        int cursor = Math.max(0, Math.min(state.canonicalStateCursor(), state.messages().size()));
+        int cursor = Math.max(0, Math.min(state.recentSummaryCursor(), state.messages().size()));
 
         if (cutoffIndex <= cursor) {
             return null;
         }
 
-        List<Message> pendingMessages = new ArrayList<>(state.messages().subList(cursor, cutoffIndex));
-        if (pendingMessages.size() < config.canonicalStateBatchMessages()) {
+        int pendingMessagesCount = cutoffIndex - cursor;
+        if (pendingMessagesCount < config.recentSummaryBatchMessages()) {
             return null;
         }
 
-        return new CanonicalStateJob(cursor, cutoffIndex, loadCanonicalState(), pendingMessages);
+        List<Message> windowMessages = historyStore.recentMessagesWindow(
+            config.recentSummaryMaxTurns(),
+            config.maxRecentTurns()
+        );
+        if (windowMessages.isEmpty()) {
+            return null;
+        }
+
+        return new RecentSummaryJob(cursor, cutoffIndex, loadRecentSummary(), windowMessages);
     }
 
-    private void runJob(CanonicalStateJob job) {
+    private void runJob(RecentSummaryJob job) {
         try {
-            List<Message> statePrompt = buildCanonicalStateMessages(job.existingCanonicalState(), job.pendingMessages());
-            String newCanonicalState = client.chat(
-                statePrompt,
+            List<Message> recentSummaryPrompt = buildRecentSummaryMessages(job.existingRecentSummary(), job.pendingMessages());
+            String newRecentSummary = client.chat(
+                recentSummaryPrompt,
                 config.summaryOptions(),
                 config.summaryRequestTimeoutSeconds()
             );
 
             synchronized (lock) {
                 HistoryState currentState = historyStore.load();
-                int currentCursor = Math.max(
-                    0,
-                    Math.min(currentState.canonicalStateCursor(), currentState.messages().size())
-                );
+                int currentCursor = Math.max(0, Math.min(currentState.recentSummaryCursor(), currentState.messages().size()));
                 if (currentCursor != job.cursor()) {
                     return;
                 }
 
-                FileSupport.writeTextFile(config.canonicalStateFile(), newCanonicalState);
-                historyStore.markCanonicalStateUpdated(job.cutoffIndex());
+                FileSupport.writeTextFile(config.recentSummaryFile(), newRecentSummary);
+                historyStore.markRecentSummarized(job.cutoffIndex());
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -110,10 +115,10 @@ final class CanonicalStateManager {
     }
 
     private void ignoreFailure() {
-        // Canonical state refresh is best-effort and must never interrupt the main chat flow.
+        // Recent summary refresh is best-effort and must never interrupt the main chat flow.
     }
 
-    private List<Message> buildCanonicalStateMessages(String existingCanonicalState, List<Message> pendingMessages) {
+    private List<Message> buildRecentSummaryMessages(String existingRecentSummary, List<Message> pendingMessages) {
         StringBuilder formattedHistory = new StringBuilder();
         for (Message message : pendingMessages) {
             if (!formattedHistory.isEmpty()) {
@@ -122,31 +127,34 @@ final class CanonicalStateManager {
             formattedHistory.append(message.role().toUpperCase()).append(": ").append(message.content());
         }
 
-        String currentState = (existingCanonicalState == null || existingCanonicalState.isBlank())
-            ? "Nog geen canonieke toestand."
-            : existingCanonicalState;
+        String currentRecentSummary = (existingRecentSummary == null || existingRecentSummary.isBlank())
+            ? "No recent summary yet."
+            : existingRecentSummary;
 
-        return List.of(
-            new Message("system", promptLoader.loadCanonicalStateSystemPrompt()),
+        List<Message> messages = new ArrayList<>();
+        messages.add(new Message("system", promptLoader.loadRecentSummarySystemPrompt()));
+
+        String fixedProtagonists = promptLoader.loadFixedProtagonistsContext();
+        if (!fixedProtagonists.isBlank()) {
+            messages.add(new Message("system", fixedProtagonists));
+        }
+
+        messages.add(
             new Message(
                 "user",
-                "Bestaande canonieke toestand:\n" + currentState + "\n\n"
-                    + "Nieuwe oudere berichten om te verwerken:\n" + formattedHistory
+                "Existing recent summary:\n" + currentRecentSummary + "\n\n"
+                    + "Recent story messages to incorporate:\n" + formattedHistory
             )
         );
+        return messages;
     }
 
-    private record CanonicalStateJob(
-        int cursor,
-        int cutoffIndex,
-        String existingCanonicalState,
-        List<Message> pendingMessages
-    ) {}
+    private record RecentSummaryJob(int cursor, int cutoffIndex, String existingRecentSummary, List<Message> pendingMessages) {}
 
     private static final class DaemonThreadFactory implements ThreadFactory {
         @Override
         public Thread newThread(Runnable runnable) {
-            Thread thread = new Thread(runnable, "canonical-state-worker");
+            Thread thread = new Thread(runnable, "recent-summary-worker");
             thread.setDaemon(true);
             return thread;
         }

@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -13,6 +13,18 @@ final class FileSupport {
     static String readTextFile(Path path, String defaultValue) {
         if (!Files.exists(path)) {
             return defaultValue;
+        }
+
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8).trim();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+    }
+
+    static String readRequiredTextFile(Path path) {
+        if (!Files.exists(path)) {
+            throw new IllegalStateException("Missing required text file: " + path);
         }
 
         try {

@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.Binding;
@@ -18,20 +18,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class AssistantApp {
-    private static final String APP_NAME = "assistant";
+    private static final String APP_NAME = "storyteller";
     private static final String EXIT_COMMAND = "exit";
     private static final String QUIT_COMMAND = "quit";
-    private static final String CONTINUE_STORY_COMMAND = "(ga door met het verhaal)";
+    private static final String CONTINUE_STORY_COMMAND = "(continue the story)";
     private static final String CONTINUE_STORY_WIDGET = "continue-story";
     private static final String RESET_COMMAND =
-        "(reset je gedrag; houd je vanaf nu strikt aan de system prompt en alle regels)";
+        "(reset your behavior; strictly follow the system prompt, fixed protagonists, and rules from now on)";
     private static final String RESET_WIDGET = "reset-behavior";
     private static final String CONTINUE_STORY_SHORTCUT_HINT =
-        "Druk op Ctrl-G om '(ga door met het verhaal)' te sturen. "
-            + "Op Mac werkt Cmd-G alleen als je terminal die toetscombinatie doorgeeft.";
+        "Press Ctrl-G to send '(continue the story)'. "
+            + "On macOS, Cmd-G only works if your terminal forwards that key combination.";
     private static final String RESET_SHORTCUT_HINT =
-        "Druk op Ctrl-W om een reset-instructie te sturen als het model afdwaalt. "
-            + "Op Mac werkt Cmd-W alleen als je terminal die toetscombinatie doorgeeft.";
+        "Press Ctrl-W to send a reset instruction if the model starts drifting. "
+            + "On macOS, Cmd-W only works if your terminal forwards that key combination.";
     private static final int DISPLAY_MARGIN = 2;
     private static final int MIN_CONTENT_WIDTH = 20;
     private static final String SYSTEM = "system";
@@ -51,9 +51,7 @@ public final class AssistantApp {
         } finally {
             context.summaryManager().shutdown();
             context.recentSummaryManager().shutdown();
-            if (context.canonicalStateManager() != null) {
-                context.canonicalStateManager().shutdown();
-            }
+            context.canonicalStateManager().shutdown();
         }
     }
 
@@ -71,9 +69,6 @@ public final class AssistantApp {
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
-        CanonicalStateManager canonicalStateManager = config.isStoryMode()
-            ? new CanonicalStateManager(historyStore, client, config, promptLoader)
-            : null;
         return new AppContext(
             config,
             historyStore,
@@ -81,7 +76,7 @@ public final class AssistantApp {
             new ResponseGuard(validatorClient, config),
             new SummaryManager(historyStore, client, config, promptLoader),
             new RecentSummaryManager(historyStore, client, config, promptLoader),
-            canonicalStateManager,
+            new CanonicalStateManager(historyStore, client, config, promptLoader),
             promptLoader
         );
     }
@@ -135,7 +130,7 @@ public final class AssistantApp {
 
     private static void printBanner(Terminal terminal, PrintWriter output) {
         output.println(formatForDisplay(
-            "LM Studio wrapper gestart. Type 'exit' om te stoppen. "
+            "Storyteller started. Type 'exit' to quit. "
                 + CONTINUE_STORY_SHORTCUT_HINT + " "
                 + RESET_SHORTCUT_HINT,
             terminal
@@ -179,7 +174,8 @@ public final class AssistantApp {
         try {
             List<Message> messages = buildChatMessages(
                 context.promptLoader().loadSystemPrompt(),
-                context.canonicalStateManager() == null ? "" : context.canonicalStateManager().loadCanonicalState(),
+                context.promptLoader().loadFixedProtagonistsContext(),
+                context.canonicalStateManager().loadCanonicalState(),
                 context.summaryManager().loadSummary(),
                 context.recentSummaryManager().loadRecentSummary(),
                 context.historyStore().recentMessages(context.config().maxRecentTurns()),
@@ -193,27 +189,26 @@ public final class AssistantApp {
             );
             String response = context.responseGuard().validate(
                 context.promptLoader().loadRulesPrompt(),
+                context.promptLoader().loadFixedProtagonistsContext(),
                 userInput,
                 draftResponse
             );
             printMessage(terminal, output, response);
 
             context.historyStore().appendTurn(userInput, response);
-            if (context.canonicalStateManager() != null) {
-                context.canonicalStateManager().startUpdateIfNeeded();
-            }
+            context.canonicalStateManager().startUpdateIfNeeded();
             context.recentSummaryManager().startUpdateIfNeeded();
             context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
-            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, "LM Studio request error", ex.getMessage());
             Thread.currentThread().interrupt();
             return false;
         } catch (IOException ex) {
-            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, "LM Studio request error", ex.getMessage());
             return true;
         } catch (RuntimeException ex) {
-            printError(terminal, output, "Fout bij verwerken van history of response", ex.getMessage());
+            printError(terminal, output, "Error processing history or response", ex.getMessage());
             return true;
         }
     }
@@ -306,6 +301,7 @@ public final class AssistantApp {
 
     private static List<Message> buildChatMessages(
         String systemPrompt,
+        String fixedProtagonists,
         String canonicalState,
         String summary,
         String recentSummary,
@@ -315,12 +311,16 @@ public final class AssistantApp {
         List<Message> messages = new ArrayList<>();
         messages.add(new Message(SYSTEM, systemPrompt));
 
+        if (fixedProtagonists != null && !fixedProtagonists.isBlank()) {
+            messages.add(new Message(SYSTEM, fixedProtagonists));
+        }
+
         if (canonicalState != null && !canonicalState.isBlank()) {
             messages.add(
                 new Message(
                   SYSTEM,
-                    "Actuele canonieke verhaaltoestand. "
-                        + "Gebruik dit als primaire bron voor bevestigde story-state zolang recentere berichten het niet tegenspreken.\n\n"
+                    "Current canonical story state. "
+                        + "Use this as the primary source for confirmed story facts unless newer messages explicitly change them.\n\n"
                         + canonicalState
                 )
             );
@@ -330,8 +330,8 @@ public final class AssistantApp {
             messages.add(
                 new Message(
                   SYSTEM,
-                    "Langetermijngeheugen uit eerdere gesprekken. "
-                        + "Gebruik dit alleen als achtergrond en geef prioriteit aan recente instructies.\n\n"
+                    "Long-term memory from older conversation. "
+                        + "Use this as background context and give priority to newer instructions and newer canon.\n\n"
                         + summary
                 )
             );
@@ -341,9 +341,9 @@ public final class AssistantApp {
             messages.add(
                 new Message(
                     SYSTEM,
-                    "Compacte samenvatting van recente, nog relevante context vlak voor de laatste ruwe turns. "
-                        + "Gebruik dit als recenter en concreter geheugen dan de gewone summary, "
-                        + "maar laat de allerlaatste berichten voorgaan.\n\n"
+                    "Compact summary of recent, still-relevant context immediately before the latest raw turns. "
+                        + "Use this as more recent and more concrete memory than the long-term summary, "
+                        + "while still letting the latest raw turns override it.\n\n"
                         + recentSummary
                 )
             );

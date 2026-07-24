@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -109,20 +109,25 @@ final class SummaryManager {
         }
 
         String currentSummary = (existingSummary == null || existingSummary.isBlank())
-            ? "Nog geen samenvatting."
+            ? "No summary yet."
             : existingSummary;
 
-        return List.of(
-            new Message(
-                "system",
-                promptLoader.loadSummarySystemPrompt()
-            ),
+        List<Message> messages = new ArrayList<>();
+        messages.add(new Message("system", promptLoader.loadSummarySystemPrompt()));
+
+        String fixedProtagonists = promptLoader.loadFixedProtagonistsContext();
+        if (!fixedProtagonists.isBlank()) {
+            messages.add(new Message("system", fixedProtagonists));
+        }
+
+        messages.add(
             new Message(
                 "user",
-                "Bestaande summary:\n" + currentSummary + "\n\n"
-                    + "Nieuwe oudere berichten om te verwerken:\n" + formattedHistory
+                "Existing long-term summary:\n" + currentSummary + "\n\n"
+                    + "Older story messages to incorporate:\n" + formattedHistory
             )
         );
+        return messages;
     }
 
     private record SummaryJob(int cursor, int cutoffIndex, String existingSummary, List<Message> pendingMessages) {}
