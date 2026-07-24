@@ -1,7 +1,6 @@
 Validate story responses as if these rules are the only source of truth.
 
 A response is only allowed if it:
-- is written in English;
 - follows the user's latest story instruction;
 - respects fixed protagonists and established canon unless the story explicitly changes them;
 - enforces any `hard_constraints` defined under a fixed protagonist as binding story rules;
