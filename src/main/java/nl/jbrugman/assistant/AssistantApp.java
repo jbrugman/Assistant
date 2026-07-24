@@ -23,6 +23,15 @@ public final class AssistantApp {
     private static final String QUIT_COMMAND = "quit";
     private static final String CONTINUE_STORY_COMMAND = "(ga door met het verhaal)";
     private static final String CONTINUE_STORY_WIDGET = "continue-story";
+    private static final String RESET_COMMAND =
+        "(reset je gedrag; houd je vanaf nu strikt aan de system prompt en alle regels)";
+    private static final String RESET_WIDGET = "reset-behavior";
+    private static final String CONTINUE_STORY_SHORTCUT_HINT =
+        "Druk op Ctrl-G om '(ga door met het verhaal)' te sturen. "
+            + "Op Mac werkt Cmd-G alleen als je terminal die toetscombinatie doorgeeft.";
+    private static final String RESET_SHORTCUT_HINT =
+        "Druk op Ctrl-W om een reset-instructie te sturen als het model afdwaalt. "
+            + "Op Mac werkt Cmd-W alleen als je terminal die toetscombinatie doorgeeft.";
     private static final int DISPLAY_MARGIN = 2;
     private static final int MIN_CONTENT_WIDTH = 20;
     private static final String SYSTEM = "system";
@@ -41,6 +50,7 @@ public final class AssistantApp {
             runChatLoop(reader, terminal, output, context);
         } finally {
             context.summaryManager().shutdown();
+            context.recentSummaryManager().shutdown();
             if (context.canonicalStateManager() != null) {
                 context.canonicalStateManager().shutdown();
             }
@@ -70,6 +80,7 @@ public final class AssistantApp {
             client,
             new ResponseGuard(validatorClient, config),
             new SummaryManager(historyStore, client, config, promptLoader),
+            new RecentSummaryManager(historyStore, client, config, promptLoader),
             canonicalStateManager,
             promptLoader
         );
@@ -82,6 +93,7 @@ public final class AssistantApp {
             .build();
 
         registerContinueStoryShortcut(reader);
+        registerResetShortcut(reader);
         return reader;
     }
 
@@ -94,22 +106,38 @@ public final class AssistantApp {
         });
 
         Reference binding = new Reference(CONTINUE_STORY_WIDGET);
-        bindShortcut(reader, LineReader.MAIN, binding);
-        bindShortcut(reader, LineReader.EMACS, binding);
-        bindShortcut(reader, LineReader.VIINS, binding);
+        bindShortcut(reader, LineReader.MAIN, binding, 'G', 'g');
+        bindShortcut(reader, LineReader.EMACS, binding, 'G', 'g');
+        bindShortcut(reader, LineReader.VIINS, binding, 'G', 'g');
     }
 
-    private static void bindShortcut(LineReader reader, String keyMapName, Reference binding) {
+    private static void registerResetShortcut(LineReader reader) {
+        reader.getWidgets().put(RESET_WIDGET, () -> {
+            reader.getBuffer().clear();
+            reader.getBuffer().write(RESET_COMMAND);
+            reader.callWidget(LineReader.ACCEPT_LINE);
+            return true;
+        });
+
+        Reference binding = new Reference(RESET_WIDGET);
+        bindShortcut(reader, LineReader.MAIN, binding, 'W', 'w');
+        bindShortcut(reader, LineReader.EMACS, binding, 'W', 'w');
+        bindShortcut(reader, LineReader.VIINS, binding, 'W', 'w');
+    }
+
+    private static void bindShortcut(LineReader reader, String keyMapName, Reference binding, char ctrlKey, char altKey) {
         KeyMap<Binding> keyMap = reader.getKeyMaps().get(keyMapName);
         if (keyMap != null) {
-            keyMap.bind(binding, KeyMap.ctrl('G'));
+            keyMap.bind(binding, KeyMap.ctrl(ctrlKey));
+            keyMap.bind(binding, KeyMap.alt(altKey));
         }
     }
 
     private static void printBanner(Terminal terminal, PrintWriter output) {
         output.println(formatForDisplay(
             "LM Studio wrapper gestart. Type 'exit' om te stoppen. "
-                + "Druk op Ctrl-G om '(ga door met het verhaal)' te sturen.",
+                + CONTINUE_STORY_SHORTCUT_HINT + " "
+                + RESET_SHORTCUT_HINT,
             terminal
         ));
         output.println();
@@ -153,6 +181,7 @@ public final class AssistantApp {
                 context.promptLoader().loadSystemPrompt(),
                 context.canonicalStateManager() == null ? "" : context.canonicalStateManager().loadCanonicalState(),
                 context.summaryManager().loadSummary(),
+                context.recentSummaryManager().loadRecentSummary(),
                 context.historyStore().recentMessages(context.config().maxRecentTurns()),
                 userInput
             );
@@ -173,6 +202,7 @@ public final class AssistantApp {
             if (context.canonicalStateManager() != null) {
                 context.canonicalStateManager().startUpdateIfNeeded();
             }
+            context.recentSummaryManager().startUpdateIfNeeded();
             context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
@@ -278,6 +308,7 @@ public final class AssistantApp {
         String systemPrompt,
         String canonicalState,
         String summary,
+        String recentSummary,
         List<Message> recentMessages,
         String userInput
     ) {
@@ -306,6 +337,18 @@ public final class AssistantApp {
             );
         }
 
+        if (recentSummary != null && !recentSummary.isBlank()) {
+            messages.add(
+                new Message(
+                    SYSTEM,
+                    "Compacte samenvatting van recente, nog relevante context vlak voor de laatste ruwe turns. "
+                        + "Gebruik dit als recenter en concreter geheugen dan de gewone summary, "
+                        + "maar laat de allerlaatste berichten voorgaan.\n\n"
+                        + recentSummary
+                )
+            );
+        }
+
         messages.addAll(recentMessages);
         messages.add(new Message("user", userInput));
         return messages;
@@ -317,6 +360,7 @@ public final class AssistantApp {
         LMStudioClient client,
         ResponseGuard responseGuard,
         SummaryManager summaryManager,
+        RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,
         PromptLoader promptLoader
     ) {}

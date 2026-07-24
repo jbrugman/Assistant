@@ -51,7 +51,7 @@ final class SummaryManager {
 
     private SummaryJob prepareJob() {
         HistoryState state = historyStore.load();
-        List<Message> recent = historyStore.recentMessages(config.maxRecentTurns());
+        List<Message> recent = historyStore.recentMessages(config.recentSummaryMaxTurns());
         int cutoffIndex = state.messages().size() - recent.size();
         int cursor = Math.max(0, Math.min(state.summaryCursor(), state.messages().size()));
 

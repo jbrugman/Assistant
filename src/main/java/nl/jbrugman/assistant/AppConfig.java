@@ -81,6 +81,14 @@ final class AppConfig {
                     baseProperties,
                     overrideProperties,
                     overrideBaseDir,
+                    "file.recentSummarySystemPrompt",
+                    "recentsummarysystemprompt.md"
+                ),
+                resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.recentSummary", "recent-summary.md"),
+                resolvePath(
+                    baseProperties,
+                    overrideProperties,
+                    overrideBaseDir,
                     "file.canonicalStateSystemPrompt",
                     "canonicalstatesystemprompt.md"
                 ),
@@ -89,8 +97,13 @@ final class AppConfig {
                 resolvePath(baseProperties, overrideProperties, overrideBaseDir, "file.legacyHistory", "history.md")
             ),
             new ConversationConfig(
-                getInt(baseProperties, overrideProperties, "chat.maxRecentTurns", 6),
+                getInt(baseProperties, overrideProperties, "chat.maxRecentTurns", 2),
+                Math.max(
+                    getInt(baseProperties, overrideProperties, "chat.maxRecentTurns", 2),
+                    getInt(baseProperties, overrideProperties, "recentSummary.maxRecentTurns", 12)
+                ),
                 getInt(baseProperties, overrideProperties, "summary.batchMessages", 8),
+                getInt(baseProperties, overrideProperties, "recentSummary.batchMessages", 6),
                 getInt(
                     baseProperties,
                     overrideProperties,
@@ -104,6 +117,9 @@ final class AppConfig {
                 getInt(baseProperties, overrideProperties, "timeout.validationSeconds", 90)
             ),
             new ResponseConfig(
+                Boolean.parseBoolean(
+                    getString(baseProperties, overrideProperties, "validation.enabled", Boolean.toString(true))
+                ),
                 Boolean.parseBoolean(
                     getString(baseProperties, overrideProperties, "response.hideReasoningBlocks", Boolean.toString(true))
                 ),
@@ -166,6 +182,14 @@ final class AppConfig {
         return files.summaryFile();
     }
 
+    Path recentSummarySystemPromptFile() {
+        return files.recentSummarySystemPromptFile();
+    }
+
+    Path recentSummaryFile() {
+        return files.recentSummaryFile();
+    }
+
     Path summarySystemPromptFile() {
         return files.summarySystemPromptFile();
     }
@@ -194,6 +218,14 @@ final class AppConfig {
         return conversation.summaryBatchMessages();
     }
 
+    int recentSummaryMaxTurns() {
+        return conversation.recentSummaryMaxTurns();
+    }
+
+    int recentSummaryBatchMessages() {
+        return conversation.recentSummaryBatchMessages();
+    }
+
     int canonicalStateBatchMessages() {
         return conversation.canonicalStateBatchMessages();
     }
@@ -212,6 +244,10 @@ final class AppConfig {
 
     boolean hideReasoningBlocks() {
         return response.hideReasoningBlocks();
+    }
+
+    boolean validationEnabled() {
+        return response.validationEnabled();
     }
 
     String validationFailClosedMessage() {
@@ -326,13 +362,21 @@ final class AppConfig {
         Path rulesFile,
         Path summarySystemPromptFile,
         Path summaryFile,
+        Path recentSummarySystemPromptFile,
+        Path recentSummaryFile,
         Path canonicalStateSystemPromptFile,
         Path canonicalStateFile,
         Path historyFile,
         Path legacyHistoryFile
     ) {}
 
-    private record ConversationConfig(int maxRecentTurns, int summaryBatchMessages, int canonicalStateBatchMessages) {}
+    private record ConversationConfig(
+        int maxRecentTurns,
+        int recentSummaryMaxTurns,
+        int summaryBatchMessages,
+        int recentSummaryBatchMessages,
+        int canonicalStateBatchMessages
+    ) {}
 
     private record TimeoutConfig(
         int requestTimeoutSeconds,
@@ -340,7 +384,11 @@ final class AppConfig {
         int validationRequestTimeoutSeconds
     ) {}
 
-    private record ResponseConfig(boolean hideReasoningBlocks, String validationFailClosedMessage) {}
+    private record ResponseConfig(
+        boolean validationEnabled,
+        boolean hideReasoningBlocks,
+        String validationFailClosedMessage
+    ) {}
 
     private record OptionsConfig(
         Map<String, Object> chatOptions,

@@ -98,19 +98,22 @@ Gebruik in dat geval liever de aanbevolen startmethode hierboven met directe `ja
 ## Sneltoetsen
 
 - `Ctrl-G`: verstuurt direct de vaste opdracht `(ga door met het verhaal)`
+- `Ctrl-W`: verstuurt direct een reset-instructie zodat het model zich weer strikt aan system prompt en regels houdt
 
 ## Bestanden
 
 - `systemprompt.md`: system prompt
 - `rules.md`: guardrails/regels voor de validator-check
 - `summarysystemprompt.md`: instructies voor het bijwerken van de summary
+- `recentsummarysystemprompt.md`: instructies voor het bijwerken van de recente samenvatting
 - `canonicalstatesystemprompt.md`: instructies voor het bijwerken van de canonieke story-state
 - `assistant.properties`: configuratie voor modellen, paden, timeouts en modelopties
 - `summary.md`: samenvatting van oudere context
+- `recent-summary.md`: compacte samenvatting van recente context net voor de laatste ruwe turns
 - `canonical-state.yaml`: actuele canonieke verhaaltoestand voor story-mode
 - `history.json`: volledige chatgeschiedenis
 
-De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns, plus de summary en in `story` mode ook de canonical state.
+De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns, plus de summary, de recente summary en in `story` mode ook de canonical state.
 
 ## Configuratie
 
@@ -119,20 +122,35 @@ De meeste hard-coded waarden zijn verplaatst naar `assistant.properties`, waaron
 - LM Studio endpoint
 - chat- en validator-model
 - paden naar `systemprompt.md`, `rules.md`, `summary.md` en `history.json`
-- paden naar `summarysystemprompt.md`, `canonicalstatesystemprompt.md` en `canonical-state.yaml`
+- paden naar `summarysystemprompt.md`, `recentsummarysystemprompt.md`, `canonicalstatesystemprompt.md`, `recent-summary.md` en `canonical-state.yaml`
 - timeouts
 - modelopties zoals `temperature`, `topP` en `repeatPenalty`
+- validator-instellingen zoals `validation.enabled`, `validation.temperature` en `validation.topP`
 
 Zo kun je gedrag aanpassen zonder Java-code te wijzigen.
 
-## Story-mode geheugen
+Als een model slecht omgaat met de validator/rules-check, kun je die volledig uitschakelen via:
 
-In `story` appmode zijn er twee achtergrondprocessen voor langetermijncontext:
+```properties
+validation.enabled=false
+```
 
-- `canonical-state.yaml` wordt onafhankelijk bijgewerkt op basis van oudere turns en is bedoeld voor actuele, bevestigde canonieke feiten.
-- `summary.md` blijft een compactere samenvatting voor bredere context en blijvende achtergrond.
+Dan wordt `rules.md` niet meer gebruikt als laatste validatorstap en geeft de app het modelantwoord direct terug.
 
-Standaard draait de canonical state 2x zo vaak als de summary via:
+## Geheugenlagen
+
+De app gebruikt drie achtergrondlagen naast de laatste ruwe turns:
+
+- `summary.md` wordt bijgewerkt op basis van oudere turns en bewaart langetermijncontext en blijvende achtergrond.
+- `recent-summary.md` vat de recente middenlaag samen: nieuwer dan de gewone summary, maar ouder dan de laatste ruwe turns.
+- `canonical-state.yaml` wordt in `story` mode onafhankelijk bijgewerkt op basis van oudere turns en is bedoeld voor actuele, bevestigde canonieke feiten.
+
+Standaard blijven alleen de laatste `chat.maxRecentTurns=2` turns volledig raw, en de oudere recente turns daarvoor worden compacter gehouden via:
+
+- `recentSummary.maxRecentTurns=12`
+- `recentSummary.batchMessages=6`
+
+De gewone summary en canonical state draaien daarnaast via:
 
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=5`

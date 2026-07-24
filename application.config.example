@@ -24,6 +24,7 @@ chat.repeatPenalty=1.01
 # Validator juist streng en stabiel houden
 validation.temperature=0.0
 validation.topP=0.05
+validation.enabled=true
 
 # Kortere timeouts op deze machine
 timeout.chatSeconds=120

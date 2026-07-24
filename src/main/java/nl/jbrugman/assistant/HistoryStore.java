@@ -42,8 +42,9 @@ final class HistoryStore {
             }
 
             int summaryCursor = data.path("summary_cursor").asInt(0);
+            int recentSummaryCursor = data.path("recent_summary_cursor").asInt(0);
             int canonicalStateCursor = data.path("canonical_state_cursor").asInt(0);
-            return new HistoryState(messages, summaryCursor, canonicalStateCursor);
+            return new HistoryState(messages, summaryCursor, recentSummaryCursor, canonicalStateCursor);
         } catch (JsonProcessingException ex) {
             throw new IllegalArgumentException("Ongeldige JSON in " + path + ": " + ex.getOriginalMessage(), ex);
         } catch (IOException ex) {
@@ -56,6 +57,7 @@ final class HistoryStore {
         List<Map<String, String>> messages = state.messages().stream().map(Message::toMap).toList();
         data.put("messages", messages);
         data.put("summary_cursor", state.summaryCursor());
+        data.put("recent_summary_cursor", state.recentSummaryCursor());
         data.put("canonical_state_cursor", state.canonicalStateCursor());
 
         try {
@@ -70,23 +72,46 @@ final class HistoryStore {
         List<Message> messages = new ArrayList<>(state.messages());
         messages.add(new Message("user", userInput));
         messages.add(new Message("assistant", assistantResponse));
-        save(new HistoryState(messages, state.summaryCursor(), state.canonicalStateCursor()));
+        save(new HistoryState(messages, state.summaryCursor(), state.recentSummaryCursor(), state.canonicalStateCursor()));
     }
 
     synchronized List<Message> recentMessages(int limitTurns) {
         return sliceRecentCompleteTurns(load().messages(), limitTurns);
     }
 
+    synchronized List<Message> recentMessagesWindow(int totalTurns, int trailingTurnsToExclude) {
+        List<Message> messages = load().messages();
+        List<Message> upToTotalTurns = sliceRecentCompleteTurns(messages, totalTurns);
+        if (trailingTurnsToExclude <= 0 || upToTotalTurns.isEmpty()) {
+            return upToTotalTurns;
+        }
+
+        List<Message> trailingMessages = sliceRecentCompleteTurns(messages, trailingTurnsToExclude);
+        int trailingCount = trailingMessages.size();
+        if (trailingCount <= 0) {
+            return upToTotalTurns;
+        }
+
+        int endIndexExclusive = Math.max(0, upToTotalTurns.size() - trailingCount);
+        return new ArrayList<>(upToTotalTurns.subList(0, endIndexExclusive));
+    }
+
     synchronized void markSummarized(int messagesCount) {
         HistoryState state = load();
         int safeCount = Math.min(messagesCount, state.messages().size());
-        save(new HistoryState(new ArrayList<>(state.messages()), safeCount, state.canonicalStateCursor()));
+        save(new HistoryState(new ArrayList<>(state.messages()), safeCount, state.recentSummaryCursor(), state.canonicalStateCursor()));
+    }
+
+    synchronized void markRecentSummarized(int messagesCount) {
+        HistoryState state = load();
+        int safeCount = Math.min(messagesCount, state.messages().size());
+        save(new HistoryState(new ArrayList<>(state.messages()), state.summaryCursor(), safeCount, state.canonicalStateCursor()));
     }
 
     synchronized void markCanonicalStateUpdated(int messagesCount) {
         HistoryState state = load();
         int safeCount = Math.min(messagesCount, state.messages().size());
-        save(new HistoryState(new ArrayList<>(state.messages()), state.summaryCursor(), safeCount));
+        save(new HistoryState(new ArrayList<>(state.messages()), state.summaryCursor(), state.recentSummaryCursor(), safeCount));
     }
 
     private List<Message> sliceRecentCompleteTurns(List<Message> messages, int limitTurns) {
@@ -137,7 +162,7 @@ final class HistoryStore {
         }
 
         flushLegacyMessage(messages, currentRole, buffer);
-        save(new HistoryState(messages, 0, 0));
+        save(new HistoryState(messages, 0, 0, 0));
     }
 
     private void flushLegacyMessage(List<Message> messages, String role, List<String> buffer) {
