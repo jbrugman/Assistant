@@ -95,6 +95,10 @@ Als je de app start via `mvn exec:java`, kunnen pijltjestoetsen soms rare tekens
 Dat komt door de manier waarop de Maven exec-plugin stdin/terminal-interactie doorgeeft.  
 Gebruik in dat geval liever de aanbevolen startmethode hierboven met directe `java`-startup.
 
+## Sneltoetsen
+
+- `Ctrl-G`: verstuurt direct de vaste opdracht `(ga door met het verhaal)`
+
 ## Bestanden
 
 - `systemprompt.md`: system prompt

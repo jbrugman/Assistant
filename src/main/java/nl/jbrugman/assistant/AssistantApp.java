@@ -1,9 +1,12 @@
 package nl.jbrugman.assistant;
 
 import org.jline.reader.EndOfFileException;
+import org.jline.reader.Binding;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
+import org.jline.reader.Reference;
 import org.jline.reader.UserInterruptException;
+import org.jline.keymap.KeyMap;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 
@@ -11,12 +14,19 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class AssistantApp {
     private static final String APP_NAME = "assistant";
     private static final String EXIT_COMMAND = "exit";
     private static final String QUIT_COMMAND = "quit";
+    private static final String CONTINUE_STORY_COMMAND = "(ga door met het verhaal)";
+    private static final String CONTINUE_STORY_WIDGET = "continue-story";
+    private static final int DISPLAY_MARGIN = 2;
+    private static final int MIN_CONTENT_WIDTH = 20;
     private static final String SYSTEM = "system";
+    private static final Pattern LIST_PREFIX_PATTERN = Pattern.compile("^(\\s*(?:[-*]|\\d+\\.)\\s+)(.*)$");
 
     private AssistantApp() {
     }
@@ -27,8 +37,8 @@ public final class AssistantApp {
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
             LineReader reader = createReader(terminal);
             PrintWriter output = terminal.writer();
-            printBanner(output);
-            runChatLoop(reader, output, context);
+            printBanner(terminal, output);
+            runChatLoop(reader, terminal, output, context);
         } finally {
             context.summaryManager().shutdown();
             if (context.canonicalStateManager() != null) {
@@ -66,18 +76,47 @@ public final class AssistantApp {
     }
 
     private static LineReader createReader(Terminal terminal) {
-        return LineReaderBuilder.builder()
+        LineReader reader = LineReaderBuilder.builder()
             .terminal(terminal)
             .appName(APP_NAME)
             .build();
+
+        registerContinueStoryShortcut(reader);
+        return reader;
     }
 
-    private static void printBanner(PrintWriter output) {
-        output.println("LM Studio wrapper gestart. Type 'exit' om te stoppen.\n");
+    private static void registerContinueStoryShortcut(LineReader reader) {
+        reader.getWidgets().put(CONTINUE_STORY_WIDGET, () -> {
+            reader.getBuffer().clear();
+            reader.getBuffer().write(CONTINUE_STORY_COMMAND);
+            reader.callWidget(LineReader.ACCEPT_LINE);
+            return true;
+        });
+
+        Reference binding = new Reference(CONTINUE_STORY_WIDGET);
+        bindShortcut(reader, LineReader.MAIN, binding);
+        bindShortcut(reader, LineReader.EMACS, binding);
+        bindShortcut(reader, LineReader.VIINS, binding);
+    }
+
+    private static void bindShortcut(LineReader reader, String keyMapName, Reference binding) {
+        KeyMap<Binding> keyMap = reader.getKeyMaps().get(keyMapName);
+        if (keyMap != null) {
+            keyMap.bind(binding, KeyMap.ctrl('G'));
+        }
+    }
+
+    private static void printBanner(Terminal terminal, PrintWriter output) {
+        output.println(formatForDisplay(
+            "LM Studio wrapper gestart. Type 'exit' om te stoppen. "
+                + "Druk op Ctrl-G om '(ga door met het verhaal)' te sturen.",
+            terminal
+        ));
+        output.println();
         output.flush();
     }
 
-    private static void runChatLoop(LineReader reader, PrintWriter output, AppContext context) {
+    private static void runChatLoop(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {
         while (true) {
             String userInput = readUserInput(reader);
             if (userInput == null || shouldExit(userInput)) {
@@ -86,7 +125,7 @@ public final class AssistantApp {
             if (userInput.isEmpty()) {
                 continue;
             }
-            if (!handleUserTurn(userInput, output, context)) {
+            if (!handleUserTurn(userInput, terminal, output, context)) {
                 return;
             }
         }
@@ -108,7 +147,7 @@ public final class AssistantApp {
         return EXIT_COMMAND.equalsIgnoreCase(userInput) || QUIT_COMMAND.equalsIgnoreCase(userInput);
     }
 
-    private static boolean handleUserTurn(String userInput, PrintWriter output, AppContext context) {
+    private static boolean handleUserTurn(String userInput, Terminal terminal, PrintWriter output, AppContext context) {
         try {
             List<Message> messages = buildChatMessages(
                 context.promptLoader().loadSystemPrompt(),
@@ -128,7 +167,7 @@ public final class AssistantApp {
                 userInput,
                 draftResponse
             );
-            printMessage(output, response);
+            printMessage(terminal, output, response);
 
             context.historyStore().appendTurn(userInput, response);
             if (context.canonicalStateManager() != null) {
@@ -137,26 +176,102 @@ public final class AssistantApp {
             context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
-            printError(output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
             Thread.currentThread().interrupt();
             return false;
         } catch (IOException ex) {
-            printError(output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
             return true;
         } catch (RuntimeException ex) {
-            printError(output, "Fout bij verwerken van history of response", ex.getMessage());
+            printError(terminal, output, "Fout bij verwerken van history of response", ex.getMessage());
             return true;
         }
     }
 
-    private static void printMessage(PrintWriter output, String message) {
-        output.printf("%n%s%n%n", message);
+    private static void printMessage(Terminal terminal, PrintWriter output, String message) {
+        output.printf("%n%s%n%n", formatForDisplay(message, terminal));
         output.flush();
     }
 
-    private static void printError(PrintWriter output, String label, String message) {
-        output.printf("%n%s: %s%n%n", label, message);
+    private static void printError(Terminal terminal, PrintWriter output, String label, String message) {
+        output.printf("%n%s%n%n", formatForDisplay(label + ": " + message, terminal));
         output.flush();
+    }
+
+    private static String formatForDisplay(String text, Terminal terminal) {
+        int contentWidth = resolveContentWidth(terminal);
+        String normalized = text.replace("\r\n", "\n");
+        String[] lines = normalized.split("\n", -1);
+        StringBuilder formatted = new StringBuilder();
+        boolean inCodeBlock = false;
+
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            if (line.stripLeading().startsWith("```")) {
+                inCodeBlock = !inCodeBlock;
+                appendFormattedLine(formatted, line, i > 0);
+                continue;
+            }
+
+            if (inCodeBlock || line.isBlank()) {
+                appendFormattedLine(formatted, line, i > 0);
+                continue;
+            }
+
+            appendFormattedLine(formatted, wrapLine(line, contentWidth), i > 0);
+        }
+
+        return formatted.toString();
+    }
+
+    private static void appendFormattedLine(StringBuilder formatted, String line, boolean prependNewline) {
+        if (prependNewline) {
+            formatted.append('\n');
+        }
+        formatted.append(line);
+    }
+
+    private static int resolveContentWidth(Terminal terminal) {
+        int terminalWidth = terminal.getWidth() > 0 ? terminal.getWidth() : 80;
+        return Math.max(MIN_CONTENT_WIDTH, terminalWidth - (DISPLAY_MARGIN * 2));
+    }
+
+    private static String wrapLine(String line, int contentWidth) {
+        String margin = " ".repeat(DISPLAY_MARGIN);
+        Matcher matcher = LIST_PREFIX_PATTERN.matcher(line);
+        if (matcher.matches()) {
+            String listPrefix = matcher.group(1);
+            return wrapWords(matcher.group(2), contentWidth, margin + listPrefix, margin + " ".repeat(listPrefix.length()));
+        }
+        return wrapWords(line.strip(), contentWidth, margin, margin);
+    }
+
+    private static String wrapWords(String text, int contentWidth, String firstIndent, String continuationIndent) {
+        String[] words = text.trim().split("\\s+");
+        StringBuilder wrapped = new StringBuilder();
+        String currentIndent = firstIndent;
+        int currentLineLength = currentIndent.length();
+        wrapped.append(currentIndent);
+
+        for (String word : words) {
+            int additionalLength = currentLineLength > currentIndent.length() ? 1 + word.length() : word.length();
+            if (currentLineLength > currentIndent.length()
+                && currentLineLength + additionalLength > currentIndent.length() + contentWidth) {
+                wrapped.append('\n').append(continuationIndent).append(word);
+                currentIndent = continuationIndent;
+                currentLineLength = continuationIndent.length() + word.length();
+                continue;
+            }
+
+            if (currentLineLength > currentIndent.length()) {
+                wrapped.append(' ');
+                currentLineLength++;
+            }
+            wrapped.append(word);
+            currentLineLength += word.length();
+        }
+
+        return wrapped.toString();
     }
 
     private static List<Message> buildChatMessages(
