@@ -166,13 +166,17 @@ Configuration follows the same separation:
 - [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
 - [`AppConfig.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime settings only
 
+Validation is also split into focused parts:
+- [`ValidationClient.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ValidationClient.java): sends the validator prompt to the configured model
+- [`ValidationDecisionParser.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ValidationDecisionParser.java): extracts `ALLOW` or `BLOCK` from structured or plain-text validator output
+- [`ResponseSanitizer.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
+- [`ResponseGuard.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ResponseGuard.java): coordinates those parts and applies fail-closed behavior
+
 
 # Future improvements - TODO's
 
 1. [PromptLoader.java (line 3)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/PromptLoader.java:3) is doing more than loading: it also formats prompt templates, injects protagonist data, and builds validation request payloads. That is a sign it wants to become a small prompt service layer rather than only a file loader.
 
-2. [ResponseGuard.java (line 9)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ResponseGuard.java:9) still mixes validator model access, decision parsing, and response post-processing. If validation grows richer, this will become harder to evolve safely.
+2. The derived-memory managers are structurally duplicated: [SummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/SummaryManager.java:10), [RecentSummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/RecentSummaryManager.java:10), and [CanonicalStateManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/CanonicalStateManager.java:10). A shared abstraction may soon be worth it if behavior keeps converging.
 
-3. The derived-memory managers are structurally duplicated: [SummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/SummaryManager.java:10), [RecentSummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/RecentSummaryManager.java:10), and [CanonicalStateManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/CanonicalStateManager.java:10). A shared abstraction may soon be worth it if behavior keeps converging.
-
-4. The tests are still thinner than the orchestration risk profile. The most valuable additions would be prompt assembly order, derived-memory refresh cutoffs, and validator bypass behavior.
+3. The tests are still thinner than the orchestration risk profile. The most valuable additions would be prompt assembly order, derived-memory refresh cutoffs, and validator bypass behavior.

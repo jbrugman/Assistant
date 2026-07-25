@@ -1,20 +1,34 @@
 @startuml
 title Component Design - Storyteller
 
-package "CLI Layer" {
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+package "CLI" {
   [AssistantApp]
 }
 
-package "Story Orchestration" {
-  [StorySessionService]
+package "Configuration" {
+  [AppConfigLoader]
+  [AppConfigSource]
+  [AppConfig]
 }
 
-package "Prompt Assembly & Validation" {
-  [PromptLoader]
+package "Session Flow" {
+  [StorySessionService]
   [ResponseGuard]
 }
 
-package "Story Memory" {
+package "Prompts & Validation" {
+  [PromptLoader]
+  [ValidationClient]
+  [ValidationDecisionParser]
+  [ResponseSanitizer]
+}
+
+package "Memory" {
   [HistoryStore]
   [SummaryManager]
   [RecentSummaryManager]
@@ -25,74 +39,66 @@ package "Model Access" {
   [LMStudioClient]
 }
 
-package "Configuration" {
-  [AppConfigLoader]
-  [AppConfigSource]
-  [AppConfig]
+package "Filesystem" {
+  [systemprompts/]
+  [memory/]
 }
 
-package "Files" {
-  [systemprompts/application.config]
-  [systemprompts/systemprompt.md]
-  [systemprompts/rules.md]
-  [systemprompts/fixed_protagonists.yml]
-  [systemprompts/summarysystemprompt.md]
-  [systemprompts/recentsummarysystemprompt.md]
-  [systemprompts/canonicalstatesystemprompt.md]
-  [memory/history.json]
-  [memory/summary.md]
-  [memory/recent-summary.md]
-  [memory/canonical-state.yaml]
-}
-
-[AssistantApp] --> [AppConfig]
 [AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
-[AssistantApp] --> [SummaryManager]
-[AssistantApp] --> [RecentSummaryManager]
-[AssistantApp] --> [CanonicalStateManager]
+[AssistantApp] --> [SummaryManager] : shutdown
+[AssistantApp] --> [RecentSummaryManager] : shutdown
+[AssistantApp] --> [CanonicalStateManager] : shutdown
+
+[AppConfigLoader] --> [AppConfigSource]
+[AppConfigLoader] --> [AppConfig]
+[AppConfigLoader] --> [systemprompts/] : reads application.config
 
 [StorySessionService] --> [AppConfig]
 [StorySessionService] --> [PromptLoader]
 [StorySessionService] --> [HistoryStore]
+[StorySessionService] --> [ResponseGuard]
 [StorySessionService] --> [SummaryManager]
 [StorySessionService] --> [RecentSummaryManager]
 [StorySessionService] --> [CanonicalStateManager]
-[StorySessionService] --> [ResponseGuard]
 [StorySessionService] --> [LMStudioClient]
 
-[PromptLoader] --> [FileSupport]
-[PromptLoader] --> [systemprompts/systemprompt.md]
-[PromptLoader] --> [systemprompts/rules.md]
-[PromptLoader] --> [systemprompts/fixed_protagonists.yml]
-[PromptLoader] --> [systemprompts/summarysystemprompt.md]
-[PromptLoader] --> [systemprompts/recentsummarysystemprompt.md]
-[PromptLoader] --> [systemprompts/canonicalstatesystemprompt.md]
-
-[AppConfigLoader] --> [systemprompts/application.config]
-[AppConfigLoader] --> [AppConfigSource]
-[AppConfigLoader] --> [AppConfig]
-[AppConfigSource] --> [AppConfig]
-
-[HistoryStore] --> [FileSupport]
-[HistoryStore] --> [memory/history.json]
+[PromptLoader] --> [systemprompts/]
+[HistoryStore] --> [memory/] : history
+[SummaryManager] --> [memory/] : summary
+[RecentSummaryManager] --> [memory/] : recent summary
+[CanonicalStateManager] --> [memory/] : canonical state
 
 [SummaryManager] --> [HistoryStore]
 [SummaryManager] --> [PromptLoader]
 [SummaryManager] --> [LMStudioClient]
-[SummaryManager] --> [memory/summary.md]
 
 [RecentSummaryManager] --> [HistoryStore]
 [RecentSummaryManager] --> [PromptLoader]
 [RecentSummaryManager] --> [LMStudioClient]
-[RecentSummaryManager] --> [memory/recent-summary.md]
 
 [CanonicalStateManager] --> [HistoryStore]
 [CanonicalStateManager] --> [PromptLoader]
 [CanonicalStateManager] --> [LMStudioClient]
-[CanonicalStateManager] --> [memory/canonical-state.yaml]
 
-[ResponseGuard] --> [LMStudioClient]
-[ResponseGuard] --> [PromptLoader]
+[ResponseGuard] --> [ValidationClient]
+[ResponseGuard] --> [ValidationDecisionParser]
+[ResponseGuard] --> [ResponseSanitizer]
+[ValidationClient] --> [LMStudioClient]
+
+note bottom of [systemprompts/]
+Contains bundled defaults and optional local overrides:
+- application.config
+- prompt markdown files
+- fixed protagonists YAML
+end note
+
+note bottom of [memory/]
+Runtime story state:
+- history.json
+- summary.md
+- recent-summary.md
+- canonical-state.yaml
+end note
 
 @enduml

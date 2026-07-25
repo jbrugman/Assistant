@@ -29,9 +29,13 @@ else (no)
 
     :Load rules prompt;
 
-    :Validate candidate response against rules and hard constraints;
+    :ValidationClient sends validator request;
+
+    :ValidationDecisionParser extracts ALLOW or BLOCK;
 
     if (response valid?) then (yes)
+
+      :ResponseSanitizer normalizes visible escapes;
 
       :Print final response;
 
