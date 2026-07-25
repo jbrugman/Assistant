@@ -3,7 +3,9 @@ title Storyteller Flow Design
 
 start
 
-:AssistantApp boots app context and terminal UI;
+:AssistantApp uses AppConfigLoader to build AppConfig and app context;
+
+:AssistantApp boots terminal UI;
 
 :Read user input;
 

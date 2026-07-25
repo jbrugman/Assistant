@@ -26,8 +26,9 @@ package "Model Access" {
 }
 
 package "Configuration" {
+  [AppConfigLoader]
+  [AppConfigSource]
   [AppConfig]
-  [FileSupport]
 }
 
 package "Files" {
@@ -45,6 +46,7 @@ package "Files" {
 }
 
 [AssistantApp] --> [AppConfig]
+[AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
 [AssistantApp] --> [SummaryManager]
 [AssistantApp] --> [RecentSummaryManager]
@@ -67,8 +69,10 @@ package "Files" {
 [PromptLoader] --> [systemprompts/recentsummarysystemprompt.md]
 [PromptLoader] --> [systemprompts/canonicalstatesystemprompt.md]
 
-[AppConfig] --> [FileSupport]
-[AppConfig] --> [systemprompts/application.config]
+[AppConfigLoader] --> [systemprompts/application.config]
+[AppConfigLoader] --> [AppConfigSource]
+[AppConfigLoader] --> [AppConfig]
+[AppConfigSource] --> [AppConfig]
 
 [HistoryStore] --> [FileSupport]
 [HistoryStore] --> [memory/history.json]

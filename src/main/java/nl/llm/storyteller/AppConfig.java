@@ -1,27 +1,17 @@
 package nl.llm.storyteller;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Properties;
 
 final class AppConfig {
-    private static final Path BASE_DIR = Path.of(System.getProperty("user.dir")).toAbsolutePath();
-    private static final String CONFIG_RESOURCE = "/systemprompts/application.config";
-    private static final Path LOCAL_CONFIG_FILE = BASE_DIR.resolve("systemprompts/application.config");
-    private static final String NATIVE_IMAGE_KIND_PROPERTY = "org.graalvm.nativeimage.kind";
-    private static final String NATIVE_IMAGE_KIND_EXECUTABLE = "executable";
-    private static final String RUNTIME_OVERRIDE_FILE_NAME = "application.config";
     private static final String OPTION_TEMPERATURE = "temperature";
     private static final String OPTION_TOP_K = "top_k";
     private static final String OPTION_TOP_P = "top_p";
     private static final String OPTION_MIN_P = "min_p";
     private static final String OPTION_REPEAT_PENALTY = "repeat_penalty";
 
+    private final Path baseDir;
     private final Models models;
     private final FilesConfig files;
     private final ConversationConfig conversation;
@@ -32,6 +22,7 @@ final class AppConfig {
     private final UiTextConfig uiText;
 
     private AppConfig(
+        Path baseDir,
         String lmStudioUrl,
         Models models,
         FilesConfig files,
@@ -41,6 +32,7 @@ final class AppConfig {
         OptionsConfig options,
         UiTextConfig uiText
     ) {
+        this.baseDir = baseDir;
         this.lmStudioUrl = lmStudioUrl;
         this.models = models;
         this.files = files;
@@ -52,83 +44,7 @@ final class AppConfig {
     }
 
     static AppConfig load() {
-        Properties mergedProperties = loadRequiredPropertiesFromResource(CONFIG_RESOURCE);
-        mergeProperties(mergedProperties, loadOptionalProperties(LOCAL_CONFIG_FILE, BASE_DIR));
-
-        Path runtimeOverrideFile = findRuntimeOverrideFile();
-        if (runtimeOverrideFile != null) {
-            mergeProperties(mergedProperties, loadOptionalProperties(runtimeOverrideFile, runtimeOverrideFile.getParent()));
-        }
-
-        return new AppConfig(
-            getRequiredString(mergedProperties, "lmstudio.url"),
-            new Models(
-                getRequiredString(mergedProperties, "model.chat"),
-                getRequiredString(mergedProperties, "model.validator")
-            ),
-            new FilesConfig(
-                resolveRequiredPath(mergedProperties, "file.systemPrompt"),
-                resolveRequiredPath(mergedProperties, "file.rules"),
-                resolveRequiredPath(mergedProperties, "file.fixedProtagonists"),
-                resolveRequiredPath(mergedProperties, "file.fixedProtagonistsContext"),
-                resolveRequiredPath(mergedProperties, "file.summarySystemPrompt"),
-                resolveRequiredPath(mergedProperties, "file.summaryContext"),
-                resolveRequiredPath(mergedProperties, "file.summary"),
-                resolveRequiredPath(mergedProperties, "file.recentSummarySystemPrompt"),
-                resolveRequiredPath(mergedProperties, "file.recentSummaryContext"),
-                resolveRequiredPath(mergedProperties, "file.recentSummary"),
-                resolveRequiredPath(mergedProperties, "file.canonicalStateSystemPrompt"),
-                resolveRequiredPath(mergedProperties, "file.canonicalStateContext"),
-                resolveRequiredPath(mergedProperties, "file.validationSystemPrompt"),
-                resolveRequiredPath(mergedProperties, "file.validationRequestTemplate"),
-                resolveRequiredPath(mergedProperties, "file.canonicalState"),
-                resolveRequiredPath(mergedProperties, "file.history"),
-                resolveRequiredPath(mergedProperties, "file.legacyHistory")
-            ),
-            new ConversationConfig(
-                getRequiredInt(mergedProperties, "chat.maxRecentTurns"),
-                getRequiredInt(mergedProperties, "recentSummary.maxRecentTurns"),
-                getRequiredInt(mergedProperties, "summary.batchMessages"),
-                getRequiredInt(mergedProperties, "recentSummary.batchMessages"),
-                getRequiredInt(mergedProperties, "canonicalState.batchMessages")
-            ),
-            new TimeoutConfig(
-                getRequiredInt(mergedProperties, "timeout.chatSeconds"),
-                getRequiredInt(mergedProperties, "timeout.summarySeconds"),
-                getRequiredInt(mergedProperties, "timeout.validationSeconds")
-            ),
-            new ResponseConfig(
-                getRequiredBoolean(mergedProperties, "validation.enabled"),
-                getRequiredBoolean(mergedProperties, "response.hideReasoningBlocks"),
-                getRequiredString(mergedProperties, "response.validationFailClosedMessage")
-            ),
-            new OptionsConfig(
-                linkedMapOf(
-                    OPTION_TEMPERATURE, getRequiredDouble(mergedProperties, "chat.temperature"),
-                    OPTION_TOP_K, getRequiredInt(mergedProperties, "chat.topK"),
-                    OPTION_TOP_P, getRequiredDouble(mergedProperties, "chat.topP"),
-                    OPTION_MIN_P, getRequiredDouble(mergedProperties, "chat.minP"),
-                    OPTION_REPEAT_PENALTY, getRequiredDouble(mergedProperties, "chat.repeatPenalty")
-                ),
-                linkedMapOf(
-                    OPTION_TEMPERATURE, getRequiredDouble(mergedProperties, "summary.temperature"),
-                    OPTION_TOP_P, getRequiredDouble(mergedProperties, "summary.topP")
-                ),
-                linkedMapOf(
-                    OPTION_TEMPERATURE, getRequiredDouble(mergedProperties, "validation.temperature"),
-                    OPTION_TOP_P, getRequiredDouble(mergedProperties, "validation.topP")
-                )
-            ),
-            new UiTextConfig(
-                getRequiredString(mergedProperties, "command.continueStory"),
-                getRequiredString(mergedProperties, "command.resetStory"),
-                getRequiredString(mergedProperties, "ui.bannerStart"),
-                getRequiredString(mergedProperties, "ui.shortcutContinueHint"),
-                getRequiredString(mergedProperties, "ui.shortcutResetHint"),
-                getRequiredString(mergedProperties, "ui.errorLmStudioRequest"),
-                getRequiredString(mergedProperties, "ui.errorProcessHistory")
-            )
-        ).validate();
+        return AppConfigLoader.load();
     }
 
     private AppConfig validate() {
@@ -149,7 +65,7 @@ final class AppConfig {
     }
 
     Path baseDir() {
-        return BASE_DIR;
+        return baseDir;
     }
 
     String chatModel() {
@@ -312,113 +228,85 @@ final class AppConfig {
         return uiText.processHistoryErrorText();
     }
 
-    private static Properties loadRequiredPropertiesFromResource(String resourcePath) {
-        Properties properties = new Properties();
-        try (var input = AppConfig.class.getResourceAsStream(resourcePath)) {
-            if (input == null) {
-                throw new IllegalStateException("Missing required configuration resource: " + resourcePath);
-            }
-            properties.load(new java.io.InputStreamReader(input, StandardCharsets.UTF_8));
-            return properties;
-        } catch (IOException ex) {
-            throw new UncheckedIOException("Could not read configuration resource " + resourcePath, ex);
-        }
-    }
-
-    private static Properties loadOptionalProperties(Path path, Path relativeBaseDir) {
-        Properties properties = new Properties();
-        if (!Files.exists(path)) {
-            return properties;
-        }
-
-        try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-            absolutizeFileProperties(properties, relativeBaseDir);
-            return properties;
-        } catch (IOException ex) {
-            throw new UncheckedIOException("Could not read configuration from " + path, ex);
-        }
-    }
-
-    private static Path findRuntimeOverrideFile() {
-        if (!NATIVE_IMAGE_KIND_EXECUTABLE.equals(System.getProperty(NATIVE_IMAGE_KIND_PROPERTY))) {
-            return null;
-        }
-
-        String command = ProcessHandle.current().info().command().orElse(null);
-        if (command == null || command.isBlank()) {
-            return null;
-        }
-
-        Path executablePath = Path.of(command).toAbsolutePath().normalize();
-        Path parent = executablePath.getParent();
-        if (parent == null) {
-            return null;
-        }
-
-        Path overrideFile = parent.resolve(RUNTIME_OVERRIDE_FILE_NAME);
-        return Files.exists(overrideFile) ? overrideFile : null;
-    }
-
-    private static void mergeProperties(Properties target, Properties source) {
-        for (String name : source.stringPropertyNames()) {
-            target.setProperty(name, source.getProperty(name));
-        }
-    }
-
-    private static void absolutizeFileProperties(Properties properties, Path relativeBaseDir) {
-        for (String name : properties.stringPropertyNames()) {
-            if (!name.startsWith("file.")) {
-                continue;
-            }
-
-            Path path = Path.of(properties.getProperty(name).trim());
-            if (path.isAbsolute()) {
-                continue;
-            }
-            properties.setProperty(name, relativeBaseDir.resolve(path).normalize().toString());
-        }
-    }
-
-    private static Path resolveRequiredPath(Properties properties, String key) {
-        String configured = getRequiredString(properties, key);
-        Path path = Path.of(configured);
-        if (path.isAbsolute()) {
-            return path;
-        }
-        return BASE_DIR.resolve(path).normalize();
-    }
-
-    private static String getRequiredString(Properties properties, String key) {
-        String value = properties.getProperty(key);
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException("Missing required configuration key: " + key);
-        }
-        return value.trim();
-    }
-
-    private static int getRequiredInt(Properties properties, String key) {
-        return Integer.parseInt(getRequiredString(properties, key));
-    }
-
-    private static double getRequiredDouble(Properties properties, String key) {
-        return Double.parseDouble(getRequiredString(properties, key));
-    }
-
-    private static boolean getRequiredBoolean(Properties properties, String key) {
-        String value = getRequiredString(properties, key);
-        if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
-            return Boolean.parseBoolean(value);
-        }
-        throw new IllegalArgumentException("Configuration key must be true or false: " + key);
-    }
-
     private static Map<String, Object> linkedMapOf(Object... entries) {
         Map<String, Object> values = new LinkedHashMap<>();
         for (int i = 0; i < entries.length; i += 2) {
             values.put((String) entries[i], entries[i + 1]);
         }
         return values;
+    }
+
+    static AppConfig from(AppConfigSource source) {
+        return new AppConfig(
+            source.baseDir(),
+            source.requiredString("lmstudio.url"),
+            new Models(
+                source.requiredString("model.chat"),
+                source.requiredString("model.validator")
+            ),
+            new FilesConfig(
+                source.requiredPath("file.systemPrompt"),
+                source.requiredPath("file.rules"),
+                source.requiredPath("file.fixedProtagonists"),
+                source.requiredPath("file.fixedProtagonistsContext"),
+                source.requiredPath("file.summarySystemPrompt"),
+                source.requiredPath("file.summaryContext"),
+                source.requiredPath("file.summary"),
+                source.requiredPath("file.recentSummarySystemPrompt"),
+                source.requiredPath("file.recentSummaryContext"),
+                source.requiredPath("file.recentSummary"),
+                source.requiredPath("file.canonicalStateSystemPrompt"),
+                source.requiredPath("file.canonicalStateContext"),
+                source.requiredPath("file.validationSystemPrompt"),
+                source.requiredPath("file.validationRequestTemplate"),
+                source.requiredPath("file.canonicalState"),
+                source.requiredPath("file.history"),
+                source.requiredPath("file.legacyHistory")
+            ),
+            new ConversationConfig(
+                source.requiredInt("chat.maxRecentTurns"),
+                source.requiredInt("recentSummary.maxRecentTurns"),
+                source.requiredInt("summary.batchMessages"),
+                source.requiredInt("recentSummary.batchMessages"),
+                source.requiredInt("canonicalState.batchMessages")
+            ),
+            new TimeoutConfig(
+                source.requiredInt("timeout.chatSeconds"),
+                source.requiredInt("timeout.summarySeconds"),
+                source.requiredInt("timeout.validationSeconds")
+            ),
+            new ResponseConfig(
+                source.requiredBoolean("validation.enabled"),
+                source.requiredBoolean("response.hideReasoningBlocks"),
+                source.requiredString("response.validationFailClosedMessage")
+            ),
+            new OptionsConfig(
+                linkedMapOf(
+                    OPTION_TEMPERATURE, source.requiredDouble("chat.temperature"),
+                    OPTION_TOP_K, source.requiredInt("chat.topK"),
+                    OPTION_TOP_P, source.requiredDouble("chat.topP"),
+                    OPTION_MIN_P, source.requiredDouble("chat.minP"),
+                    OPTION_REPEAT_PENALTY, source.requiredDouble("chat.repeatPenalty")
+                ),
+                linkedMapOf(
+                    OPTION_TEMPERATURE, source.requiredDouble("summary.temperature"),
+                    OPTION_TOP_P, source.requiredDouble("summary.topP")
+                ),
+                linkedMapOf(
+                    OPTION_TEMPERATURE, source.requiredDouble("validation.temperature"),
+                    OPTION_TOP_P, source.requiredDouble("validation.topP")
+                )
+            ),
+            new UiTextConfig(
+                source.requiredString("command.continueStory"),
+                source.requiredString("command.resetStory"),
+                source.requiredString("ui.bannerStart"),
+                source.requiredString("ui.shortcutContinueHint"),
+                source.requiredString("ui.shortcutResetHint"),
+                source.requiredString("ui.errorLmStudioRequest"),
+                source.requiredString("ui.errorProcessHistory")
+            )
+        ).validate();
     }
 
     private record Models(String chatModel, String validatorModel) {}

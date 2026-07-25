@@ -115,6 +115,11 @@ These files may start out missing. The app creates and updates them as needed.
 
 All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
+Configuration is now split into:
+- [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
+- [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): typed access to merged raw properties
+- [`AppConfig.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime view used by the app
+
 Important settings:
 - `chat.maxRecentTurns=2`
 - `recentSummary.maxRecentTurns=12`
@@ -157,15 +162,17 @@ The runtime is now split into two clear layers:
 - [`AssistantApp.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AssistantApp.java): terminal bootstrap, shortcut registration, input loop, and formatted output
 - [`StorySessionService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
 
+Configuration follows the same separation:
+- [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
+- [`AppConfig.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime settings only
+
 
 # Future improvements - TODO's
 
-1. [AppConfig.java (line 11)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java:11) has become a large god-object for loading, merging, path resolution, validation, UI text, and runtime options. It works, but it is now one of the main coupling hotspots. A stronger boundary between config loading, resolved paths, model settings, and UI text would reduce accidental breakage and make tests much easier.
+1. [PromptLoader.java (line 3)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/PromptLoader.java:3) is doing more than loading: it also formats prompt templates, injects protagonist data, and builds validation request payloads. That is a sign it wants to become a small prompt service layer rather than only a file loader.
 
-2. [PromptLoader.java (line 3)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/PromptLoader.java:3) is doing more than loading: it also formats prompt templates, injects protagonist data, and builds validation request payloads. That is a sign it wants to become a small prompt service layer rather than only a file loader.
+2. [ResponseGuard.java (line 9)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ResponseGuard.java:9) still mixes validator model access, decision parsing, and response post-processing. If validation grows richer, this will become harder to evolve safely.
 
-3. [ResponseGuard.java (line 9)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/ResponseGuard.java:9) still mixes validator model access, decision parsing, and response post-processing. If validation grows richer, this will become harder to evolve safely.
+3. The derived-memory managers are structurally duplicated: [SummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/SummaryManager.java:10), [RecentSummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/RecentSummaryManager.java:10), and [CanonicalStateManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/CanonicalStateManager.java:10). A shared abstraction may soon be worth it if behavior keeps converging.
 
-4. The derived-memory managers are structurally duplicated: [SummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/SummaryManager.java:10), [RecentSummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/RecentSummaryManager.java:10), and [CanonicalStateManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/CanonicalStateManager.java:10). A shared abstraction may soon be worth it if behavior keeps converging.
-
-5. The tests are still thinner than the orchestration risk profile. The most valuable additions would be prompt assembly order, config override precedence end-to-end, derived-memory refresh cutoffs, and validator bypass behavior.
+4. The tests are still thinner than the orchestration risk profile. The most valuable additions would be prompt assembly order, derived-memory refresh cutoffs, and validator bypass behavior.
