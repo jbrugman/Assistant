@@ -1,0 +1,67 @@
+@startuml
+title Storyteller Flow Design
+
+start
+
+:Read application.config;
+
+:Load system prompt;
+
+:Load fixed protagonists;
+
+:Load canonical state;
+
+:Load long-term summary;
+
+:Load recent summary;
+
+:Load last raw turns from history;
+
+:Read user input;
+
+if (exit command?) then (yes)
+
+  stop
+
+else (no)
+
+  :Build storyteller prompt stack;
+
+  :Send prompt to LM Studio chat model;
+
+  :Receive candidate story response;
+
+  if (validation enabled?) then (yes)
+
+    :Load rules prompt;
+
+    :Validate candidate response against rules and hard constraints;
+
+    if (response valid?) then (yes)
+
+      :Print final response;
+
+    else (no)
+
+      :Print validation fallback message;
+
+    endif
+
+  else (no)
+
+    :Print final response;
+
+  endif
+
+  :Append user turn and response to history;
+
+  :Trigger canonical state refresh if enough older messages exist;
+
+  :Trigger recent summary refresh if enough recent-window messages exist;
+
+  :Trigger long-term summary refresh if enough older messages exist;
+
+endif
+
+stop
+@enduml

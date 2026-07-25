@@ -2,15 +2,32 @@
 
 A local Java CLI storyteller that talks to LM Studio through the OpenAI-compatible endpoint at `http://localhost:1234`.
 
-The project now uses a clean filesystem split:
-- `systemprompts/`: prompts, protagonist setup, and the committed default `application.config`
-- `memory/`: runtime memory files such as history, summaries, and canonical state
-
 ## Requirements
 
-- Java 17+
+- Java 25+
 - Maven
 - LM Studio running with a loaded chat or instruct model
+
+## Packaging Behavior
+
+The app now ships with working built-in defaults.
+
+Committed defaults live in:
+- `src/main/resources/systemprompts/`
+
+Those files are bundled into:
+- the runnable jar
+- the native executable
+
+At runtime, local filesystem overrides take precedence when present:
+- `./systemprompts/application.config`
+- `./systemprompts/*.md`
+- `./systemprompts/*.yml`
+
+So the behavior is:
+1. use bundled defaults from the build artifact
+2. override them with local files in `./systemprompts/` when they exist
+3. keep runtime memory in `./memory/`
 
 ## Run Locally
 
@@ -42,7 +59,7 @@ cd /Users/jbrugman/Assistant
 ./target/storyteller
 ```
 
-If an `application.config` file exists next to the native executable, it is loaded as a runtime override on top of `systemprompts/application.config`.
+If an `application.config` file exists next to the native executable, it is still loaded as an additional runtime override.
 
 ### Development Run
 
@@ -59,31 +76,43 @@ java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 
 On macOS, `Cmd-G` and `Cmd-W` only work if the terminal forwards those key combinations as meta or escape input.
 
-## Repository Layout
+## Runtime Files
 
-### `systemprompts/`
+### Bundled defaults
 
-- `application.config`: the committed default configuration
-- `systemprompt.md`: main storyteller prompt
-- `rules.md`: optional validator prompt
-- `fixed_protagonists.yml`: stable protagonist baseline
-- `summarysystemprompt.md`: long-term summary prompt
-- `recentsummarysystemprompt.md`: recent-summary prompt
-- `canonicalstatesystemprompt.md`: canonical-state prompt
+These are compiled into the app from `src/main/resources/systemprompts/`:
+- `application.config`
+- `systemprompt.md`
+- `rules.md`
+- `fixed_protagonists.yml`
+- `fixedprotagonistscontext.md`
+- `summarysystemprompt.md`
+- `summarycontext.md`
+- `recentsummarysystemprompt.md`
+- `recentsummarycontext.md`
+- `canonicalstatesystemprompt.md`
+- `canonicalstatecontext.md`
+- `validationsystemprompt.md`
+- `validationrequesttemplate.md`
 
-### `memory/`
+### Optional local overrides
 
-- `history.json`: full conversation history
-- `history.md`: legacy import source, if present
-- `summary.md`: long-term story memory
-- `recent-summary.md`: compact recent-context memory
-- `canonical-state.yaml`: confirmed current canon
+If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
-These memory files may start out missing. The app creates and updates them as needed.
+### Runtime memory
+
+The app reads and writes story memory in `memory/`:
+- `history.json`
+- `history.md`
+- `summary.md`
+- `recent-summary.md`
+- `canonical-state.yaml`
+
+These files may start out missing. The app creates and updates them as needed.
 
 ## Configuration
 
-All committed default values now live in [systemprompts/application.config](/Users/jbrugman/Assistant/systemprompts/application.config:1). Java no longer carries fallback defaults for model choice, file paths, prompt content, or tuning values.
+All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
 Important settings:
 - `chat.maxRecentTurns=2`
@@ -99,7 +128,7 @@ If a model behaves badly with the rules engine, disable it with:
 validation.enabled=false
 ```
 
-When validation is disabled, `systemprompts/rules.md` is skipped and the raw model answer is returned directly.
+When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
 
 ## Prompt Assembly
 

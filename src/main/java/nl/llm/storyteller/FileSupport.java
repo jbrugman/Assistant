@@ -1,6 +1,7 @@
 package nl.llm.storyteller;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,6 +30,28 @@ final class FileSupport {
 
         try {
             return Files.readString(path, StandardCharsets.UTF_8).trim();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+    }
+
+    static String readRequiredTextFileOrResource(Path path, Path baseDir) {
+        if (Files.exists(path)) {
+            return readRequiredTextFile(path);
+        }
+
+        if (path.isAbsolute() && !path.startsWith(baseDir)) {
+            throw new IllegalStateException("Missing required text file: " + path);
+        }
+
+        Path relativePath = path.isAbsolute() ? baseDir.relativize(path) : path;
+        String resourcePath = "/" + relativePath.toString().replace('\\', '/');
+
+        try (InputStream input = FileSupport.class.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing required text resource: " + resourcePath);
+            }
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8).trim();
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
