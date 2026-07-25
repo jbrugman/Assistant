@@ -24,6 +24,11 @@ final class AppConfigSource {
         return value.trim();
     }
 
+    String optionalTrimmedString(String key) {
+        String value = properties.getProperty(key);
+        return value == null ? "" : value.trim();
+    }
+
     int requiredInt(String key) {
         return Integer.parseInt(requiredString(key));
     }

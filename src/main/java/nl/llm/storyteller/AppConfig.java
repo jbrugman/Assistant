@@ -241,8 +241,8 @@ public final class AppConfig {
             source.baseDir(),
             source.requiredString("lmstudio.url"),
             new Models(
-                source.requiredString("model.chat"),
-                source.requiredString("model.validator")
+                source.optionalTrimmedString("model.chat"),
+                source.optionalTrimmedString("model.validator")
             ),
             new FilesConfig(
                 source.requiredPath("file.systemPrompt"),

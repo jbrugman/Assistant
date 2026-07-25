@@ -40,10 +40,7 @@ public final class LMStudioClient implements ChatClient {
     @Override
     public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
         throws IOException, InterruptedException {
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("model", model);
-        payload.put("messages", messages.stream().map(Message::toMap).toList());
-        payload.putAll(options);
+        Map<String, Object> payload = buildPayload(messages, options);
 
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
             .header("Content-Type", "application/json")
@@ -82,6 +79,16 @@ public final class LMStudioClient implements ChatClient {
         }
 
         return stripReasoningBlocks(contentNode.asText());
+    }
+
+    Map<String, Object> buildPayload(List<Message> messages, Map<String, Object> options) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (model != null && !model.isBlank()) {
+            payload.put("model", model);
+        }
+        payload.put("messages", messages.stream().map(Message::toMap).toList());
+        payload.putAll(options);
+        return payload;
     }
 
     private String stripReasoningBlocks(String content) {

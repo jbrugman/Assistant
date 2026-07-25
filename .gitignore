@@ -10,4 +10,5 @@ target/
 # Local runtime data
 history.json
 summary.md
-application.config
+/application.config
+/systemprompts/application.config

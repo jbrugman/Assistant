@@ -117,6 +117,8 @@ These files and their parent `memory/` directory may start out missing. The app 
 
 All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
+By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded or default model automatically.
+
 Configuration is now split into:
 - [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
 - [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): typed access to merged raw properties

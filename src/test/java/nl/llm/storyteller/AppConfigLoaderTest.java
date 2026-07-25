@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AppConfigLoaderTest {
     @Test
@@ -21,6 +22,8 @@ class AppConfigLoaderTest {
         AppConfig config = AppConfigLoader.load(baseDirectory, null);
 
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
+        assertTrue(config.chatModel().isBlank());
+        assertTrue(config.validatorModel().isBlank());
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),
             config.systemPromptFile()
@@ -81,5 +84,26 @@ class AppConfigLoaderTest {
             runtimeDirectory.resolve("runtime/rules.md").normalize(),
             config.rulesFile()
         );
+    }
+
+    @Test
+    @DisplayName("""
+        Given a local application.config override that leaves model settings blank,
+        When the application config is loaded,
+        Then the blank values should be preserved so the backend can choose the active default model
+        """)
+    void shouldAllowBlankModelConfiguration() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-blank-model");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+            model.chat=
+            model.validator=
+            """);
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+
+        assertTrue(config.chatModel().isBlank());
+        assertTrue(config.validatorModel().isBlank());
     }
 }
