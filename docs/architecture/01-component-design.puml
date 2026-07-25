@@ -5,7 +5,11 @@ package "CLI Layer" {
   [AssistantApp]
 }
 
-package "Prompt Assembly" {
+package "Story Orchestration" {
+  [StorySessionService]
+}
+
+package "Prompt Assembly & Validation" {
   [PromptLoader]
   [ResponseGuard]
 }
@@ -41,13 +45,19 @@ package "Files" {
 }
 
 [AssistantApp] --> [AppConfig]
-[AssistantApp] --> [PromptLoader]
-[AssistantApp] --> [HistoryStore]
+[AssistantApp] --> [StorySessionService]
 [AssistantApp] --> [SummaryManager]
 [AssistantApp] --> [RecentSummaryManager]
 [AssistantApp] --> [CanonicalStateManager]
-[AssistantApp] --> [ResponseGuard]
-[AssistantApp] --> [LMStudioClient]
+
+[StorySessionService] --> [AppConfig]
+[StorySessionService] --> [PromptLoader]
+[StorySessionService] --> [HistoryStore]
+[StorySessionService] --> [SummaryManager]
+[StorySessionService] --> [RecentSummaryManager]
+[StorySessionService] --> [CanonicalStateManager]
+[StorySessionService] --> [ResponseGuard]
+[StorySessionService] --> [LMStudioClient]
 
 [PromptLoader] --> [FileSupport]
 [PromptLoader] --> [systemprompts/systemprompt.md]

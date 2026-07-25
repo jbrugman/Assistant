@@ -3,19 +3,7 @@ title Storyteller Flow Design
 
 start
 
-:Read application.config;
-
-:Load system prompt;
-
-:Load fixed protagonists;
-
-:Load canonical state;
-
-:Load long-term summary;
-
-:Load recent summary;
-
-:Load last raw turns from history;
+:AssistantApp boots app context and terminal UI;
 
 :Read user input;
 
@@ -24,6 +12,10 @@ if (exit command?) then (yes)
   stop
 
 else (no)
+
+  :AssistantApp delegates turn to StorySessionService;
+
+  :Load system prompt, fixed protagonists,\ncanonical state, long-term summary,\nrecent summary, and last raw turns;
 
   :Build storyteller prompt stack;
 
@@ -60,6 +52,8 @@ else (no)
   :Trigger recent summary refresh if enough recent-window messages exist;
 
   :Trigger long-term summary refresh if enough older messages exist;
+
+  :AssistantApp formats and prints final response;
 
 endif
 

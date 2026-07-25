@@ -12,8 +12,6 @@ import org.jline.terminal.TerminalBuilder;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,15 +58,25 @@ public final class AssistantApp {
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
-        return new AppContext(
+        SummaryManager summaryManager = new SummaryManager(historyStore, client, config, promptLoader);
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(historyStore, client, config, promptLoader);
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(historyStore, client, config, promptLoader);
+        StorySessionService storySessionService = new StorySessionService(
             config,
             historyStore,
             client,
             new ResponseGuard(validatorClient, config),
-            new SummaryManager(historyStore, client, config, promptLoader),
-            new RecentSummaryManager(historyStore, client, config, promptLoader),
-            new CanonicalStateManager(historyStore, client, config, promptLoader),
+            summaryManager,
+            recentSummaryManager,
+            canonicalStateManager,
             promptLoader
+        );
+        return new AppContext(
+            config,
+            summaryManager,
+            recentSummaryManager,
+            canonicalStateManager,
+            storySessionService
         );
     }
 
@@ -163,38 +171,8 @@ public final class AssistantApp {
 
     private static boolean handleUserTurn(String userInput, Terminal terminal, PrintWriter output, AppContext context) {
         try {
-            List<Message> messages = buildChatMessages(
-                context.promptLoader(),
-                context.promptLoader().loadSystemPrompt(),
-                context.promptLoader().loadFixedProtagonistsContext(),
-                context.canonicalStateManager().loadCanonicalState(),
-                context.summaryManager().loadSummary(),
-                context.recentSummaryManager().loadRecentSummary(),
-                context.historyStore().recentMessages(context.config().maxRecentTurns()),
-                userInput
-            );
-
-            String draftResponse = context.client().chat(
-                messages,
-                context.config().chatOptions(),
-                context.config().requestTimeoutSeconds()
-            );
-            String response = context.responseGuard().validate(
-                context.promptLoader().loadValidationSystemPrompt(),
-                context.promptLoader().loadValidationRequest(
-                    context.promptLoader().loadRulesPrompt(),
-                    context.promptLoader().loadFixedProtagonistsContext(),
-                    userInput,
-                    draftResponse
-                ),
-                draftResponse
-            );
+            String response = context.storySessionService().handleUserTurn(userInput);
             printMessage(terminal, output, response);
-
-            context.historyStore().appendTurn(userInput, response);
-            context.canonicalStateManager().startUpdateIfNeeded();
-            context.recentSummaryManager().startUpdateIfNeeded();
-            context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
             printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
@@ -295,48 +273,11 @@ public final class AssistantApp {
         return wrapped.toString();
     }
 
-    private static List<Message> buildChatMessages(
-        PromptLoader promptLoader,
-        String systemPrompt,
-        String fixedProtagonists,
-        String canonicalState,
-        String summary,
-        String recentSummary,
-        List<Message> recentMessages,
-        String userInput
-    ) {
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message(SYSTEM, systemPrompt));
-
-        if (fixedProtagonists != null && !fixedProtagonists.isBlank()) {
-            messages.add(new Message(SYSTEM, fixedProtagonists));
-        }
-
-        if (canonicalState != null && !canonicalState.isBlank()) {
-            messages.add(new Message(SYSTEM, promptLoader.loadCanonicalStateContext(canonicalState)));
-        }
-
-        if (summary != null && !summary.isBlank()) {
-            messages.add(new Message(SYSTEM, promptLoader.loadSummaryContext(summary)));
-        }
-
-        if (recentSummary != null && !recentSummary.isBlank()) {
-            messages.add(new Message(SYSTEM, promptLoader.loadRecentSummaryContext(recentSummary)));
-        }
-
-        messages.addAll(recentMessages);
-        messages.add(new Message("user", userInput));
-        return messages;
-    }
-
     private record AppContext(
         AppConfig config,
-        HistoryStore historyStore,
-        LMStudioClient client,
-        ResponseGuard responseGuard,
         SummaryManager summaryManager,
         RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,
-        PromptLoader promptLoader
+        StorySessionService storySessionService
     ) {}
 }
