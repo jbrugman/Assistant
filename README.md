@@ -1,21 +1,22 @@
 # Storyteller
 
-A local Java CLI storyteller that talks to LM Studio through the OpenAI-compatible endpoint at `http://localhost:1234`.
+A local Java CLI storyteller that talks to a local OpenAI-compatible chat endpoint, such as LM Studio, Jan.ai, or a similar tool.
+Started as a small Assistant api, but turned in the storyteller assistant, way more fun that way.
 
 ## Requirements
 
 - Java 25+
 - Maven
-- LM Studio running with a loaded chat or instruct model
+- A local OpenAI-compatible chat server running with a loaded model, such as LM Studio, Jan.ai, or a similar tool
 
 ## Packaging Behavior
 
-The app now ships with working built-in defaults.
+The app ships with working built-in defaults.
 
-Committed defaults live in:
+Bundled defaults live in:
 - `src/main/resources/systemprompts/`
 
-Those files are bundled into:
+Those files are compiled into:
 - the runnable jar
 - the native executable
 
@@ -34,7 +35,7 @@ So the behavior is:
 ### Recommended
 
 ```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -q package
 java -jar target/storyteller-1.0.0-SNAPSHOT.jar
 ```
@@ -42,7 +43,7 @@ java -jar target/storyteller-1.0.0-SNAPSHOT.jar
 ### Native Build
 
 ```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -Pnative -DskipTests package
 ```
 
@@ -55,16 +56,16 @@ target/storyteller
 Run it from the project root:
 
 ```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 ./target/storyteller
 ```
 
-If an `application.config` file exists next to the native executable, it is still loaded as an additional runtime override.
+If an `application.config` file exists next to the native executable, it is loaded as an additional runtime override.
 
 ### Development Run
 
 ```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -q compile dependency:copy-dependencies
 java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 ```
