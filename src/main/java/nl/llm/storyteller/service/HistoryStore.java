@@ -64,6 +64,10 @@ public final class HistoryStore {
         data.put("canonical_state_cursor", state.canonicalStateCursor());
 
         try {
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
             JsonSupport.OBJECT_MAPPER.writeValue(path.toFile(), data);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);

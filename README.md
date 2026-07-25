@@ -20,6 +20,8 @@ Those files are compiled into:
 - the runnable jar
 - the native executable
 
+The native build explicitly includes `systemprompts/**` as classpath resources, so the bundled defaults remain available even when no local override files exist.
+
 At runtime, local filesystem overrides take precedence when present:
 - `./systemprompts/application.config`
 - `./systemprompts/*.md`
@@ -109,7 +111,7 @@ The app reads and writes story memory in `memory/`:
 - `recent-summary.md`
 - `canonical-state.yaml`
 
-These files may start out missing. The app creates and updates them as needed.
+These files and their parent `memory/` directory may start out missing. The app creates and updates them as needed.
 
 ## Configuration
 

@@ -12,6 +12,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FileSupportTest {
     @Test
     @DisplayName("""
+        Given a target file inside a missing parent directory,
+        When text is written through the file support helper,
+        Then the parent directories should be created automatically
+        """)
+    void shouldCreateParentDirectoriesWhenWritingTextFiles() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-write-file");
+        Path targetFile = baseDirectory.resolve("memory/nested/output.txt");
+
+        FileSupport.writeTextFile(targetFile, "hello");
+
+        assertTrue(Files.exists(targetFile));
+        assertEquals("hello", Files.readString(targetFile).trim());
+    }
+
+    @Test
+    @DisplayName("""
         Given no local override file for a required prompt resource,
         When the text is loaded through the resource-aware file support helper,
         Then the bundled classpath resource should be returned

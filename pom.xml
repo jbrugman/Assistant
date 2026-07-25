@@ -97,6 +97,9 @@
               <mainClass>nl.llm.storyteller.AssistantApp</mainClass>
               <imageName>storyteller</imageName>
               <fallback>false</fallback>
+              <buildArgs>
+                <buildArg>-H:IncludeResources=systemprompts/.*</buildArg>
+              </buildArgs>
             </configuration>
             <executions>
               <execution>

@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryStoreTest {
     @ParameterizedTest
@@ -86,6 +87,24 @@ class HistoryStoreTest {
         assertEquals("First answer", state.messages().get(1).content());
         assertEquals("Second input", state.messages().get(2).content());
         assertEquals("Second answer", state.messages().get(3).content());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a history.json path inside a missing memory directory,
+        When a turn is appended,
+        Then the history store should create the parent directory automatically
+        """)
+    void shouldCreateParentDirectoryWhenSavingHistory() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("storyteller-history-parent");
+        Path historyFile = tempDirectory.resolve("memory/history.json");
+        Path legacyFile = tempDirectory.resolve("history.md");
+
+        HistoryStore historyStore = new HistoryStore(historyFile, legacyFile);
+
+        historyStore.appendTurn("user-1", "assistant-1");
+
+        assertTrue(Files.exists(historyFile));
     }
 
     private static Stream<Arguments> recentTurnCases() {
