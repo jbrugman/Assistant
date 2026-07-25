@@ -17,10 +17,10 @@ final class ResponseGuard {
         Pattern.CASE_INSENSITIVE
     );
 
-    private final LMStudioClient client;
+    private final ChatClient client;
     private final AppConfig config;
 
-    ResponseGuard(LMStudioClient client, AppConfig config) {
+    ResponseGuard(ChatClient client, AppConfig config) {
         this.client = client;
         this.config = config;
     }

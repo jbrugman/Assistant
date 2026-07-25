@@ -1,0 +1,115 @@
+package nl.llm.storyteller;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
+
+class HistoryStoreTest {
+    @ParameterizedTest
+    @MethodSource("recentTurnCases")
+    @DisplayName("""
+        Given a history with three complete user-assistant turns,
+        When the most recent complete turns are requested,
+        Then only the requested trailing complete turns should be returned
+        """)
+    void shouldReturnOnlyTheRequestedTrailingCompleteTurns(int requestedTurns, List<String> expectedContents) throws Exception {
+        HistoryStore historyStore = createStoreWithThreeTurns();
+
+        List<String> actualContents = historyStore.recentMessages(requestedTurns).stream()
+            .map(Message::content)
+            .toList();
+
+        assertIterableEquals(expectedContents, actualContents);
+    }
+
+    @ParameterizedTest
+    @MethodSource("recentWindowCases")
+    @DisplayName("""
+        Given a history with several complete turns,
+        When a recent-message window is requested with trailing turns excluded,
+        Then only the older portion of that recent window should be returned
+        """)
+    void shouldReturnOnlyTheOlderPortionOfARecentWindow(
+        int totalRecentTurns,
+        int trailingTurnsToExclude,
+        List<String> expectedContents
+    ) throws Exception {
+        HistoryStore historyStore = createStoreWithThreeTurns();
+
+        List<String> actualContents = historyStore.recentMessagesWindow(totalRecentTurns, trailingTurnsToExclude).stream()
+            .map(Message::content)
+            .toList();
+
+        assertIterableEquals(expectedContents, actualContents);
+    }
+
+    @Test
+    @DisplayName("""
+        Given a legacy history.md file with user and assistant entries,
+        When the history store is loaded without a history.json file,
+        Then the legacy conversation should be migrated into history.json
+        """)
+    void shouldMigrateLegacyHistoryIntoJsonOnFirstLoad() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("storyteller-history-legacy");
+        Path historyFile = tempDirectory.resolve("history.json");
+        Path legacyFile = tempDirectory.resolve("history.md");
+        Files.writeString(
+            legacyFile,
+            """
+            USER: First input
+            continuation
+            ASSISTANT: First answer
+            USER: Second input
+            ASSISTANT: Second answer
+            """.strip()
+        );
+
+        HistoryStore historyStore = new HistoryStore(historyFile, legacyFile);
+
+        HistoryState state = historyStore.load();
+
+        assertEquals(4, state.messages().size());
+        assertEquals("First input\ncontinuation", state.messages().get(0).content());
+        assertEquals("First answer", state.messages().get(1).content());
+        assertEquals("Second input", state.messages().get(2).content());
+        assertEquals("Second answer", state.messages().get(3).content());
+    }
+
+    private static Stream<Arguments> recentTurnCases() {
+        return Stream.of(
+            Arguments.of(1, List.of("user-3", "assistant-3")),
+            Arguments.of(2, List.of("user-2", "assistant-2", "user-3", "assistant-3")),
+            Arguments.of(3, List.of("user-1", "assistant-1", "user-2", "assistant-2", "user-3", "assistant-3"))
+        );
+    }
+
+    private static Stream<Arguments> recentWindowCases() {
+        return Stream.of(
+            Arguments.of(2, 1, List.of("user-2", "assistant-2")),
+            Arguments.of(3, 1, List.of("user-1", "assistant-1", "user-2", "assistant-2")),
+            Arguments.of(3, 2, List.of("user-1", "assistant-1"))
+        );
+    }
+
+    private static HistoryStore createStoreWithThreeTurns() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("storyteller-history");
+        Path historyFile = tempDirectory.resolve("history.json");
+        Path legacyFile = tempDirectory.resolve("history.md");
+
+        HistoryStore historyStore = new HistoryStore(historyFile, legacyFile);
+        historyStore.appendTurn("user-1", "assistant-1");
+        historyStore.appendTurn("user-2", "assistant-2");
+        historyStore.appendTurn("user-3", "assistant-3");
+        return historyStore;
+    }
+}
