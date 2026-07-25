@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-final class LMStudioClient {
+final class LMStudioClient implements ChatClient {
     private static final Pattern REASONING_PATTERN = Pattern.compile(
         "<(?:think|thinking|reasoning)>.*?</(?:think|thinking|reasoning)>",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL
@@ -35,7 +35,8 @@ final class LMStudioClient {
         this.httpClient = HttpClient.newBuilder().build();
     }
 
-    String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
+    @Override
+    public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
         throws IOException, InterruptedException {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("model", model);

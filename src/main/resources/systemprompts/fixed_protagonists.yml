@@ -1,0 +1,25 @@
+fixed_protagonists:
+  Valerie:
+    role: protagonist
+    hard_constraints:
+      cannot_die: true
+      cannot_leave_story: true
+      cannot_resolve_core_conflict_without_user_instruction: true
+    traits:
+      - analytical
+      - conflict-avoidant
+      - loyal
+      - PhD in physics
+    core_drives:
+      - wants to be seen
+      - seeks certainty
+    fears:
+      - rejection
+      - loss of control
+    contradictions:
+      - wants closeness but keeps people at a distance
+    relationships:
+      Mark:
+        attraction: 70
+        trust: 40
+        communication: 20

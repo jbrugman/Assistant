@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.Binding;
@@ -18,20 +18,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class AssistantApp {
-    private static final String APP_NAME = "assistant";
+    private static final String APP_NAME = "storyteller";
     private static final String EXIT_COMMAND = "exit";
     private static final String QUIT_COMMAND = "quit";
-    private static final String CONTINUE_STORY_COMMAND = "(ga door met het verhaal)";
     private static final String CONTINUE_STORY_WIDGET = "continue-story";
-    private static final String RESET_COMMAND =
-        "(reset je gedrag; houd je vanaf nu strikt aan de system prompt en alle regels)";
     private static final String RESET_WIDGET = "reset-behavior";
-    private static final String CONTINUE_STORY_SHORTCUT_HINT =
-        "Druk op Ctrl-G om '(ga door met het verhaal)' te sturen. "
-            + "Op Mac werkt Cmd-G alleen als je terminal die toetscombinatie doorgeeft.";
-    private static final String RESET_SHORTCUT_HINT =
-        "Druk op Ctrl-W om een reset-instructie te sturen als het model afdwaalt. "
-            + "Op Mac werkt Cmd-W alleen als je terminal die toetscombinatie doorgeeft.";
     private static final int DISPLAY_MARGIN = 2;
     private static final int MIN_CONTENT_WIDTH = 20;
     private static final String SYSTEM = "system";
@@ -44,16 +35,14 @@ public final class AssistantApp {
         AppContext context = createAppContext();
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
-            LineReader reader = createReader(terminal);
+            LineReader reader = createReader(terminal, context.config());
             PrintWriter output = terminal.writer();
-            printBanner(terminal, output);
+            printBanner(terminal, output, context.config());
             runChatLoop(reader, terminal, output, context);
         } finally {
             context.summaryManager().shutdown();
             context.recentSummaryManager().shutdown();
-            if (context.canonicalStateManager() != null) {
-                context.canonicalStateManager().shutdown();
-            }
+            context.canonicalStateManager().shutdown();
         }
     }
 
@@ -71,9 +60,6 @@ public final class AssistantApp {
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
-        CanonicalStateManager canonicalStateManager = config.isStoryMode()
-            ? new CanonicalStateManager(historyStore, client, config, promptLoader)
-            : null;
         return new AppContext(
             config,
             historyStore,
@@ -81,26 +67,26 @@ public final class AssistantApp {
             new ResponseGuard(validatorClient, config),
             new SummaryManager(historyStore, client, config, promptLoader),
             new RecentSummaryManager(historyStore, client, config, promptLoader),
-            canonicalStateManager,
+            new CanonicalStateManager(historyStore, client, config, promptLoader),
             promptLoader
         );
     }
 
-    private static LineReader createReader(Terminal terminal) {
+    private static LineReader createReader(Terminal terminal, AppConfig config) {
         LineReader reader = LineReaderBuilder.builder()
             .terminal(terminal)
             .appName(APP_NAME)
             .build();
 
-        registerContinueStoryShortcut(reader);
-        registerResetShortcut(reader);
+        registerContinueStoryShortcut(reader, config);
+        registerResetShortcut(reader, config);
         return reader;
     }
 
-    private static void registerContinueStoryShortcut(LineReader reader) {
+    private static void registerContinueStoryShortcut(LineReader reader, AppConfig config) {
         reader.getWidgets().put(CONTINUE_STORY_WIDGET, () -> {
             reader.getBuffer().clear();
-            reader.getBuffer().write(CONTINUE_STORY_COMMAND);
+            reader.getBuffer().write(config.continueStoryCommand());
             reader.callWidget(LineReader.ACCEPT_LINE);
             return true;
         });
@@ -111,10 +97,10 @@ public final class AssistantApp {
         bindShortcut(reader, LineReader.VIINS, binding, 'G', 'g');
     }
 
-    private static void registerResetShortcut(LineReader reader) {
+    private static void registerResetShortcut(LineReader reader, AppConfig config) {
         reader.getWidgets().put(RESET_WIDGET, () -> {
             reader.getBuffer().clear();
-            reader.getBuffer().write(RESET_COMMAND);
+            reader.getBuffer().write(config.resetStoryCommand());
             reader.callWidget(LineReader.ACCEPT_LINE);
             return true;
         });
@@ -133,11 +119,11 @@ public final class AssistantApp {
         }
     }
 
-    private static void printBanner(Terminal terminal, PrintWriter output) {
+    private static void printBanner(Terminal terminal, PrintWriter output, AppConfig config) {
         output.println(formatForDisplay(
-            "LM Studio wrapper gestart. Type 'exit' om te stoppen. "
-                + CONTINUE_STORY_SHORTCUT_HINT + " "
-                + RESET_SHORTCUT_HINT,
+            config.bannerStartText() + " "
+                + config.shortcutContinueHint() + " "
+                + config.shortcutResetHint(),
             terminal
         ));
         output.println();
@@ -178,8 +164,10 @@ public final class AssistantApp {
     private static boolean handleUserTurn(String userInput, Terminal terminal, PrintWriter output, AppContext context) {
         try {
             List<Message> messages = buildChatMessages(
+                context.promptLoader(),
                 context.promptLoader().loadSystemPrompt(),
-                context.canonicalStateManager() == null ? "" : context.canonicalStateManager().loadCanonicalState(),
+                context.promptLoader().loadFixedProtagonistsContext(),
+                context.canonicalStateManager().loadCanonicalState(),
                 context.summaryManager().loadSummary(),
                 context.recentSummaryManager().loadRecentSummary(),
                 context.historyStore().recentMessages(context.config().maxRecentTurns()),
@@ -192,28 +180,31 @@ public final class AssistantApp {
                 context.config().requestTimeoutSeconds()
             );
             String response = context.responseGuard().validate(
-                context.promptLoader().loadRulesPrompt(),
-                userInput,
+                context.promptLoader().loadValidationSystemPrompt(),
+                context.promptLoader().loadValidationRequest(
+                    context.promptLoader().loadRulesPrompt(),
+                    context.promptLoader().loadFixedProtagonistsContext(),
+                    userInput,
+                    draftResponse
+                ),
                 draftResponse
             );
             printMessage(terminal, output, response);
 
             context.historyStore().appendTurn(userInput, response);
-            if (context.canonicalStateManager() != null) {
-                context.canonicalStateManager().startUpdateIfNeeded();
-            }
+            context.canonicalStateManager().startUpdateIfNeeded();
             context.recentSummaryManager().startUpdateIfNeeded();
             context.summaryManager().startUpdateSummaryIfNeeded();
             return true;
         } catch (InterruptedException ex) {
-            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
             Thread.currentThread().interrupt();
             return false;
         } catch (IOException ex) {
-            printError(terminal, output, "Fout bij LM Studio request", ex.getMessage());
+            printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
             return true;
         } catch (RuntimeException ex) {
-            printError(terminal, output, "Fout bij verwerken van history of response", ex.getMessage());
+            printError(terminal, output, context.config().processHistoryErrorText(), ex.getMessage());
             return true;
         }
     }
@@ -305,7 +296,9 @@ public final class AssistantApp {
     }
 
     private static List<Message> buildChatMessages(
+        PromptLoader promptLoader,
         String systemPrompt,
+        String fixedProtagonists,
         String canonicalState,
         String summary,
         String recentSummary,
@@ -315,38 +308,20 @@ public final class AssistantApp {
         List<Message> messages = new ArrayList<>();
         messages.add(new Message(SYSTEM, systemPrompt));
 
+        if (fixedProtagonists != null && !fixedProtagonists.isBlank()) {
+            messages.add(new Message(SYSTEM, fixedProtagonists));
+        }
+
         if (canonicalState != null && !canonicalState.isBlank()) {
-            messages.add(
-                new Message(
-                  SYSTEM,
-                    "Actuele canonieke verhaaltoestand. "
-                        + "Gebruik dit als primaire bron voor bevestigde story-state zolang recentere berichten het niet tegenspreken.\n\n"
-                        + canonicalState
-                )
-            );
+            messages.add(new Message(SYSTEM, promptLoader.loadCanonicalStateContext(canonicalState)));
         }
 
         if (summary != null && !summary.isBlank()) {
-            messages.add(
-                new Message(
-                  SYSTEM,
-                    "Langetermijngeheugen uit eerdere gesprekken. "
-                        + "Gebruik dit alleen als achtergrond en geef prioriteit aan recente instructies.\n\n"
-                        + summary
-                )
-            );
+            messages.add(new Message(SYSTEM, promptLoader.loadSummaryContext(summary)));
         }
 
         if (recentSummary != null && !recentSummary.isBlank()) {
-            messages.add(
-                new Message(
-                    SYSTEM,
-                    "Compacte samenvatting van recente, nog relevante context vlak voor de laatste ruwe turns. "
-                        + "Gebruik dit als recenter en concreter geheugen dan de gewone summary, "
-                        + "maar laat de allerlaatste berichten voorgaan.\n\n"
-                        + recentSummary
-                )
-            );
+            messages.add(new Message(SYSTEM, promptLoader.loadRecentSummaryContext(recentSummary)));
         }
 
         messages.addAll(recentMessages);

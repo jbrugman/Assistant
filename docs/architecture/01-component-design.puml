@@ -1,0 +1,84 @@
+@startuml
+title Component Design - Storyteller
+
+package "CLI Layer" {
+  [AssistantApp]
+}
+
+package "Prompt Assembly" {
+  [PromptLoader]
+  [ResponseGuard]
+}
+
+package "Story Memory" {
+  [HistoryStore]
+  [SummaryManager]
+  [RecentSummaryManager]
+  [CanonicalStateManager]
+}
+
+package "Model Access" {
+  [LMStudioClient]
+}
+
+package "Configuration" {
+  [AppConfig]
+  [FileSupport]
+}
+
+package "Files" {
+  [systemprompts/application.config]
+  [systemprompts/systemprompt.md]
+  [systemprompts/rules.md]
+  [systemprompts/fixed_protagonists.yml]
+  [systemprompts/summarysystemprompt.md]
+  [systemprompts/recentsummarysystemprompt.md]
+  [systemprompts/canonicalstatesystemprompt.md]
+  [memory/history.json]
+  [memory/summary.md]
+  [memory/recent-summary.md]
+  [memory/canonical-state.yaml]
+}
+
+[AssistantApp] --> [AppConfig]
+[AssistantApp] --> [PromptLoader]
+[AssistantApp] --> [HistoryStore]
+[AssistantApp] --> [SummaryManager]
+[AssistantApp] --> [RecentSummaryManager]
+[AssistantApp] --> [CanonicalStateManager]
+[AssistantApp] --> [ResponseGuard]
+[AssistantApp] --> [LMStudioClient]
+
+[PromptLoader] --> [FileSupport]
+[PromptLoader] --> [systemprompts/systemprompt.md]
+[PromptLoader] --> [systemprompts/rules.md]
+[PromptLoader] --> [systemprompts/fixed_protagonists.yml]
+[PromptLoader] --> [systemprompts/summarysystemprompt.md]
+[PromptLoader] --> [systemprompts/recentsummarysystemprompt.md]
+[PromptLoader] --> [systemprompts/canonicalstatesystemprompt.md]
+
+[AppConfig] --> [FileSupport]
+[AppConfig] --> [systemprompts/application.config]
+
+[HistoryStore] --> [FileSupport]
+[HistoryStore] --> [memory/history.json]
+
+[SummaryManager] --> [HistoryStore]
+[SummaryManager] --> [PromptLoader]
+[SummaryManager] --> [LMStudioClient]
+[SummaryManager] --> [memory/summary.md]
+
+[RecentSummaryManager] --> [HistoryStore]
+[RecentSummaryManager] --> [PromptLoader]
+[RecentSummaryManager] --> [LMStudioClient]
+[RecentSummaryManager] --> [memory/recent-summary.md]
+
+[CanonicalStateManager] --> [HistoryStore]
+[CanonicalStateManager] --> [PromptLoader]
+[CanonicalStateManager] --> [LMStudioClient]
+[CanonicalStateManager] --> [memory/canonical-state.yaml]
+
+[ResponseGuard] --> [LMStudioClient]
+[ResponseGuard] --> [PromptLoader]
+
+@enduml

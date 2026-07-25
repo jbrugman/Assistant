@@ -1,156 +1,152 @@
-# Assistant
+# Storyteller
 
-Kleine lokale CLI-assistant in Java die praat met LM Studio via het OpenAI-achtige endpoint op `http://localhost:1234`.
+A local Java CLI storyteller that talks to a local OpenAI-compatible chat endpoint, such as LM Studio, Jan.ai, or a similar tool.
+Started as a small Assistant api, but turned in the storyteller assistant, way more fun that way.
 
-## Vereisten
+## Requirements
 
-- Java 17+
+- Java 25+
 - Maven
-- LM Studio draaiend met een geladen chat/instruct-model
+- A local OpenAI-compatible chat server running with a loaded model, such as LM Studio, Jan.ai, or a similar tool
 
-## Lokaal draaien
+## Packaging Behavior
 
-### Aanbevolen
+The app ships with working built-in defaults.
 
-Maak eerst een runnable jar en start daarna direct met `java -jar`:
+Bundled defaults live in:
+- `src/main/resources/systemprompts/`
+
+Those files are compiled into:
+- the runnable jar
+- the native executable
+
+At runtime, local filesystem overrides take precedence when present:
+- `./systemprompts/application.config`
+- `./systemprompts/*.md`
+- `./systemprompts/*.yml`
+
+So the behavior is:
+1. use bundled defaults from the build artifact
+2. override them with local files in `./systemprompts/` when they exist
+3. keep runtime memory in `./memory/`
+
+## Run Locally
+
+### Recommended
 
 ```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -q package
-java -jar target/assistant-1.0.0-SNAPSHOT.jar
+java -jar target/storyteller-1.0.0-SNAPSHOT.jar
 ```
 
-Dit geeft meestal het beste interactieve terminalgedrag.
-
-## Native build (GraalVM)
-
-Deze app is ook voorbereid voor een native build met GraalVM.
-
-### Vereisten
-
-- GraalVM met `native-image`
-- Maven
-
-Controleer eerst of `native-image` beschikbaar is:
+### Native Build
 
 ```bash
-native-image --version
-```
-
-### Native binary bouwen
-
-```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -Pnative -DskipTests package
 ```
 
-De binary komt daarna normaal terecht op:
+The native binary is normally written to:
 
 ```text
-target/assistant
+target/storyteller
 ```
 
-### Native binary draaien
-
-Start hem vanuit de projectmap, zodat `assistant.properties`, `systemprompt.md`, `rules.md`, `summary.md` en `history.json` op de verwachte plek staan:
+Run it from the project root:
 
 ```bash
-cd /Users/jbrugman/Assistant
-./target/assistant
+cd ~/Assistant
+./target/storyteller
 ```
 
-Als er naast de native executable een `application.config` staat, dan wordt die automatisch ingelezen als override op `assistant.properties`.
+If an `application.config` file exists next to the native executable, it is loaded as an additional runtime override.
 
-### Let op
-
-De app leest zijn configuratie en promptbestanden standaard relatief vanuit de huidige werkdirectory.  
-Dus ook als je een native binary hebt, moet je hem voor nu nog vanuit de projectroot starten, of die bestanden naast de juiste werkmap beschikbaar hebben.
-
-### Snel via Maven
+### Development Run
 
 ```bash
-cd /Users/jbrugman/Assistant
-mvn exec:java
-```
-
-### Alternatief tijdens ontwikkeling
-
-Als je zonder jar direct vanaf classes wilt starten:
-
-```bash
-cd /Users/jbrugman/Assistant
+cd ~/Assistant
 mvn -q compile dependency:copy-dependencies
-java -cp "target/classes:target/dependency/*" nl.jbrugman.assistant.AssistantApp
+java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 ```
 
-## Pijltjestoetsen in de terminal
+## Terminal Shortcuts
 
-Als je de app start via `mvn exec:java`, kunnen pijltjestoetsen soms rare tekens tonen zoals:
+- `Ctrl-G`: sends `(continue the story)`
+- `Ctrl-W`: sends a reset instruction that tells the model to strictly follow the active story rules again
 
-```text
-^[[D
-^[[C
-```
+On macOS, `Cmd-G` and `Cmd-W` only work if the terminal forwards those key combinations as meta or escape input.
 
-Dat komt door de manier waarop de Maven exec-plugin stdin/terminal-interactie doorgeeft.  
-Gebruik in dat geval liever de aanbevolen startmethode hierboven met directe `java`-startup.
+## Runtime Files
 
-## Sneltoetsen
+### Bundled defaults
 
-- `Ctrl-G`: verstuurt direct de vaste opdracht `(ga door met het verhaal)`
-- `Ctrl-W`: verstuurt direct een reset-instructie zodat het model zich weer strikt aan system prompt en regels houdt
+These are compiled into the app from `src/main/resources/systemprompts/`:
+- `application.config`
+- `systemprompt.md`
+- `rules.md`
+- `fixed_protagonists.yml`
+- `fixedprotagonistscontext.md`
+- `summarysystemprompt.md`
+- `summarycontext.md`
+- `recentsummarysystemprompt.md`
+- `recentsummarycontext.md`
+- `canonicalstatesystemprompt.md`
+- `canonicalstatecontext.md`
+- `validationsystemprompt.md`
+- `validationrequesttemplate.md`
 
-## Bestanden
+### Optional local overrides
 
-- `systemprompt.md`: system prompt
-- `rules.md`: guardrails/regels voor de validator-check
-- `summarysystemprompt.md`: instructies voor het bijwerken van de summary
-- `recentsummarysystemprompt.md`: instructies voor het bijwerken van de recente samenvatting
-- `canonicalstatesystemprompt.md`: instructies voor het bijwerken van de canonieke story-state
-- `assistant.properties`: configuratie voor modellen, paden, timeouts en modelopties
-- `summary.md`: samenvatting van oudere context
-- `recent-summary.md`: compacte samenvatting van recente context net voor de laatste ruwe turns
-- `canonical-state.yaml`: actuele canonieke verhaaltoestand voor story-mode
-- `history.json`: volledige chatgeschiedenis
+If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
-De app stuurt niet de hele history naar het model, maar alleen de meest recente complete turns, plus de summary, de recente summary en in `story` mode ook de canonical state.
+### Runtime memory
 
-## Configuratie
+The app reads and writes story memory in `memory/`:
+- `history.json`
+- `history.md`
+- `summary.md`
+- `recent-summary.md`
+- `canonical-state.yaml`
 
-De meeste hard-coded waarden zijn verplaatst naar `assistant.properties`, waaronder:
+These files may start out missing. The app creates and updates them as needed.
 
-- LM Studio endpoint
-- chat- en validator-model
-- paden naar `systemprompt.md`, `rules.md`, `summary.md` en `history.json`
-- paden naar `summarysystemprompt.md`, `recentsummarysystemprompt.md`, `canonicalstatesystemprompt.md`, `recent-summary.md` en `canonical-state.yaml`
-- timeouts
-- modelopties zoals `temperature`, `topP` en `repeatPenalty`
-- validator-instellingen zoals `validation.enabled`, `validation.temperature` en `validation.topP`
+## Configuration
 
-Zo kun je gedrag aanpassen zonder Java-code te wijzigen.
+All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
-Als een model slecht omgaat met de validator/rules-check, kun je die volledig uitschakelen via:
+Important settings:
+- `chat.maxRecentTurns=2`
+- `recentSummary.maxRecentTurns=12`
+- `recentSummary.batchMessages=6`
+- `summary.batchMessages=10`
+- `canonicalState.batchMessages=5`
+- `validation.enabled=true`
+
+If a model behaves badly with the rules engine, disable it with:
 
 ```properties
 validation.enabled=false
 ```
 
-Dan wordt `rules.md` niet meer gebruikt als laatste validatorstap en geeft de app het modelantwoord direct terug.
+When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
 
-## Geheugenlagen
+## Prompt Assembly
 
-De app gebruikt drie achtergrondlagen naast de laatste ruwe turns:
+The app does not send the full history back to the model. It sends:
+- the main system prompt
+- fixed protagonists
+- canonical state
+- long-term summary
+- recent summary
+- the last `chat.maxRecentTurns` raw turns
+- the latest user message
 
-- `summary.md` wordt bijgewerkt op basis van oudere turns en bewaart langetermijncontext en blijvende achtergrond.
-- `recent-summary.md` vat de recente middenlaag samen: nieuwer dan de gewone summary, maar ouder dan de laatste ruwe turns.
-- `canonical-state.yaml` wordt in `story` mode onafhankelijk bijgewerkt op basis van oudere turns en is bedoeld voor actuele, bevestigde canonieke feiten.
+## Memory Layers
 
-Standaard blijven alleen de laatste `chat.maxRecentTurns=2` turns volledig raw, en de oudere recente turns daarvoor worden compacter gehouden via:
+The storyteller uses three derived memory layers beside the latest raw turns:
+- `memory/recent-summary.md`: recent middle layer
+- `memory/summary.md`: long-term background and continuity
+- `memory/canonical-state.yaml`: compact confirmed canon
 
-- `recentSummary.maxRecentTurns=12`
-- `recentSummary.batchMessages=6`
-
-De gewone summary en canonical state draaien daarnaast via:
-
-- `summary.batchMessages=10`
-- `canonicalState.batchMessages=5`
+This keeps prompt size down while preserving continuity.

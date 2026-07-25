@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import java.util.Map;
 

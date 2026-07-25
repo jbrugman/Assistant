@@ -1,4 +1,4 @@
-package nl.jbrugman.assistant;
+package nl.llm.storyteller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -33,7 +33,7 @@ final class HistoryStore {
             JsonNode data = JsonSupport.OBJECT_MAPPER.readTree(Files.readString(path, StandardCharsets.UTF_8));
             JsonNode messagesNode = data.get("messages");
             if (messagesNode == null || !messagesNode.isArray()) {
-                throw new IllegalArgumentException("history.json heeft geen geldige 'messages' lijst.");
+                throw new IllegalArgumentException("history.json does not contain a valid 'messages' array.");
             }
 
             List<Message> messages = new ArrayList<>();
@@ -46,7 +46,7 @@ final class HistoryStore {
             int canonicalStateCursor = data.path("canonical_state_cursor").asInt(0);
             return new HistoryState(messages, summaryCursor, recentSummaryCursor, canonicalStateCursor);
         } catch (JsonProcessingException ex) {
-            throw new IllegalArgumentException("Ongeldige JSON in " + path + ": " + ex.getOriginalMessage(), ex);
+            throw new IllegalArgumentException("Invalid JSON in " + path + ": " + ex.getOriginalMessage(), ex);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
