@@ -7,13 +7,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-final class FileSupport {
+public final class FileSupport {
     private FileSupport() {
     }
 
-    static String readTextFile(Path path, String defaultValue) {
+    public static String readTextFile(Path path) {
         if (!Files.exists(path)) {
-            return defaultValue;
+            return "";
         }
 
         try {
@@ -23,7 +23,7 @@ final class FileSupport {
         }
     }
 
-    static String readRequiredTextFile(Path path) {
+    public static String readRequiredTextFile(Path path) {
         if (!Files.exists(path)) {
             throw new IllegalStateException("Missing required text file: " + path);
         }
@@ -35,7 +35,7 @@ final class FileSupport {
         }
     }
 
-    static String readRequiredTextFileOrResource(Path path, Path baseDir) {
+    public static String readRequiredTextFileOrResource(Path path, Path baseDir) {
         if (Files.exists(path)) {
             return readRequiredTextFile(path);
         }
@@ -45,11 +45,11 @@ final class FileSupport {
         }
 
         Path relativePath = path.isAbsolute() ? baseDir.relativize(path) : path;
-        String resourcePath = "/" + relativePath.toString().replace('\\', '/');
+        String resourceName = relativePath.toString().replace('\\', '/');
 
-        try (InputStream input = FileSupport.class.getResourceAsStream(resourcePath)) {
+        try (InputStream input = FileSupport.class.getClassLoader().getResourceAsStream(resourceName)) {
             if (input == null) {
-                throw new IllegalStateException("Missing required text resource: " + resourcePath);
+                throw new IllegalStateException("Missing required text resource: " + resourceName);
             }
             return new String(input.readAllBytes(), StandardCharsets.UTF_8).trim();
         } catch (IOException ex) {
@@ -57,7 +57,7 @@ final class FileSupport {
         }
     }
 
-    static void writeTextFile(Path path, String content) {
+    public static void writeTextFile(Path path, String content) {
         String normalized = content == null ? "" : content.trim();
         String output = normalized.isEmpty() ? "" : normalized + System.lineSeparator();
 

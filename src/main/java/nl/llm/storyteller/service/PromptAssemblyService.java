@@ -1,26 +1,24 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
-import java.io.IOException;
+import nl.llm.storyteller.AppConfig;
+import nl.llm.storyteller.model.Message;
+
 import java.util.ArrayList;
 import java.util.List;
 
-final class StorySessionService {
+public final class PromptAssemblyService {
     private static final String SYSTEM = "system";
 
     private final AppConfig config;
     private final HistoryStore historyStore;
-    private final ChatClient chatClient;
-    private final ResponseGuard responseGuard;
     private final SummaryManager summaryManager;
     private final RecentSummaryManager recentSummaryManager;
     private final CanonicalStateManager canonicalStateManager;
     private final PromptLoader promptLoader;
 
-    StorySessionService(
+    public PromptAssemblyService(
         AppConfig config,
         HistoryStore historyStore,
-        ChatClient chatClient,
-        ResponseGuard responseGuard,
         SummaryManager summaryManager,
         RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,
@@ -28,40 +26,13 @@ final class StorySessionService {
     ) {
         this.config = config;
         this.historyStore = historyStore;
-        this.chatClient = chatClient;
-        this.responseGuard = responseGuard;
         this.summaryManager = summaryManager;
         this.recentSummaryManager = recentSummaryManager;
         this.canonicalStateManager = canonicalStateManager;
         this.promptLoader = promptLoader;
     }
 
-    String handleUserTurn(String userInput) throws IOException, InterruptedException {
-        List<Message> messages = buildChatMessages(userInput);
-        String draftResponse = chatClient.chat(
-            messages,
-            config.chatOptions(),
-            config.requestTimeoutSeconds()
-        );
-        String response = responseGuard.validate(
-            promptLoader.loadValidationSystemPrompt(),
-            promptLoader.loadValidationRequest(
-                promptLoader.loadRulesPrompt(),
-                promptLoader.loadFixedProtagonistsContext(),
-                userInput,
-                draftResponse
-            ),
-            draftResponse
-        );
-
-        historyStore.appendTurn(userInput, response);
-        canonicalStateManager.startUpdateIfNeeded();
-        recentSummaryManager.startUpdateIfNeeded();
-        summaryManager.startUpdateSummaryIfNeeded();
-        return response;
-    }
-
-    private List<Message> buildChatMessages(String userInput) {
+    public List<Message> buildChatMessages(String userInput) {
         List<Message> messages = new ArrayList<>();
         messages.add(new Message(SYSTEM, promptLoader.loadSystemPrompt()));
 
@@ -88,5 +59,18 @@ final class StorySessionService {
         messages.addAll(historyStore.recentMessages(config.maxRecentTurns()));
         messages.add(new Message("user", userInput));
         return messages;
+    }
+
+    public String buildValidationSystemPrompt() {
+        return promptLoader.loadValidationSystemPrompt();
+    }
+
+    public String buildValidationRequest(String userInput, String draftResponse) {
+        return promptLoader.loadValidationRequest(
+            promptLoader.loadRulesPrompt(),
+            promptLoader.loadFixedProtagonistsContext(),
+            userInput,
+            draftResponse
+        );
     }
 }

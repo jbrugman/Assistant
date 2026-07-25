@@ -1,18 +1,21 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
+
+import nl.llm.storyteller.AppConfig;
+import nl.llm.storyteller.model.Message;
 
 import java.io.IOException;
 import java.util.List;
 
-final class ValidationClient {
+public final class ValidationClient {
     private final ChatClient client;
     private final AppConfig config;
 
-    ValidationClient(ChatClient client, AppConfig config) {
+    public ValidationClient(ChatClient client, AppConfig config) {
         this.client = client;
         this.config = config;
     }
 
-    String validate(String validationSystemPrompt, String validationRequest) throws IOException, InterruptedException {
+    public String validate(String validationSystemPrompt, String validationRequest) throws IOException, InterruptedException {
         return client.chat(
             List.of(
                 new Message("system", validationSystemPrompt),

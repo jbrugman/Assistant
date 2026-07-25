@@ -1,11 +1,12 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.JsonSupport;
 
 import java.util.regex.Pattern;
 
-final class ValidationDecisionParser {
+public final class ValidationDecisionParser {
     private static final Pattern VALIDATION_DECISION_PATTERN = Pattern.compile(
         "\"decision\"\\s*:\\s*\"(ALLOW|BLOCK)\"",
         Pattern.CASE_INSENSITIVE
@@ -15,7 +16,7 @@ final class ValidationDecisionParser {
         Pattern.CASE_INSENSITIVE
     );
 
-    String parse(String validationResult) {
+    public String parse(String validationResult) {
         String normalizedPayload = unwrapNestedJsonObject(validationResult);
         try {
             JsonNode root = JsonSupport.OBJECT_MAPPER.readTree(normalizedPayload);
@@ -25,7 +26,7 @@ final class ValidationDecisionParser {
 
             String decision = root.path("decision").asText("").trim().toUpperCase();
             return decision.isEmpty() ? null : decision;
-        } catch (JsonProcessingException ex) {
+        } catch (JsonProcessingException _) {
             return parseFallback(normalizedPayload);
         }
     }
@@ -44,7 +45,7 @@ final class ValidationDecisionParser {
                 } else {
                     return current;
                 }
-            } catch (JsonProcessingException ex) {
+            } catch (JsonProcessingException _) {
                 return current;
             }
         }

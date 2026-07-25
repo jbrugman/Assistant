@@ -17,9 +17,9 @@ else (no)
 
   :AssistantApp delegates turn to StorySessionService;
 
-  :Load system prompt, fixed protagonists,\ncanonical state, long-term summary,\nrecent summary, and last raw turns;
+  :PromptAssemblyService loads system prompt,\nfixed protagonists, canonical state,\nlong-term summary, recent summary,\nand last raw turns;
 
-  :Build storyteller prompt stack;
+  :PromptAssemblyService builds storyteller prompt stack;
 
   :Send prompt to LM Studio chat model;
 

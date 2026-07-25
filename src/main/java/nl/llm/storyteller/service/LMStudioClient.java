@@ -1,7 +1,9 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.JsonSupport;
+import nl.llm.storyteller.model.Message;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-final class LMStudioClient implements ChatClient {
+public final class LMStudioClient implements ChatClient {
     private static final Pattern REASONING_PATTERN = Pattern.compile(
         "<(?:think|thinking|reasoning)>.*?</(?:think|thinking|reasoning)>",
         Pattern.CASE_INSENSITIVE | Pattern.DOTALL
@@ -28,7 +30,7 @@ final class LMStudioClient implements ChatClient {
     private final boolean hideReasoningBlocks;
     private final HttpClient httpClient;
 
-    LMStudioClient(String url, String model, boolean hideReasoningBlocks) {
+    public LMStudioClient(String url, String model, boolean hideReasoningBlocks) {
         this.url = Objects.requireNonNull(url);
         this.model = Objects.requireNonNull(model);
         this.hideReasoningBlocks = hideReasoningBlocks;
