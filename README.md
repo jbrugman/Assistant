@@ -150,3 +150,27 @@ The storyteller uses three derived memory layers beside the latest raw turns:
 - `memory/canonical-state.yaml`: compact confirmed canon
 
 This keeps prompt size down while preserving continuity.
+
+
+# Future improvements - TODO's
+
+1. [AssistantApp.java (line 20)](~/Assistant/src/main/java/nl/llm/storyteller/AssistantApp.java:20) is still carrying too many responsibilities. It owns CLI input, output formatting, shortcut wiring, prompt assembly, request execution, validation orchestration, and memory refresh triggering. That makes future changes high-risk because almost every feature crosses this file. The heaviest improvement would be to split this into a small composition root plus focused services like StorySessionService, PromptAssemblyService, and TerminalUi. I would prioritize this over adding more records first.
+
+2. [AppConfig.java (line 11)](~/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java:11) has become a large god-object for loading, merging, path resolution, validation, UI text, and runtime options. It works, but it is now the second main coupling hotspot after AssistantApp. A stronger boundary between ConfigLoader, ResolvedPaths, ModelSettings, and UiTextConfig would reduce accidental breakage and make tests much easier.
+
+3. [PromptLoader.java (line 3)](~/Assistant/src/main/java/nl/llm/storyteller/PromptLoader.java:3) is doing more than “loading”: it also formats prompt templates, injects protagonist data, and builds validation request payloads. That is a sign it wants to become a small prompt service layer rather than a file loader. I would rename/split it into a low-level resource loader plus a higher-level prompt/template assembler.
+
+4. [ResponseGuard.java (line 9)](~/Assistant/src/main/java/nl/llm/storyteller/ResponseGuard.java:9) mixes three concerns that will likely evolve independently: calling the validator model, parsing validator output, and post-processing candidate text. The current shape is still manageable, but if you add richer rule decisions later, this will get messy fast. A cleaner design would separate ValidationClient, ValidationDecisionParser, and ResponseSanitizer.
+
+5. The summary managers are structurally duplicated: [SummaryManager.java (line 10)](~/Assistant/src/main/java/nl/llm/storyteller/SummaryManager.java:10), [RecentSummaryManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/RecentSummaryManager.java:10), and [CanonicalStateManager.java (line 10)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/CanonicalStateManager.java:10). Right now the duplication is still understandable, but it is the clearest maintenance hotspot in the architecture. If one concurrency or cursor bug is found, it likely needs fixing in three places. I would not rush into abstraction, but a shared AbstractDerivedMemoryManager or strategy-based updater would likely pay off soon.
+
+6. There is still not much domain modeling around story concepts. You asked about more model records, and I think the answer is “some, but selectively.” Message and HistoryState are good starts, but things like fixed protagonists, hard constraints, validation request context, and assembled chat context are still mostly plain strings. I would add records where they represent stable domain concepts, for example PromptContext, ValidationRequest, or DerivedMemorySlice, before adding a broad “service layer everywhere.”
+
+7. The tests are still thin relative to the amount of orchestration logic now in the app. The current tests cover some core behavior, which is good, but the highest-risk flows are still mostly untested: prompt assembly order, config override precedence end-to-end, derived memory update cutoffs, and validator bypass behavior. I would invest there before doing large refactors.
+
+Priority:
+1. Extract orchestration out of AssistantApp.
+2. Split config loading/resolution from the AppConfig runtime view.
+3. Introduce a prompt assembly service.
+4. Reduce duplication across the three derived-memory managers.
+5. Add a few focused domain records where strings are currently standing in for concepts.
