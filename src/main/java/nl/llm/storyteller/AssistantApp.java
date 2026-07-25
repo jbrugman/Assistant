@@ -1,5 +1,14 @@
 package nl.llm.storyteller;
 
+import nl.llm.storyteller.service.CanonicalStateManager;
+import nl.llm.storyteller.service.HistoryStore;
+import nl.llm.storyteller.service.LMStudioClient;
+import nl.llm.storyteller.service.PromptAssemblyService;
+import nl.llm.storyteller.service.PromptLoader;
+import nl.llm.storyteller.service.RecentSummaryManager;
+import nl.llm.storyteller.service.ResponseGuard;
+import nl.llm.storyteller.service.StorySessionService;
+import nl.llm.storyteller.service.SummaryManager;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.Binding;
 import org.jline.reader.LineReader;
@@ -23,13 +32,12 @@ public final class AssistantApp {
     private static final String RESET_WIDGET = "reset-behavior";
     private static final int DISPLAY_MARGIN = 2;
     private static final int MIN_CONTENT_WIDTH = 20;
-    private static final String SYSTEM = "system";
     private static final Pattern LIST_PREFIX_PATTERN = Pattern.compile("^(\\s*(?:[-*]|\\d+\\.)\\s+)(.*)$");
 
     private AssistantApp() {
     }
 
-    public static void main(String[] args) throws IOException {
+    static void main() throws IOException {
         AppContext context = createAppContext();
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
@@ -61,6 +69,14 @@ public final class AssistantApp {
         SummaryManager summaryManager = new SummaryManager(historyStore, client, config, promptLoader);
         RecentSummaryManager recentSummaryManager = new RecentSummaryManager(historyStore, client, config, promptLoader);
         CanonicalStateManager canonicalStateManager = new CanonicalStateManager(historyStore, client, config, promptLoader);
+        PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
+            config,
+            historyStore,
+            summaryManager,
+            recentSummaryManager,
+            canonicalStateManager,
+            promptLoader
+        );
         StorySessionService storySessionService = new StorySessionService(
             config,
             historyStore,
@@ -69,7 +85,7 @@ public final class AssistantApp {
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            promptLoader
+            promptAssemblyService
         );
         return new AppContext(
             config,
@@ -139,15 +155,12 @@ public final class AssistantApp {
     }
 
     private static void runChatLoop(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {
-        while (true) {
-            String userInput = readUserInput(reader);
-            if (userInput == null || shouldExit(userInput)) {
+        String userInput;
+        while ((userInput = readUserInput(reader)) != null) {
+            if (shouldExit(userInput)) {
                 return;
             }
-            if (userInput.isEmpty()) {
-                continue;
-            }
-            if (!handleUserTurn(userInput, terminal, output, context)) {
+            if (!userInput.isEmpty() && !handleUserTurn(userInput, terminal, output, context)) {
                 return;
             }
         }
@@ -157,9 +170,9 @@ public final class AssistantApp {
         while (true) {
             try {
                 return reader.readLine("> ").trim();
-            } catch (UserInterruptException ex) {
+            } catch (UserInterruptException _) {
                 // Let the user cancel the current line without exiting the app.
-            } catch (EndOfFileException ex) {
+            } catch (EndOfFileException _) {
                 return null;
             }
         }
@@ -206,18 +219,15 @@ public final class AssistantApp {
 
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i];
+            String outputLine = line;
+
             if (line.stripLeading().startsWith("```")) {
                 inCodeBlock = !inCodeBlock;
-                appendFormattedLine(formatted, line, i > 0);
-                continue;
+            } else if (!inCodeBlock && !line.isBlank()) {
+                outputLine = wrapLine(line, contentWidth);
             }
 
-            if (inCodeBlock || line.isBlank()) {
-                appendFormattedLine(formatted, line, i > 0);
-                continue;
-            }
-
-            appendFormattedLine(formatted, wrapLine(line, contentWidth), i > 0);
+            appendFormattedLine(formatted, outputLine, i > 0);
         }
 
         return formatted.toString();

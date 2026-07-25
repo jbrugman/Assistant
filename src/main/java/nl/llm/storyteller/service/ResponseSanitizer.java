@@ -1,7 +1,7 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
-final class ResponseSanitizer {
-    String sanitize(String response) {
+public final class ResponseSanitizer {
+    public String sanitize(String response) {
         String normalized = response == null ? "" : response.trim();
         if (!normalized.contains("\\")) {
             return normalized;

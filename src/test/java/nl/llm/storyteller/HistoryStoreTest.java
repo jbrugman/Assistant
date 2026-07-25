@@ -1,5 +1,8 @@
 package nl.llm.storyteller;
 
+import nl.llm.storyteller.model.HistoryState;
+import nl.llm.storyteller.model.Message;
+import nl.llm.storyteller.service.HistoryStore;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

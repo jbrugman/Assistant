@@ -24,7 +24,7 @@ final class AppConfigLoader {
 
     static AppConfig load(Path baseDir, Path runtimeOverrideFile) {
         Path normalizedBaseDir = baseDir.toAbsolutePath().normalize();
-        Properties mergedProperties = loadRequiredPropertiesFromResource(CONFIG_RESOURCE);
+        Properties mergedProperties = loadRequiredConfigProperties();
         mergeProperties(
             mergedProperties,
             loadOptionalProperties(normalizedBaseDir.resolve("systemprompts/application.config"), normalizedBaseDir)
@@ -42,16 +42,16 @@ final class AppConfigLoader {
         return AppConfig.from(new AppConfigSource(normalizedBaseDir, mergedProperties));
     }
 
-    private static Properties loadRequiredPropertiesFromResource(String resourcePath) {
+    private static Properties loadRequiredConfigProperties() {
         Properties properties = new Properties();
-        try (var input = AppConfigLoader.class.getResourceAsStream(resourcePath)) {
+        try (var input = AppConfigLoader.class.getResourceAsStream(CONFIG_RESOURCE)) {
             if (input == null) {
-                throw new IllegalStateException("Missing required configuration resource: " + resourcePath);
+                throw new IllegalStateException("Missing required configuration resource: " + CONFIG_RESOURCE);
             }
             properties.load(new InputStreamReader(input, StandardCharsets.UTF_8));
             return properties;
         } catch (IOException ex) {
-            throw new UncheckedIOException("Could not read configuration resource " + resourcePath, ex);
+            throw new UncheckedIOException("Could not read configuration resource " + CONFIG_RESOURCE, ex);
         }
     }
 
@@ -78,15 +78,12 @@ final class AppConfigLoader {
 
     private static void absolutizeFileProperties(Properties properties, Path relativeBaseDir) {
         for (String name : properties.stringPropertyNames()) {
-            if (!name.startsWith("file.")) {
-                continue;
+            if (name.startsWith("file.")) {
+                Path path = Path.of(properties.getProperty(name).trim());
+                if (!path.isAbsolute()) {
+                    properties.setProperty(name, relativeBaseDir.resolve(path).normalize().toString());
+                }
             }
-
-            Path path = Path.of(properties.getProperty(name).trim());
-            if (path.isAbsolute()) {
-                continue;
-            }
-            properties.setProperty(name, relativeBaseDir.resolve(path).normalize().toString());
         }
     }
 

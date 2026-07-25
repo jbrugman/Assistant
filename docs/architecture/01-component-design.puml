@@ -18,6 +18,7 @@ package "Configuration" {
 
 package "Session Flow" {
   [StorySessionService]
+  [PromptAssemblyService]
   [ResponseGuard]
 }
 
@@ -28,7 +29,13 @@ package "Prompts & Validation" {
   [ResponseSanitizer]
 }
 
+package "Model" {
+  [Message]
+  [HistoryState]
+}
+
 package "Memory" {
+  [DerivedMemoryManager]
   [HistoryStore]
   [SummaryManager]
   [RecentSummaryManager]
@@ -55,7 +62,7 @@ package "Filesystem" {
 [AppConfigLoader] --> [systemprompts/] : reads application.config
 
 [StorySessionService] --> [AppConfig]
-[StorySessionService] --> [PromptLoader]
+[StorySessionService] --> [PromptAssemblyService]
 [StorySessionService] --> [HistoryStore]
 [StorySessionService] --> [ResponseGuard]
 [StorySessionService] --> [SummaryManager]
@@ -63,23 +70,31 @@ package "Filesystem" {
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [LMStudioClient]
 
+[PromptAssemblyService] --> [AppConfig]
+[PromptAssemblyService] --> [PromptLoader]
+[PromptAssemblyService] --> [HistoryStore]
+[PromptAssemblyService] --> [SummaryManager]
+[PromptAssemblyService] --> [RecentSummaryManager]
+[PromptAssemblyService] --> [CanonicalStateManager]
+
 [PromptLoader] --> [systemprompts/]
 [HistoryStore] --> [memory/] : history
+[HistoryStore] --> [HistoryState]
+[HistoryStore] --> [Message]
+[DerivedMemoryManager] --> [HistoryStore]
+[DerivedMemoryManager] --> [PromptLoader]
+[DerivedMemoryManager] --> [LMStudioClient]
+[DerivedMemoryManager] --> [HistoryState]
+[DerivedMemoryManager] --> [Message]
+[PromptAssemblyService] --> [Message]
+[ValidationClient] --> [Message]
 [SummaryManager] --> [memory/] : summary
 [RecentSummaryManager] --> [memory/] : recent summary
 [CanonicalStateManager] --> [memory/] : canonical state
 
-[SummaryManager] --> [HistoryStore]
-[SummaryManager] --> [PromptLoader]
-[SummaryManager] --> [LMStudioClient]
-
-[RecentSummaryManager] --> [HistoryStore]
-[RecentSummaryManager] --> [PromptLoader]
-[RecentSummaryManager] --> [LMStudioClient]
-
-[CanonicalStateManager] --> [HistoryStore]
-[CanonicalStateManager] --> [PromptLoader]
-[CanonicalStateManager] --> [LMStudioClient]
+[SummaryManager] --|> [DerivedMemoryManager]
+[RecentSummaryManager] --|> [DerivedMemoryManager]
+[CanonicalStateManager] --|> [DerivedMemoryManager]
 
 [ResponseGuard] --> [ValidationClient]
 [ResponseGuard] --> [ValidationDecisionParser]

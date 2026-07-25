@@ -4,7 +4,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-final class AppConfig {
+public final class AppConfig {
     private static final String OPTION_TEMPERATURE = "temperature";
     private static final String OPTION_TOP_K = "top_k";
     private static final String OPTION_TOP_P = "top_p";
@@ -60,171 +60,171 @@ final class AppConfig {
         return this;
     }
 
-    String lmStudioUrl() {
+    public String lmStudioUrl() {
         return lmStudioUrl;
     }
 
-    Path baseDir() {
+    public Path baseDir() {
         return baseDir;
     }
 
-    String chatModel() {
+    public String chatModel() {
         return models.chatModel();
     }
 
-    String validatorModel() {
+    public String validatorModel() {
         return models.validatorModel();
     }
 
-    Path systemPromptFile() {
+    public Path systemPromptFile() {
         return files.systemPromptFile();
     }
 
-    Path rulesFile() {
+    public Path rulesFile() {
         return files.rulesFile();
     }
 
-    Path fixedProtagonistsFile() {
+    public Path fixedProtagonistsFile() {
         return files.fixedProtagonistsFile();
     }
 
-    Path fixedProtagonistsContextFile() {
+    public Path fixedProtagonistsContextFile() {
         return files.fixedProtagonistsContextFile();
     }
 
-    Path summaryFile() {
+    public Path summaryFile() {
         return files.summaryFile();
     }
 
-    Path summaryContextFile() {
+    public Path summaryContextFile() {
         return files.summaryContextFile();
     }
 
-    Path recentSummarySystemPromptFile() {
+    public Path recentSummarySystemPromptFile() {
         return files.recentSummarySystemPromptFile();
     }
 
-    Path recentSummaryContextFile() {
+    public Path recentSummaryContextFile() {
         return files.recentSummaryContextFile();
     }
 
-    Path recentSummaryFile() {
+    public Path recentSummaryFile() {
         return files.recentSummaryFile();
     }
 
-    Path summarySystemPromptFile() {
+    public Path summarySystemPromptFile() {
         return files.summarySystemPromptFile();
     }
 
-    Path canonicalStateSystemPromptFile() {
+    public Path canonicalStateSystemPromptFile() {
         return files.canonicalStateSystemPromptFile();
     }
 
-    Path canonicalStateContextFile() {
+    public Path canonicalStateContextFile() {
         return files.canonicalStateContextFile();
     }
 
-    Path validationSystemPromptFile() {
+    public Path validationSystemPromptFile() {
         return files.validationSystemPromptFile();
     }
 
-    Path validationRequestTemplateFile() {
+    public Path validationRequestTemplateFile() {
         return files.validationRequestTemplateFile();
     }
 
-    Path canonicalStateFile() {
+    public Path canonicalStateFile() {
         return files.canonicalStateFile();
     }
 
-    Path historyFile() {
+    public Path historyFile() {
         return files.historyFile();
     }
 
-    Path legacyHistoryFile() {
+    public Path legacyHistoryFile() {
         return files.legacyHistoryFile();
     }
 
-    int maxRecentTurns() {
+    public int maxRecentTurns() {
         return conversation.maxRecentTurns();
     }
 
-    int summaryBatchMessages() {
+    public int summaryBatchMessages() {
         return conversation.summaryBatchMessages();
     }
 
-    int recentSummaryMaxTurns() {
+    public int recentSummaryMaxTurns() {
         return conversation.recentSummaryMaxTurns();
     }
 
-    int recentSummaryBatchMessages() {
+    public int recentSummaryBatchMessages() {
         return conversation.recentSummaryBatchMessages();
     }
 
-    int canonicalStateBatchMessages() {
+    public int canonicalStateBatchMessages() {
         return conversation.canonicalStateBatchMessages();
     }
 
-    int requestTimeoutSeconds() {
+    public int requestTimeoutSeconds() {
         return timeouts.requestTimeoutSeconds();
     }
 
-    int summaryRequestTimeoutSeconds() {
+    public int summaryRequestTimeoutSeconds() {
         return timeouts.summaryRequestTimeoutSeconds();
     }
 
-    int validationRequestTimeoutSeconds() {
+    public int validationRequestTimeoutSeconds() {
         return timeouts.validationRequestTimeoutSeconds();
     }
 
-    boolean hideReasoningBlocks() {
+    public boolean hideReasoningBlocks() {
         return response.hideReasoningBlocks();
     }
 
-    boolean validationEnabled() {
+    public boolean validationEnabled() {
         return response.validationEnabled();
     }
 
-    String validationFailClosedMessage() {
+    public String validationFailClosedMessage() {
         return response.validationFailClosedMessage();
     }
 
-    Map<String, Object> chatOptions() {
+    public Map<String, Object> chatOptions() {
         return options.chatOptions();
     }
 
-    Map<String, Object> summaryOptions() {
+    public Map<String, Object> summaryOptions() {
         return options.summaryOptions();
     }
 
-    Map<String, Object> validationOptions() {
+    public Map<String, Object> validationOptions() {
         return options.validationOptions();
     }
 
-    String continueStoryCommand() {
+    public String continueStoryCommand() {
         return uiText.continueStoryCommand();
     }
 
-    String resetStoryCommand() {
+    public String resetStoryCommand() {
         return uiText.resetStoryCommand();
     }
 
-    String bannerStartText() {
+    public String bannerStartText() {
         return uiText.bannerStartText();
     }
 
-    String shortcutContinueHint() {
+    public String shortcutContinueHint() {
         return uiText.shortcutContinueHint();
     }
 
-    String shortcutResetHint() {
+    public String shortcutResetHint() {
         return uiText.shortcutResetHint();
     }
 
-    String lmStudioRequestErrorText() {
+    public String lmStudioRequestErrorText() {
         return uiText.lmStudioRequestErrorText();
     }
 
-    String processHistoryErrorText() {
+    public String processHistoryErrorText() {
         return uiText.processHistoryErrorText();
     }
 

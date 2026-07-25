@@ -1,14 +1,16 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
+
+import nl.llm.storyteller.AppConfig;
 
 import java.io.IOException;
 
-final class ResponseGuard {
+public final class ResponseGuard {
     private final AppConfig config;
     private final ValidationClient validationClient;
     private final ValidationDecisionParser validationDecisionParser;
     private final ResponseSanitizer responseSanitizer;
 
-    ResponseGuard(ChatClient client, AppConfig config) {
+    public ResponseGuard(ChatClient client, AppConfig config) {
         this(
             config,
             new ValidationClient(client, config),
@@ -17,7 +19,7 @@ final class ResponseGuard {
         );
     }
 
-    ResponseGuard(
+    public ResponseGuard(
         AppConfig config,
         ValidationClient validationClient,
         ValidationDecisionParser validationDecisionParser,
@@ -29,7 +31,7 @@ final class ResponseGuard {
         this.responseSanitizer = responseSanitizer;
     }
 
-    String validate(String validationSystemPrompt, String validationRequest, String assistantResponse)
+    public String validate(String validationSystemPrompt, String validationRequest, String assistantResponse)
         throws IOException, InterruptedException {
         if (!config.validationEnabled()) {
             return responseSanitizer.sanitize(assistantResponse);

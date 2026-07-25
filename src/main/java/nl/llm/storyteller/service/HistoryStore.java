@@ -1,7 +1,10 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.JsonSupport;
+import nl.llm.storyteller.model.HistoryState;
+import nl.llm.storyteller.model.Message;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -13,16 +16,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-final class HistoryStore {
+public final class HistoryStore {
     private final Path path;
     private final Path legacyPath;
 
-    HistoryStore(Path path, Path legacyPath) {
+    public HistoryStore(Path path, Path legacyPath) {
         this.path = path;
         this.legacyPath = legacyPath;
     }
 
-    synchronized HistoryState load() {
+    public synchronized HistoryState load() {
         migrateLegacyHistoryIfNeeded();
 
         if (!Files.exists(path)) {
@@ -52,7 +55,7 @@ final class HistoryStore {
         }
     }
 
-    synchronized void save(HistoryState state) {
+    public synchronized void save(HistoryState state) {
         Map<String, Object> data = new LinkedHashMap<>();
         List<Map<String, String>> messages = state.messages().stream().map(Message::toMap).toList();
         data.put("messages", messages);
@@ -67,7 +70,7 @@ final class HistoryStore {
         }
     }
 
-    synchronized void appendTurn(String userInput, String assistantResponse) {
+    public synchronized void appendTurn(String userInput, String assistantResponse) {
         HistoryState state = load();
         List<Message> messages = new ArrayList<>(state.messages());
         messages.add(new Message("user", userInput));
@@ -75,11 +78,11 @@ final class HistoryStore {
         save(new HistoryState(messages, state.summaryCursor(), state.recentSummaryCursor(), state.canonicalStateCursor()));
     }
 
-    synchronized List<Message> recentMessages(int limitTurns) {
+    public synchronized List<Message> recentMessages(int limitTurns) {
         return sliceRecentCompleteTurns(load().messages(), limitTurns);
     }
 
-    synchronized List<Message> recentMessagesWindow(int totalTurns, int trailingTurnsToExclude) {
+    public synchronized List<Message> recentMessagesWindow(int totalTurns, int trailingTurnsToExclude) {
         List<Message> messages = load().messages();
         List<Message> upToTotalTurns = sliceRecentCompleteTurns(messages, totalTurns);
         if (trailingTurnsToExclude <= 0 || upToTotalTurns.isEmpty()) {
@@ -88,7 +91,7 @@ final class HistoryStore {
 
         List<Message> trailingMessages = sliceRecentCompleteTurns(messages, trailingTurnsToExclude);
         int trailingCount = trailingMessages.size();
-        if (trailingCount <= 0) {
+        if (trailingCount == 0) {
             return upToTotalTurns;
         }
 
@@ -96,19 +99,19 @@ final class HistoryStore {
         return new ArrayList<>(upToTotalTurns.subList(0, endIndexExclusive));
     }
 
-    synchronized void markSummarized(int messagesCount) {
+    public synchronized void markSummarized(int messagesCount) {
         HistoryState state = load();
         int safeCount = Math.min(messagesCount, state.messages().size());
         save(new HistoryState(new ArrayList<>(state.messages()), safeCount, state.recentSummaryCursor(), state.canonicalStateCursor()));
     }
 
-    synchronized void markRecentSummarized(int messagesCount) {
+    public synchronized void markRecentSummarized(int messagesCount) {
         HistoryState state = load();
         int safeCount = Math.min(messagesCount, state.messages().size());
         save(new HistoryState(new ArrayList<>(state.messages()), state.summaryCursor(), safeCount, state.canonicalStateCursor()));
     }
 
-    synchronized void markCanonicalStateUpdated(int messagesCount) {
+    public synchronized void markCanonicalStateUpdated(int messagesCount) {
         HistoryState state = load();
         int safeCount = Math.min(messagesCount, state.messages().size());
         save(new HistoryState(new ArrayList<>(state.messages()), state.summaryCursor(), state.recentSummaryCursor(), safeCount));
