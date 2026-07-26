@@ -5,6 +5,7 @@ import nl.llm.storyteller.service.ChatClient;
 import nl.llm.storyteller.service.ResponseGuard;
 import nl.llm.storyteller.service.ResponseSanitizer;
 import nl.llm.storyteller.service.ValidationDecisionParser;
+import nl.llm.storyteller.service.ValidationOutcome;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,15 +42,14 @@ class ResponseGuardTest {
 
     @Test
     @DisplayName("""
-        Given a validation backend that returns BLOCK,
+        Given a validation backend that returns REPLACE with corrected text,
         When the response guard validates a candidate story response,
-        Then the configured validation fallback message should be returned
+        Then the replacement text should be returned instead of the original candidate response
         """)
-    void shouldReturnFallbackMessageWhenValidationBlocksIt() throws Exception {
-        AppConfig config = AppConfig.load();
+    void shouldReturnReplacementTextWhenValidationRequestsRewrite() throws Exception {
         ResponseGuard responseGuard = new ResponseGuard(
-            new FakeChatClient("BLOCK"),
-            config
+            new FakeChatClient("{\"decision\":\"REPLACE\",\"response\":\"Corrected response\"}"),
+            AppConfig.load()
         );
 
         String validatedResponse = responseGuard.validate(
@@ -58,7 +58,28 @@ class ResponseGuardTest {
             "Candidate response"
         );
 
-        assertEquals(config.validationFailClosedMessage(), validatedResponse);
+        assertEquals("Corrected response", validatedResponse);
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validation backend that returns direct corrected prose without a decision wrapper,
+        When the response guard validates a candidate story response,
+        Then that corrected prose should be treated as replacement text
+        """)
+    void shouldUseDirectRewriteTextWhenValidatorReturnsPlainReplacementText() throws Exception {
+        ResponseGuard responseGuard = new ResponseGuard(
+            new FakeChatClient("Corrected replacement response"),
+            AppConfig.load()
+        );
+
+        String validatedResponse = responseGuard.validate(
+            "validator system prompt",
+            "validator request",
+            "Candidate response"
+        );
+
+        assertEquals("Corrected replacement response", validatedResponse);
     }
 
     @Test
@@ -87,11 +108,12 @@ class ResponseGuardTest {
         delimiter = '|',
         textBlock = """
             ALLOW|ALLOW
+            REPLACE|REPLACE
             BLOCK|BLOCK
             {"decision":"ALLOW"}|ALLOW
-            {"decision":"BLOCK"}|BLOCK
+            {"decision":"REPLACE","response":"fixed"}|REPLACE
             "{\\"decision\\":\\"ALLOW\\"}"|ALLOW
-            validator says BLOCK because of continuity|BLOCK
+            validator says REPLACE because of continuity|REPLACE
             """
     )
     @DisplayName("""
@@ -102,19 +124,52 @@ class ResponseGuardTest {
     void shouldParseValidationDecisionsAcrossDifferentPayloadShapes(String payload, String expectedDecision) {
         ValidationDecisionParser parser = new ValidationDecisionParser();
 
-        assertEquals(expectedDecision, parser.parse(payload));
+        assertEquals(expectedDecision, parser.parse(payload).decision());
     }
 
     @Test
     @DisplayName("""
-        Given a validator payload without a recognizable allow or block decision,
+        Given a validator payload with plain non-empty text and no explicit decision,
         When the validation decision is parsed,
-        Then no decision should be returned
+        Then that text should be treated as replacement content
         """)
-    void shouldReturnNullWhenValidationDecisionCannotBeParsed() {
+    void shouldTreatPlainNonEmptyValidatorTextAsReplacementContent() {
         ValidationDecisionParser parser = new ValidationDecisionParser();
 
-        assertNull(parser.parse("Maybe this is fine."));
+        ValidationOutcome outcome = parser.parse("Maybe this is fine.");
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Maybe this is fine.", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a replace payload with replacement text,
+        When the validation decision is parsed,
+        Then the replacement text should be extracted as part of the validation outcome
+        """)
+    void shouldExtractReplacementTextFromValidationOutcome() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("{\"decision\":\"REPLACE\",\"response\":\"Fixed line\"}");
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Fixed line", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a JSON validator payload without an explicit decision but with replacement text,
+        When the validation decision is parsed,
+        Then it should still be treated as a replace outcome
+        """)
+    void shouldTreatJsonReplacementPayloadWithoutDecisionAsReplace() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("{\"response\":\"Fixed line\"}");
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Fixed line", outcome.replacementText());
     }
 
     @ParameterizedTest

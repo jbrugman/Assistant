@@ -129,7 +129,7 @@ Important settings:
 - `recentSummary.maxRecentTurns=12`
 - `recentSummary.batchMessages=6`
 - `summary.batchMessages=10`
-- `canonicalState.batchMessages=5`
+- `canonicalState.batchMessages=2`
 - `validation.enabled=true`
 
 If a model behaves badly with the rules engine, disable it with:
@@ -139,6 +139,7 @@ validation.enabled=false
 ```
 
 When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
+When validation is enabled, the validator now either returns `ALLOW` or returns corrected replacement text that becomes the final response.
 
 ## Prompt Assembly
 
@@ -173,9 +174,9 @@ Configuration follows the same separation:
 
 Validation is also split into focused parts:
 - [`ValidationClient.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationClient.java): sends the validator prompt to the configured model
-- [`ValidationDecisionParser.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `BLOCK` from structured or plain-text validator output
+- [`ValidationDecisionParser.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
 - [`ResponseSanitizer.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
-- [`ResponseGuard.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts and applies fail-closed behavior
+- [`ResponseGuard.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
 
 The three derived-memory updaters now share one common infrastructure layer:
 - [`DerivedMemoryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination

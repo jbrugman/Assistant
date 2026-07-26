@@ -12,9 +12,13 @@ Always use these top-level keys:
 
 Rules:
 - `world` stores current, confirmed situational facts such as place, time, weather, or directly relevant conditions.
-- `characters` stores the current status of relevant characters, such as location, injuries, consciousness, role changes, or currently relevant inventory.
+- `characters` stores the current status of relevant characters, such as location, injuries, consciousness, role changes, clothing, or currently relevant inventory.
 - `relationships` stores stable or currently defining relationships between relevant characters.
 - `active_threads` stores short entries for current goals, dangers, mysteries, tensions, and unresolved developments.
+- For each relevant character, track current clothing explicitly and concretely whenever it is known from the story.
+- Clothing should be described with exact, scene-relevant specificity, ranging from fully nude to fully dressed, including notable garments, partial undress, changes, removals, or replacements.
+- Do not omit clothing state when the story has established it and it remains relevant to continuity.
+- Do not change clothing in canon unless the story explicitly confirms that the clothing has changed.
 - Set `story_mode` to `reality` unless the story explicitly establishes a different canon.
 - Never promote uncertain, contradictory, or unconfirmed information into canon.
 - Treat fixed protagonists as baseline truth unless the story explicitly changes them.

@@ -31,7 +31,7 @@ else (no)
 
     :ValidationClient sends validator request;
 
-    :ValidationDecisionParser extracts ALLOW or BLOCK;
+    :ValidationDecisionParser extracts ALLOW or REPLACE;
 
     if (response valid?) then (yes)
 
@@ -41,7 +41,7 @@ else (no)
 
     else (no)
 
-      :Print validation fallback message;
+      :Use validator replacement text as final response;
 
     endif
 

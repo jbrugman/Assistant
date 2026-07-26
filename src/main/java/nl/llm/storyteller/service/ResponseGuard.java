@@ -56,13 +56,16 @@ public final class ResponseGuard {
     }
 
     private String applyDecision(String validationResult, String assistantResponse) {
-        String decision = validationDecisionParser.parse(validationResult);
-        if (decision == null) {
+        ValidationOutcome outcome = validationDecisionParser.parse(validationResult);
+        if (outcome == null) {
             return config.validationFailClosedMessage();
         }
 
-        if ("ALLOW".equals(decision)) {
+        if (outcome.isAllow()) {
             return responseSanitizer.sanitize(assistantResponse);
+        }
+        if (outcome.isReplace() && outcome.replacementText() != null && !outcome.replacementText().isBlank()) {
+            return responseSanitizer.sanitize(outcome.replacementText());
         }
         return config.validationFailClosedMessage();
     }
