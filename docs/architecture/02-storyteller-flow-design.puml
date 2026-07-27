@@ -17,9 +17,13 @@ else (no)
 
   :AssistantApp delegates turn to StorySessionService;
 
-  :PromptAssemblyService loads system prompt,\nfixed protagonists, canonical state,\nlong-term summary, recent summary,\nand last raw turns;
+  :PromptResourceLoader loads raw prompt files;
 
-  :PromptAssemblyService builds storyteller prompt stack;
+  :PromptTemplateService formats reusable prompt fragments;
+
+  :PromptAssemblyService coordinates prompt builders;
+
+  :StoryChatPromptBuilder assembles storyteller prompt stack;
 
   :Send prompt to LM Studio chat model;
 
@@ -27,19 +31,21 @@ else (no)
 
   if (validation enabled?) then (yes)
 
-    :Load rules prompt;
+    :ValidationPromptBuilder builds rules validation request;
 
     :ValidationClient sends validator request;
 
     :ValidationDecisionParser extracts ALLOW or REPLACE;
 
-    if (response valid?) then (yes)
+    if (validator returned ALLOW?) then (yes)
 
       :ResponseSanitizer normalizes visible escapes;
 
       :Print final response;
 
     else (no)
+
+      :ResponseSanitizer normalizes replacement text;
 
       :Use validator replacement text as final response;
 

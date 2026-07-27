@@ -12,35 +12,29 @@ public final class AppConfig {
     private static final String OPTION_REPEAT_PENALTY = "repeat_penalty";
 
     private final Path baseDir;
-    private final Models models;
+    private final ModelAccessConfig modelAccess;
     private final FilesConfig files;
     private final ConversationConfig conversation;
     private final TimeoutConfig timeouts;
-    private final ResponseConfig response;
+    private final RuntimeTextConfig runtimeText;
     private final OptionsConfig options;
-    private final String lmStudioUrl;
-    private final UiTextConfig uiText;
 
     private AppConfig(
         Path baseDir,
-        String lmStudioUrl,
-        Models models,
+        ModelAccessConfig modelAccess,
         FilesConfig files,
         ConversationConfig conversation,
         TimeoutConfig timeouts,
-        ResponseConfig response,
-        OptionsConfig options,
-        UiTextConfig uiText
+        RuntimeTextConfig runtimeText,
+        OptionsConfig options
     ) {
         this.baseDir = baseDir;
-        this.lmStudioUrl = lmStudioUrl;
-        this.models = models;
+        this.modelAccess = modelAccess;
         this.files = files;
         this.conversation = conversation;
         this.timeouts = timeouts;
-        this.response = response;
+        this.runtimeText = runtimeText;
         this.options = options;
-        this.uiText = uiText;
     }
 
     static AppConfig load() {
@@ -61,7 +55,7 @@ public final class AppConfig {
     }
 
     public String lmStudioUrl() {
-        return lmStudioUrl;
+        return modelAccess.lmStudioUrl();
     }
 
     public Path baseDir() {
@@ -69,11 +63,11 @@ public final class AppConfig {
     }
 
     public String chatModel() {
-        return models.chatModel();
+        return modelAccess.chatModel();
     }
 
     public String validatorModel() {
-        return models.validatorModel();
+        return modelAccess.validatorModel();
     }
 
     public Path systemPromptFile() {
@@ -177,15 +171,15 @@ public final class AppConfig {
     }
 
     public boolean hideReasoningBlocks() {
-        return response.hideReasoningBlocks();
+        return runtimeText.hideReasoningBlocks();
     }
 
     public boolean validationEnabled() {
-        return response.validationEnabled();
+        return runtimeText.validationEnabled();
     }
 
     public String validationFailClosedMessage() {
-        return response.validationFailClosedMessage();
+        return runtimeText.validationFailClosedMessage();
     }
 
     public Map<String, Object> chatOptions() {
@@ -201,31 +195,31 @@ public final class AppConfig {
     }
 
     public String continueStoryCommand() {
-        return uiText.continueStoryCommand();
+        return runtimeText.continueStoryCommand();
     }
 
     public String resetStoryCommand() {
-        return uiText.resetStoryCommand();
+        return runtimeText.resetStoryCommand();
     }
 
     public String bannerStartText() {
-        return uiText.bannerStartText();
+        return runtimeText.bannerStartText();
     }
 
     public String shortcutContinueHint() {
-        return uiText.shortcutContinueHint();
+        return runtimeText.shortcutContinueHint();
     }
 
     public String shortcutResetHint() {
-        return uiText.shortcutResetHint();
+        return runtimeText.shortcutResetHint();
     }
 
     public String lmStudioRequestErrorText() {
-        return uiText.lmStudioRequestErrorText();
+        return runtimeText.lmStudioRequestErrorText();
     }
 
     public String processHistoryErrorText() {
-        return uiText.processHistoryErrorText();
+        return runtimeText.processHistoryErrorText();
     }
 
     private static Map<String, Object> linkedMapOf(Object... entries) {
@@ -239,8 +233,8 @@ public final class AppConfig {
     static AppConfig from(AppConfigSource source) {
         return new AppConfig(
             source.baseDir(),
-            source.requiredString("lmstudio.url"),
-            new Models(
+            new ModelAccessConfig(
+                source.requiredString("lmstudio.url"),
                 source.optionalTrimmedString("model.chat"),
                 source.optionalTrimmedString("model.validator")
             ),
@@ -275,10 +269,17 @@ public final class AppConfig {
                 source.requiredInt("timeout.summarySeconds"),
                 source.requiredInt("timeout.validationSeconds")
             ),
-            new ResponseConfig(
+            new RuntimeTextConfig(
                 source.requiredBoolean("validation.enabled"),
                 source.requiredBoolean("response.hideReasoningBlocks"),
-                source.requiredString("response.validationFailClosedMessage")
+                source.requiredString("response.validationFailClosedMessage"),
+                source.requiredString("command.continueStory"),
+                source.requiredString("command.resetStory"),
+                source.requiredString("ui.bannerStart"),
+                source.requiredString("ui.shortcutContinueHint"),
+                source.requiredString("ui.shortcutResetHint"),
+                source.requiredString("ui.errorLmStudioRequest"),
+                source.requiredString("ui.errorProcessHistory")
             ),
             new OptionsConfig(
                 linkedMapOf(
@@ -296,20 +297,15 @@ public final class AppConfig {
                     OPTION_TEMPERATURE, source.requiredDouble("validation.temperature"),
                     OPTION_TOP_P, source.requiredDouble("validation.topP")
                 )
-            ),
-            new UiTextConfig(
-                source.requiredString("command.continueStory"),
-                source.requiredString("command.resetStory"),
-                source.requiredString("ui.bannerStart"),
-                source.requiredString("ui.shortcutContinueHint"),
-                source.requiredString("ui.shortcutResetHint"),
-                source.requiredString("ui.errorLmStudioRequest"),
-                source.requiredString("ui.errorProcessHistory")
             )
         ).validate();
     }
 
-    private record Models(String chatModel, String validatorModel) {}
+    private record ModelAccessConfig(
+        String lmStudioUrl,
+        String chatModel,
+        String validatorModel
+    ) {}
 
     private record FilesConfig(
         Path systemPromptFile,
@@ -345,10 +341,17 @@ public final class AppConfig {
         int validationRequestTimeoutSeconds
     ) {}
 
-    private record ResponseConfig(
+    private record RuntimeTextConfig(
         boolean validationEnabled,
         boolean hideReasoningBlocks,
-        String validationFailClosedMessage
+        String validationFailClosedMessage,
+        String continueStoryCommand,
+        String resetStoryCommand,
+        String bannerStartText,
+        String shortcutContinueHint,
+        String shortcutResetHint,
+        String lmStudioRequestErrorText,
+        String processHistoryErrorText
     ) {}
 
     private record OptionsConfig(
@@ -362,14 +365,4 @@ public final class AppConfig {
             validationOptions = Map.copyOf(validationOptions);
         }
     }
-
-    private record UiTextConfig(
-        String continueStoryCommand,
-        String resetStoryCommand,
-        String bannerStartText,
-        String shortcutContinueHint,
-        String shortcutResetHint,
-        String lmStudioRequestErrorText,
-        String processHistoryErrorText
-    ) {}
 }

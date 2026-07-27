@@ -3,6 +3,7 @@ package nl.llm.storyteller.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import nl.llm.storyteller.JsonSupport;
+import nl.llm.storyteller.model.ValidationOutcome;
 
 import java.util.regex.Pattern;
 
@@ -71,7 +72,7 @@ public final class ValidationDecisionParser {
             return new ValidationOutcome(plainMatcher.group(1).toUpperCase(), "");
         }
 
-        String trimmed = validationResult == null ? "" : validationResult.trim();
+        String trimmed = validationResult.trim();
         return trimmed.isBlank() ? null : new ValidationOutcome("REPLACE", trimmed);
     }
 

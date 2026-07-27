@@ -17,7 +17,8 @@ abstract class DerivedMemoryManager {
     protected final HistoryStore historyStore;
     protected final ChatClient client;
     protected final AppConfig config;
-    protected final PromptLoader promptLoader;
+    protected final PromptResourceLoader promptResourceLoader;
+    protected final PromptTemplateService promptTemplateService;
 
     private final ExecutorService executor;
     private final AtomicBoolean running = new AtomicBoolean(false);
@@ -27,13 +28,15 @@ abstract class DerivedMemoryManager {
         HistoryStore historyStore,
         ChatClient client,
         AppConfig config,
-        PromptLoader promptLoader,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
         String workerName
     ) {
         this.historyStore = historyStore;
         this.client = client;
         this.config = config;
-        this.promptLoader = promptLoader;
+        this.promptResourceLoader = promptResourceLoader;
+        this.promptTemplateService = promptTemplateService;
         this.executor = Executors.newSingleThreadExecutor(new DaemonThreadFactory(workerName));
     }
 
@@ -42,7 +45,7 @@ abstract class DerivedMemoryManager {
     }
 
     protected final void triggerUpdateIfNeeded() {
-        if (!isEnabled()) {
+        if (isDisabled()) {
             return;
         }
 
@@ -62,7 +65,7 @@ abstract class DerivedMemoryManager {
     }
 
     protected final String loadMemory(Path path) {
-        if (!isEnabled()) {
+        if (isDisabled()) {
             return "";
         }
         return FileSupport.readTextFile(path);
@@ -81,13 +84,6 @@ abstract class DerivedMemoryManager {
             formattedHistory.append(message.role().toUpperCase()).append(": ").append(message.content());
         }
         return formattedHistory.toString();
-    }
-
-    protected final void addFixedProtagonistsIfPresent(List<Message> messages) {
-        String fixedProtagonists = promptLoader.loadFixedProtagonistsContext();
-        if (!fixedProtagonists.isBlank()) {
-            messages.add(new Message("system", fixedProtagonists));
-        }
     }
 
     private void runJob(DerivedMemoryJob job) {
@@ -117,7 +113,7 @@ abstract class DerivedMemoryManager {
         }
     }
 
-    protected abstract boolean isEnabled();
+    protected abstract boolean isDisabled();
 
     protected abstract DerivedMemoryJob prepareJob();
 

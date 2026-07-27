@@ -1,6 +1,9 @@
-package nl.llm.storyteller.service;
+package nl.llm.storyteller.model;
 
-public record ValidationOutcome(String decision, String replacementText) {
+public record ValidationOutcome(
+  String decision,
+  String replacementText
+) {
     public boolean isAllow() {
         return "ALLOW".equals(decision);
     }

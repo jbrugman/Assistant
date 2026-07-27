@@ -1,15 +1,25 @@
 package nl.llm.storyteller.service;
 
+import nl.llm.storyteller.model.RecentSummaryPromptInput;
 import nl.llm.storyteller.AppConfig;
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class RecentSummaryManager extends DerivedMemoryManager {
-    public RecentSummaryManager(HistoryStore historyStore, ChatClient client, AppConfig config, PromptLoader promptLoader) {
-        super(historyStore, client, config, promptLoader, "recent-summary-worker");
+    private final RecentSummaryPromptBuilder recentSummaryPromptBuilder;
+
+    public RecentSummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        RecentSummaryPromptBuilder recentSummaryPromptBuilder
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "recent-summary-worker");
+        this.recentSummaryPromptBuilder = recentSummaryPromptBuilder;
     }
 
     public String loadRecentSummary() {
@@ -21,8 +31,8 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     }
 
     @Override
-    protected boolean isEnabled() {
-        return config.recentSummaryMaxTurns() > config.maxRecentTurns();
+    protected boolean isDisabled() {
+        return config.recentSummaryMaxTurns() <= config.maxRecentTurns();
     }
 
     @Override
@@ -54,7 +64,9 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
 
     @Override
     protected List<Message> buildUpdateMessages(String existingContent, List<Message> pendingMessages) {
-        return buildRecentSummaryMessages(existingContent, pendingMessages);
+        return recentSummaryPromptBuilder.build(
+            new RecentSummaryPromptInput(existingContent, formatHistory(pendingMessages))
+        );
     }
 
     @Override
@@ -75,24 +87,5 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     @Override
     protected void ignoreFailure() {
         // Recent summary refresh is best-effort and must never interrupt the main chat flow.
-    }
-
-    private List<Message> buildRecentSummaryMessages(String existingRecentSummary, List<Message> pendingMessages) {
-        String currentRecentSummary = (existingRecentSummary == null || existingRecentSummary.isBlank())
-            ? "No recent summary yet."
-            : existingRecentSummary;
-
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", promptLoader.loadRecentSummarySystemPrompt()));
-        addFixedProtagonistsIfPresent(messages);
-
-        messages.add(
-            new Message(
-                "user",
-                "Existing recent summary:\n" + currentRecentSummary + "\n\n"
-                    + "Recent story messages to incorporate:\n" + formatHistory(pendingMessages)
-            )
-        );
-        return messages;
     }
 }

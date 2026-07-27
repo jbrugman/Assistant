@@ -4,6 +4,8 @@ import nl.llm.storyteller.AppConfig;
 
 import java.io.IOException;
 
+import nl.llm.storyteller.model.ValidationOutcome;
+
 public final class ResponseGuard {
     private final AppConfig config;
     private final ValidationClient validationClient;
@@ -32,7 +34,7 @@ public final class ResponseGuard {
     }
 
     public String validate(String validationSystemPrompt, String validationRequest, String assistantResponse)
-        throws IOException, InterruptedException {
+        throws InterruptedException {
         if (!config.validationEnabled()) {
             return responseSanitizer.sanitize(assistantResponse);
         }
@@ -44,7 +46,7 @@ public final class ResponseGuard {
         final String validatedResponse;
         try {
             validatedResponse = validationClient.validate(validationSystemPrompt, validationRequest);
-        } catch (IOException | RuntimeException ex) {
+        } catch (IOException | RuntimeException _) {
             return config.validationFailClosedMessage();
         }
 

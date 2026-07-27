@@ -1,5 +1,6 @@
 package nl.llm.storyteller.service;
 
+import nl.llm.storyteller.model.SummaryPromptInput;
 import nl.llm.storyteller.AppConfig;
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
@@ -8,8 +9,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class SummaryManager extends DerivedMemoryManager {
-    public SummaryManager(HistoryStore historyStore, ChatClient client, AppConfig config, PromptLoader promptLoader) {
-        super(historyStore, client, config, promptLoader, "summary-worker");
+    private final SummaryPromptBuilder summaryPromptBuilder;
+
+    public SummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        SummaryPromptBuilder summaryPromptBuilder
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "summary-worker");
+        this.summaryPromptBuilder = summaryPromptBuilder;
     }
 
     public String loadSummary() {
@@ -21,8 +32,8 @@ public final class SummaryManager extends DerivedMemoryManager {
     }
 
     @Override
-    protected boolean isEnabled() {
-        return true;
+    protected boolean isDisabled() {
+        return false;
     }
 
     @Override
@@ -46,7 +57,7 @@ public final class SummaryManager extends DerivedMemoryManager {
 
     @Override
     protected List<Message> buildUpdateMessages(String existingContent, List<Message> pendingMessages) {
-        return buildSummaryMessages(existingContent, pendingMessages);
+        return summaryPromptBuilder.build(new SummaryPromptInput(existingContent, formatHistory(pendingMessages)));
     }
 
     @Override
@@ -67,24 +78,5 @@ public final class SummaryManager extends DerivedMemoryManager {
     @Override
     protected void ignoreFailure() {
         // Summary refresh is best-effort and must never interrupt the main chat flow.
-    }
-
-    private List<Message> buildSummaryMessages(String existingSummary, List<Message> pendingMessages) {
-        String currentSummary = (existingSummary == null || existingSummary.isBlank())
-            ? "No summary yet."
-            : existingSummary;
-
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", promptLoader.loadSummarySystemPrompt()));
-        addFixedProtagonistsIfPresent(messages);
-
-        messages.add(
-            new Message(
-                "user",
-                "Existing long-term summary:\n" + currentSummary + "\n\n"
-                    + "Older story messages to incorporate:\n" + formatHistory(pendingMessages)
-            )
-        );
-        return messages;
     }
 }

@@ -5,7 +5,7 @@ import nl.llm.storyteller.service.ChatClient;
 import nl.llm.storyteller.service.ResponseGuard;
 import nl.llm.storyteller.service.ResponseSanitizer;
 import nl.llm.storyteller.service.ValidationDecisionParser;
-import nl.llm.storyteller.service.ValidationOutcome;
+import nl.llm.storyteller.model.ValidationOutcome;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

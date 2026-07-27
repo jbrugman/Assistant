@@ -3,12 +3,18 @@ package nl.llm.storyteller;
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
 import nl.llm.storyteller.service.CanonicalStateManager;
+import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.service.ChatClient;
 import nl.llm.storyteller.service.HistoryStore;
 import nl.llm.storyteller.service.PromptAssemblyService;
-import nl.llm.storyteller.service.PromptLoader;
+import nl.llm.storyteller.service.PromptResourceLoader;
+import nl.llm.storyteller.service.PromptTemplateService;
 import nl.llm.storyteller.service.RecentSummaryManager;
+import nl.llm.storyteller.service.RecentSummaryPromptBuilder;
+import nl.llm.storyteller.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.service.SummaryManager;
+import nl.llm.storyteller.service.SummaryPromptBuilder;
+import nl.llm.storyteller.service.ValidationPromptBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -58,19 +64,49 @@ class PromptAssemblyServiceTest {
         FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
         FileSupport.writeTextFile(config.canonicalStateFile(), "CANONICAL STATE");
 
-        PromptLoader promptLoader = new PromptLoader(config);
-        SummaryManager summaryManager = new SummaryManager(historyStore, new NoOpChatClient(), config, promptLoader);
-        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(historyStore, new NoOpChatClient(), config, promptLoader);
-        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(historyStore, new NoOpChatClient(), config, promptLoader);
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+        StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        SummaryManager summaryManager = new SummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
+        );
 
         try {
             PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
-                config,
                 historyStore,
                 summaryManager,
                 recentSummaryManager,
                 canonicalStateManager,
-                promptLoader
+                storyChatPromptBuilder,
+                validationPromptBuilder
             );
 
             List<Message> messages = promptAssemblyService.buildChatMessages("Newest user input");

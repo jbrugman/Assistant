@@ -3,12 +3,18 @@ package nl.llm.storyteller;
 import nl.llm.storyteller.service.CanonicalStateManager;
 import nl.llm.storyteller.service.HistoryStore;
 import nl.llm.storyteller.service.LMStudioClient;
+import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.service.PromptAssemblyService;
-import nl.llm.storyteller.service.PromptLoader;
+import nl.llm.storyteller.service.PromptResourceLoader;
+import nl.llm.storyteller.service.PromptTemplateService;
 import nl.llm.storyteller.service.RecentSummaryManager;
+import nl.llm.storyteller.service.RecentSummaryPromptBuilder;
 import nl.llm.storyteller.service.ResponseGuard;
+import nl.llm.storyteller.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.service.StorySessionService;
 import nl.llm.storyteller.service.SummaryManager;
+import nl.llm.storyteller.service.SummaryPromptBuilder;
+import nl.llm.storyteller.service.ValidationPromptBuilder;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.Binding;
 import org.jline.reader.LineReader;
@@ -55,7 +61,28 @@ public final class AssistantApp {
     private static AppContext createAppContext() {
         AppConfig config = AppConfig.load();
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-        PromptLoader promptLoader = new PromptLoader(config);
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+        StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        SummaryPromptBuilder summaryPromptBuilder = new SummaryPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        RecentSummaryPromptBuilder recentSummaryPromptBuilder = new RecentSummaryPromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
+        CanonicalStatePromptBuilder canonicalStatePromptBuilder = new CanonicalStatePromptBuilder(
+            promptResourceLoader,
+            promptTemplateService
+        );
         LMStudioClient client = new LMStudioClient(
             config.lmStudioUrl(),
             config.chatModel(),
@@ -66,16 +93,27 @@ public final class AssistantApp {
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
-        SummaryManager summaryManager = new SummaryManager(historyStore, client, config, promptLoader);
-        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(historyStore, client, config, promptLoader);
-        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(historyStore, client, config, promptLoader);
-        PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
+        SummaryManager summaryManager = new SummaryManager(
+            historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder
+        );
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
+            historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder
+        );
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
+            historyStore,
+            client,
             config,
+            promptResourceLoader,
+            promptTemplateService,
+            canonicalStatePromptBuilder
+        );
+        PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
             historyStore,
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            promptLoader
+            storyChatPromptBuilder,
+            validationPromptBuilder
         );
         StorySessionService storySessionService = new StorySessionService(
             config,

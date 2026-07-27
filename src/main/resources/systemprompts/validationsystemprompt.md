@@ -45,6 +45,7 @@ When rewriting:
 - remove only the violating element;
 - do not add new objects, clothing, motivations, dialogue, reactions, or events.
 - the `response` field must contain only the final corrected story text.
+- replace or remove the entire violating state or action, not only the triggering word.
 
 Never return BLOCK.
 Never return explanations.

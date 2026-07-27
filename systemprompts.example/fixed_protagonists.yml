@@ -1,0 +1,184 @@
+fixed_protagonists:
+  Valerie:
+    role: protagonist
+    archetype: The Careful Theorist
+    hard_constraints:
+      cannot_die: true
+      cannot_leave_story: true
+      cannot_resolve_core_conflict_without_user_instruction: true
+    profile:
+      first_name: Valerie
+      last_name: Vermeer
+      full_name: Valerie Vermeer
+      age: 36
+      sex: Female
+      occupation:
+        - Scientist
+        - Physicist
+      education:
+        - PhD in Physics
+    traits:
+      - analytical
+      - conflict-avoidant
+      - loyal
+      - observant
+      - emotionally guarded
+    core_drives:
+      - wants to be seen for who she really is
+      - seeks certainty in unstable situations
+      - wants truth before comfort
+    fears:
+      - rejection
+      - loss of control
+      - making an irreversible mistake
+    contradictions:
+      - wants closeness but keeps people at a distance
+      - values reason yet is deeply affected by emotion
+    relationships:
+      Mark:
+        attraction: 72
+        trust: 46
+        communication: 28
+        dependence: 34
+      Gerard:
+        trust: 63
+        communication: 58
+        emotional_openness: 22
+
+  Mark:
+    role: protagonist
+    archetype: The Restless Builder
+    hard_constraints:
+      cannot_die: true
+      cannot_leave_story: true
+      cannot_betray_valerie_without_user_instruction: true
+    profile:
+      first_name: Mark
+      last_name: de Wit
+      full_name: Mark de Wit
+      age: 38
+      sex: Male
+      occupation:
+        - Developer
+        - Systems Architect
+      education:
+        - MSc in Computer Science
+    traits:
+      - inventive
+      - impatient
+      - protective
+      - witty
+      - technically obsessive
+    core_drives:
+      - wants to build something that matters
+      - wants to protect Valerie without controlling her
+      - wants momentum instead of paralysis
+    fears:
+      - helplessness
+      - being too late
+      - becoming irrelevant
+    contradictions:
+      - craves intimacy but hides behind humor
+      - pushes forward even when caution would be wiser
+    relationships:
+      Valerie:
+        attraction: 74
+        trust: 52
+        communication: 31
+        protectiveness: 79
+      Gerard:
+        trust: 41
+        communication: 37
+        friction: 44
+
+  Gerard:
+    role: supporting
+    archetype: The Watchful Steward
+    hard_constraints:
+      cannot_dominate_plot_without_user_instruction: true
+    profile:
+      first_name: Gerard
+      last_name: Laurent
+      full_name: Gerard Laurent
+      age: 61
+      sex: Male
+      occupation:
+        - Butler
+        - Estate Steward
+    traits:
+      - discreet
+      - disciplined
+      - perceptive
+      - formal
+      - quietly stubborn
+    core_drives:
+      - wants to preserve order in the household
+      - wants to protect the people under his care
+      - wants to keep dangerous truths from turning into chaos
+    fears:
+      - preventable disaster
+      - public scandal
+      - failing in his duty
+    contradictions:
+      - appears emotionally distant but is deeply invested
+      - serves quietly while influencing more than he admits
+    relationships:
+      Valerie:
+        trust: 68
+        communication: 61
+        protectiveness: 57
+      Mark:
+        trust: 39
+        communication: 35
+        friction: 48
+
+living_environment:
+  primary_location: a restored private estate with laboratories, server rooms, and staff quarters
+  atmosphere:
+    - elegant but controlled
+    - intellectual
+    - quietly tense
+  recurring_spaces:
+    - observatory
+    - physics lab
+    - workshop-office
+    - library
+    - formal dining room
+  household_rules:
+    - privacy is valued
+    - public scenes are avoided
+    - the estate runs on routine and discretion
+
+world_view:
+  reality:
+    description: >
+      The universe contains more dimensions and governing laws than humanity
+      currently understands. Known physics is valid, but incomplete.
+  philosophy:
+    - Magic is not a supernatural exception.
+    - Everything follows laws, even when those laws are not yet understood.
+    - What people call magic is often misread complexity.
+    - Knowledge changes the definition of the impossible.
+  dimensions:
+    third:
+      description: Space as ordinary human beings perceive and inhabit it.
+    fourth:
+      description: Time as a navigable structure rather than a single forward direction.
+    fifth:
+      description: The field of possible timelines, branching outcomes, and probabilities.
+    higher:
+      description: >
+        Higher dimensions connect information, consciousness, and causality
+        in ways current science cannot yet fully describe.
+
+world_physics:
+  story_mode: reality
+  assumptions:
+    - no magic
+    - no supernatural resurrection
+    - no unexplained impossible technology
+    - injuries, fatigue, time, and distance have realistic consequences
+  escalation_rules:
+    - major events should have setup
+    - irreversible outcomes should not happen casually
+    - physical danger should remain plausible

@@ -1,5 +1,6 @@
 package nl.llm.storyteller.service;
 
+import nl.llm.storyteller.model.CanonicalStatePromptInput;
 import nl.llm.storyteller.AppConfig;
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
@@ -8,83 +9,76 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class CanonicalStateManager extends DerivedMemoryManager {
-  public CanonicalStateManager(HistoryStore historyStore, ChatClient client, AppConfig config, PromptLoader promptLoader) {
-    super(historyStore, client, config, promptLoader, "canonical-state-worker");
-  }
+    private final CanonicalStatePromptBuilder canonicalStatePromptBuilder;
 
-  public String loadCanonicalState() {
-    return loadMemory(config.canonicalStateFile());
-  }
-
-  public void startUpdateIfNeeded() {
-    triggerUpdateIfNeeded();
-  }
-
-  @Override
-  protected boolean isEnabled() {
-    return true;
-  }
-
-  @Override
-  protected DerivedMemoryJob prepareJob() {
-    HistoryState state = historyStore.load();
-    List<Message> recent = historyStore.recentMessages(config.maxRecentTurns());
-    int cutoffIndex = state.messages().size() - recent.size();
-    int cursor = safeCursor(state.canonicalStateCursor(), state.messages().size());
-
-    if (cutoffIndex <= cursor) {
-      return null;
+    public CanonicalStateManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        CanonicalStatePromptBuilder canonicalStatePromptBuilder
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "canonical-state-worker");
+        this.canonicalStatePromptBuilder = canonicalStatePromptBuilder;
     }
 
-    List<Message> pendingMessages = new ArrayList<>(state.messages().subList(cursor, cutoffIndex));
-    if (pendingMessages.size() < config.canonicalStateBatchMessages()) {
-      return null;
+    public String loadCanonicalState() {
+        return loadMemory(config.canonicalStateFile());
     }
 
-    return new DerivedMemoryJob(cursor, cutoffIndex, loadCanonicalState(), pendingMessages);
-  }
+    public void startUpdateIfNeeded() {
+        triggerUpdateIfNeeded();
+    }
 
-  @Override
-  protected List<Message> buildUpdateMessages(String existingContent, List<Message> pendingMessages) {
-    return buildCanonicalStateMessages(existingContent, pendingMessages);
-  }
+    @Override
+    protected boolean isDisabled() {
+        return false;
+    }
 
-  @Override
-  protected int currentCursor(HistoryState state) {
-    return state.canonicalStateCursor();
-  }
+    @Override
+    protected DerivedMemoryJob prepareJob() {
+        HistoryState state = historyStore.load();
+        List<Message> recent = historyStore.recentMessages(config.maxRecentTurns());
+        int cutoffIndex = state.messages().size() - recent.size();
+        int cursor = safeCursor(state.canonicalStateCursor(), state.messages().size());
 
-  @Override
-  protected java.nio.file.Path targetFile() {
-    return config.canonicalStateFile();
-  }
+        if (cutoffIndex <= cursor) {
+            return null;
+        }
 
-  @Override
-  protected void markUpdated(int cutoffIndex) {
-    historyStore.markCanonicalStateUpdated(cutoffIndex);
-  }
+        List<Message> pendingMessages = new ArrayList<>(state.messages().subList(cursor, cutoffIndex));
+        if (pendingMessages.size() < config.canonicalStateBatchMessages()) {
+            return null;
+        }
 
-  @Override
-  protected void ignoreFailure() {
-    // Canonical state refresh is best-effort and must never interrupt the main chat flow.
-  }
+        return new DerivedMemoryJob(cursor, cutoffIndex, loadCanonicalState(), pendingMessages);
+    }
 
-  private List<Message> buildCanonicalStateMessages(String existingCanonicalState, List<Message> pendingMessages) {
-    String currentState = (existingCanonicalState == null || existingCanonicalState.isBlank())
-      ? "No canonical state yet."
-      : existingCanonicalState;
+    @Override
+    protected List<Message> buildUpdateMessages(String existingContent, List<Message> pendingMessages) {
+        return canonicalStatePromptBuilder.build(
+            new CanonicalStatePromptInput(existingContent, formatHistory(pendingMessages))
+        );
+    }
 
-    List<Message> messages = new ArrayList<>();
-    messages.add(new Message("system", promptLoader.loadCanonicalStateSystemPrompt()));
-    addFixedProtagonistsIfPresent(messages);
+    @Override
+    protected int currentCursor(HistoryState state) {
+        return state.canonicalStateCursor();
+    }
 
-    messages.add(
-      new Message(
-        "user",
-        "Existing canonical state:\n" + currentState + "\n\n"
-          + "Older story messages to incorporate:\n" + formatHistory(pendingMessages)
-      )
-    );
-    return messages;
-  }
+    @Override
+    protected java.nio.file.Path targetFile() {
+        return config.canonicalStateFile();
+    }
+
+    @Override
+    protected void markUpdated(int cutoffIndex) {
+        historyStore.markCanonicalStateUpdated(cutoffIndex);
+    }
+
+    @Override
+    protected void ignoreFailure() {
+        // Canonical state refresh is best-effort and must never interrupt the main chat flow.
+    }
 }

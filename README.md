@@ -1,13 +1,19 @@
 # Storyteller
 
-A local Java CLI storyteller that talks to a local OpenAI-compatible chat endpoint, such as LM Studio, Jan.ai, or a similar tool.
-Started as a small Assistant api, but turned in the storyteller assistant, way more fun that way.
+A Java CLI storyteller that talks to an OpenAI-compatible chat endpoint, whether that endpoint runs locally or remotely.
+It started as a small assistant app and gradually evolved into a dedicated storytelling tool.
 
 ## Requirements
 
 - Java 25+
 - Maven
-- A local OpenAI-compatible chat server running with a loaded model, such as LM Studio, Jan.ai, or a similar tool
+- An OpenAI-compatible chat server with a loaded or selectable model, such as LM Studio, Jan.ai, a self-hosted compatible endpoint, or a hosted compatible API
+
+## Recommended Setup
+
+- Recommended development machine: a MacBook M1 with 64 GB of memory
+- Better results usually come from a relatively large mature instruct model, such as `google/gemma-4-26b-a4b-it-qat` at 6-bit quantization with reasoning disabled, using roughly 21.8 GB and a 32K to 48K context window
+- Minimum recommended class: Gemma 4 12B QAT or a roughly comparable model
 
 ## Packaging Behavior
 
@@ -102,6 +108,8 @@ These are compiled into the app from `src/main/resources/systemprompts/`:
 
 If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
+An example override folder is included at [`systemprompts.example/`](/Users/jbrugman/Assistant/systemprompts.example), including an example [`systemprompt.md`](/Users/jbrugman/Assistant/systemprompts.example/systemprompt.md) and a more extensive [`fixed_protagonists.yml`](/Users/jbrugman/Assistant/systemprompts.example/fixed_protagonists.yml) that shows multiple characters plus optional sections such as `living_environment`, `world_view`, `world_physics`, and character-specific `hard_constraints`.
+
 ### Runtime memory
 
 The app reads and writes story memory in `memory/`:
@@ -117,7 +125,7 @@ These files and their parent `memory/` directory may start out missing. The app 
 
 All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
-By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded or default model automatically.
+By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
 
 Configuration is now split into:
 - [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
@@ -163,10 +171,19 @@ This keeps prompt size down while preserving continuity.
 
 ## Runtime Structure
 
-The runtime is now split into two clear layers:
+The runtime responsibilities are now split more explicitly:
 - [`AssistantApp.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AssistantApp.java): terminal bootstrap, shortcut registration, input loop, and formatted output
 - [`StorySessionService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
-- [`PromptAssemblyService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): assembles the chat prompt stack and validation payload from prompts, memory, and recent turns
+- [`PromptAssemblyService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
+
+Prompt responsibilities are now split more explicitly:
+- [`PromptResourceLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptResourceLoader.java): loads raw prompt resources
+- [`PromptTemplateService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptTemplateService.java): formats reusable prompt fragments
+- [`StoryChatPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
+- [`ValidationPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationPromptBuilder.java): builds validator system and user payloads
+- [`SummaryPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
+
+Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/model`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
 
 Configuration follows the same separation:
 - [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
@@ -175,6 +192,7 @@ Configuration follows the same separation:
 Validation is also split into focused parts:
 - [`ValidationClient.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationClient.java): sends the validator prompt to the configured model
 - [`ValidationDecisionParser.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
+- [`ValidationOutcome.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/model/ValidationOutcome.java): compact validation decision model with small decision helpers
 - [`ResponseSanitizer.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
 - [`ResponseGuard.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
 
@@ -182,9 +200,52 @@ The three derived-memory updaters now share one common infrastructure layer:
 - [`DerivedMemoryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination
 - [`SummaryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
 
+## Example usage
+
+The most effective way to use the app is to steer the story with compact, concrete scene instructions. The system prompt, fixed protagonists, canonical state, and validator then help keep the output aligned with the world and character constraints you defined.
+
+```text
+  > It is Saturday morning. Mark wakes up after another restless night. The past week was filled with difficult customer complaints. He feels mentally exhausted. Write the next scene from Mark's perspective. His mild headache subtly influences his observations, thoughts and reactions.
+```
+
+or:
+
+```text
+  > It is Saturday morning. Mark wakes up after another restless night. The past week has been mentally exhausting. The scene is experienced entirely from Mark's perspective. His headache should naturally influence his mood and concentration.
+```
+
+Something like that might return:
+
+```text
+The light behind the curtains is thin, but it still finds me. It presses straight through my eyelids and into the dull ache behind my forehead. For a moment I stay flat on my back, one arm over my eyes, hoping the headache will settle if I refuse to move.
+
+It doesn't.
+
+My phone is on the nightstand. I don't need to pick it up to know what's waiting there. More messages. More follow-up questions. More people treating a complicated system like a vending machine that failed to drop the right snack. Even thinking about the inbox makes my jaw tighten.
+
+I turn my head toward the window too quickly and regret it at once. The room tilts for half a second, just enough to make me close my eyes again. Great. Excellent start.
+
+Somewhere deeper in the house, a door closes softly. Pipes murmur in the walls. The estate is awake in that careful, muted way it always is, as if the building has agreed never to embarrass itself before noon. Normally I like that. Normally it feels controlled. This morning it just makes me aware of how noisy my own head is.
+
+I sit up slowly. The edge of the bed is cold against my legs. My laptop is still open on the desk where I left it, dark screen tilted toward the chair, charger trailing across the floor like an accusation. I try to remember whether I actually solved anything yesterday or just kept moving tasks from one column to another until midnight felt like progress.
+
+The answer comes with another pulse behind my eyes.
+
+Not yet.
+```
+
+## Changelog
+
+- Extracted prompt construction into dedicated builder services for chat, validation, summary, recent summary, and canonical state updates.
+- Added small prompt-input records in `model` so prompt builders no longer depend on long ordered `String` parameter lists.
+- Moved `ValidationOutcome` into the `model` package as a pure decision/result type.
+- Simplified `DerivedMemoryManager` by removing unused prompt helper code and renaming the enablement hook to `isDisabled()` for clearer control flow.
+- Tightened small parser and config cleanups, including the redundant null check in `ValidationDecisionParser` and a smaller top-level `AppConfig` constructor shape.
+- Added a `systemprompts.example/` folder with English example prompt files, including a narrative-engine `systemprompt.md` and a `fixed_protagonists.yml` example with top-level `living_environment`, `world_view`, and `world_physics`.
+- Updated the README and PlantUML diagrams to match the current storyteller prompt and validation architecture.
 
 # Future improvements - TODO's
 
-1. [PromptLoader.java (line 3)](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptLoader.java:3) is still doing more than loading: it also formats prompt templates, injects protagonist data, and builds validation request payloads. Now that prompt assembly moved out of `StorySessionService`, this is the next good extraction candidate.
+1. The tests are still thinner than the orchestration risk profile. The most valuable additions would now be derived-memory refresh cutoffs, background update cursor protection, and more end-to-end validator bypass behavior.
 
-2. The tests are still thinner than the orchestration risk profile. The most valuable additions would now be derived-memory refresh cutoffs, background update cursor protection, and more end-to-end validator bypass behavior.
+2. If prompt variants keep growing further, the next step would likely be a dedicated prompt subpackage or a few richer prompt-domain types once the current small input records stop being enough.

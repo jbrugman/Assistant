@@ -23,7 +23,13 @@ package "Session Flow" {
 }
 
 package "Prompts & Validation" {
-  [PromptLoader]
+  [PromptResourceLoader]
+  [PromptTemplateService]
+  [StoryChatPromptBuilder]
+  [ValidationPromptBuilder]
+  [SummaryPromptBuilder]
+  [RecentSummaryPromptBuilder]
+  [CanonicalStatePromptBuilder]
   [ValidationClient]
   [ValidationDecisionParser]
   [ResponseSanitizer]
@@ -32,6 +38,12 @@ package "Prompts & Validation" {
 package "Model" {
   [Message]
   [HistoryState]
+  [ValidationOutcome]
+  [StoryChatPromptInput]
+  [ValidationPromptInput]
+  [SummaryPromptInput]
+  [RecentSummaryPromptInput]
+  [CanonicalStatePromptInput]
 }
 
 package "Memory" {
@@ -70,19 +82,36 @@ package "Filesystem" {
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [LMStudioClient]
 
-[PromptAssemblyService] --> [AppConfig]
-[PromptAssemblyService] --> [PromptLoader]
 [PromptAssemblyService] --> [HistoryStore]
 [PromptAssemblyService] --> [SummaryManager]
 [PromptAssemblyService] --> [RecentSummaryManager]
 [PromptAssemblyService] --> [CanonicalStateManager]
+[PromptAssemblyService] --> [StoryChatPromptBuilder]
+[PromptAssemblyService] --> [ValidationPromptBuilder]
+[PromptAssemblyService] --> [StoryChatPromptInput]
+[PromptAssemblyService] --> [ValidationPromptInput]
 
-[PromptLoader] --> [systemprompts/]
+[PromptResourceLoader] --> [systemprompts/]
+[PromptTemplateService] --> [PromptResourceLoader]
+[StoryChatPromptBuilder] --> [PromptResourceLoader]
+[StoryChatPromptBuilder] --> [PromptTemplateService]
+[StoryChatPromptBuilder] --> [StoryChatPromptInput]
+[ValidationPromptBuilder] --> [PromptResourceLoader]
+[ValidationPromptBuilder] --> [PromptTemplateService]
+[ValidationPromptBuilder] --> [ValidationPromptInput]
+[SummaryPromptBuilder] --> [PromptResourceLoader]
+[SummaryPromptBuilder] --> [PromptTemplateService]
+[SummaryPromptBuilder] --> [SummaryPromptInput]
+[RecentSummaryPromptBuilder] --> [PromptResourceLoader]
+[RecentSummaryPromptBuilder] --> [PromptTemplateService]
+[RecentSummaryPromptBuilder] --> [RecentSummaryPromptInput]
+[CanonicalStatePromptBuilder] --> [PromptResourceLoader]
+[CanonicalStatePromptBuilder] --> [PromptTemplateService]
+[CanonicalStatePromptBuilder] --> [CanonicalStatePromptInput]
 [HistoryStore] --> [memory/] : history
 [HistoryStore] --> [HistoryState]
 [HistoryStore] --> [Message]
 [DerivedMemoryManager] --> [HistoryStore]
-[DerivedMemoryManager] --> [PromptLoader]
 [DerivedMemoryManager] --> [LMStudioClient]
 [DerivedMemoryManager] --> [HistoryState]
 [DerivedMemoryManager] --> [Message]
@@ -91,6 +120,12 @@ package "Filesystem" {
 [SummaryManager] --> [memory/] : summary
 [RecentSummaryManager] --> [memory/] : recent summary
 [CanonicalStateManager] --> [memory/] : canonical state
+[SummaryManager] --> [SummaryPromptBuilder]
+[SummaryManager] --> [SummaryPromptInput]
+[RecentSummaryManager] --> [RecentSummaryPromptBuilder]
+[RecentSummaryManager] --> [RecentSummaryPromptInput]
+[CanonicalStateManager] --> [CanonicalStatePromptBuilder]
+[CanonicalStateManager] --> [CanonicalStatePromptInput]
 
 [SummaryManager] --|> [DerivedMemoryManager]
 [RecentSummaryManager] --|> [DerivedMemoryManager]
@@ -98,8 +133,10 @@ package "Filesystem" {
 
 [ResponseGuard] --> [ValidationClient]
 [ResponseGuard] --> [ValidationDecisionParser]
+[ResponseGuard] --> [ValidationOutcome]
 [ResponseGuard] --> [ResponseSanitizer]
 [ValidationClient] --> [LMStudioClient]
+[ValidationDecisionParser] --> [ValidationOutcome]
 
 note bottom of [systemprompts/]
 Contains bundled defaults and optional local overrides:
