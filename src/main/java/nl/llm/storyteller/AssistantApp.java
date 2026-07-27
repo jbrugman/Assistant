@@ -9,12 +9,14 @@ import nl.llm.storyteller.service.PromptResourceLoader;
 import nl.llm.storyteller.service.PromptTemplateService;
 import nl.llm.storyteller.service.RecentSummaryManager;
 import nl.llm.storyteller.service.RecentSummaryPromptBuilder;
+import nl.llm.storyteller.service.ResilientChatClient;
 import nl.llm.storyteller.service.ResponseGuard;
 import nl.llm.storyteller.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.service.StorySessionService;
 import nl.llm.storyteller.service.SummaryManager;
 import nl.llm.storyteller.service.SummaryPromptBuilder;
 import nl.llm.storyteller.service.ValidationPromptBuilder;
+import nl.llm.storyteller.service.LlmBackendGuard;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.Binding;
 import org.jline.reader.LineReader;
@@ -83,25 +85,37 @@ public final class AssistantApp {
             promptResourceLoader,
             promptTemplateService
         );
-        LMStudioClient client = new LMStudioClient(
+        LMStudioClient chatDelegate = new LMStudioClient(
             config.lmStudioUrl(),
             config.chatModel(),
             config.hideReasoningBlocks()
         );
-        LMStudioClient validatorClient = new LMStudioClient(
+        LMStudioClient validatorDelegate = new LMStudioClient(
             config.lmStudioUrl(),
             config.validatorModel(),
             config.hideReasoningBlocks()
         );
+        ResilientChatClient chatClient = new ResilientChatClient(
+            chatDelegate,
+            new LlmBackendGuard("Chat backend", config.chatFailureThreshold(), config.chatCooldownSeconds())
+        );
+        ResilientChatClient validatorClient = new ResilientChatClient(
+            validatorDelegate,
+            new LlmBackendGuard("Validation backend", config.validationFailureThreshold(), config.validationCooldownSeconds())
+        );
+        ResilientChatClient backgroundClient = new ResilientChatClient(
+            chatDelegate,
+            new LlmBackendGuard("Background memory backend", config.backgroundFailureThreshold(), config.backgroundCooldownSeconds())
+        );
         SummaryManager summaryManager = new SummaryManager(
-            historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder
+            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder
         );
         RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
-            historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder
+            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder
         );
         CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
             historyStore,
-            client,
+            backgroundClient,
             config,
             promptResourceLoader,
             promptTemplateService,
@@ -118,7 +132,7 @@ public final class AssistantApp {
         StorySessionService storySessionService = new StorySessionService(
             config,
             historyStore,
-            client,
+            chatClient,
             new ResponseGuard(validatorClient, config),
             summaryManager,
             recentSummaryManager,

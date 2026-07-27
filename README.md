@@ -139,7 +139,7 @@ These are compiled into the app from `src/main/resources/systemprompts/`:
 
 If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
-An example override folder is included at [`systemprompts.example/`](/Users/jbrugman/Assistant/systemprompts.example), including an example [`systemprompt.md`](/Users/jbrugman/Assistant/systemprompts.example/systemprompt.md) and a more extensive [`fixed_protagonists.yml`](/Users/jbrugman/Assistant/systemprompts.example/fixed_protagonists.yml) that shows multiple characters plus optional sections such as `living_environment`, `world_view`, `world_physics`, and character-specific `hard_constraints`.
+An example override folder is included at [`systemprompts.example/`](systemprompts.example), including an example [`systemprompt.md`](systemprompts.example/systemprompt.md) and a more extensive [`fixed_protagonists.yml`](systemprompts.example/fixed_protagonists.yml) that shows multiple characters plus optional sections such as `living_environment`, `world_view`, `world_physics`, and character-specific `hard_constraints`.
 
 ### Runtime memory
 
@@ -159,9 +159,9 @@ All default configuration values now come from bundled `application.config`, not
 By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
 
 Configuration is now split into:
-- [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
-- [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): typed access to merged raw properties
-- [`AppConfig.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime view used by the app
+- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
+- [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/AppConfigSource.java): typed access to merged raw properties
+- [`AppConfig.java`](src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime view used by the app
 
 Important settings:
 - `chat.maxRecentTurns=2`
@@ -170,6 +170,12 @@ Important settings:
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=2`
 - `validation.enabled=true`
+- `resilience.chat.failureThreshold=3`
+- `resilience.chat.cooldownSeconds=20`
+- `resilience.validation.failureThreshold=2`
+- `resilience.validation.cooldownSeconds=15`
+- `resilience.background.failureThreshold=2`
+- `resilience.background.cooldownSeconds=60`
 
 If a model behaves badly with the rules engine, disable it with:
 
@@ -179,6 +185,11 @@ validation.enabled=false
 
 When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
 When validation is enabled, the validator now either returns `ALLOW` or returns corrected replacement text that becomes the final response.
+
+The app also uses a small built-in resilience layer around LLM calls:
+- foreground chat calls use a short cooldown-based fail-fast guard
+- validation calls use their own guard and remain independent from the foreground response policy
+- background memory refresh calls use a more aggressive cooldown so repeated summary/state updates stop hammering an unavailable backend
 
 ## Prompt Assembly
 
@@ -200,36 +211,50 @@ The storyteller uses three derived memory layers beside the latest raw turns:
 
 This keeps prompt size down while preserving continuity.
 
+Important runtime detail:
+- the foreground story turn stays synchronous for prompt assembly, model response, validation, and history append
+- the derived-memory refreshes for `summary.md`, `recent-summary.md`, and `canonical-state.yaml` are triggered asynchronously afterward
+- each derived-memory manager runs its own single-threaded background worker, so those LLM calls do not block the user from getting the current story response
+
 ## Runtime Structure
 
 The runtime responsibilities are now split more explicitly:
-- [`AssistantApp.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AssistantApp.java): terminal bootstrap, shortcut registration, input loop, and formatted output
-- [`StorySessionService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
-- [`PromptAssemblyService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
+- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/AssistantApp.java): terminal bootstrap, shortcut registration, input loop, and formatted output
+- [`StorySessionService.java`](src/main/java/nl/llm/storyteller/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
+- [`PromptAssemblyService.java`](src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
 
 Prompt responsibilities are now split more explicitly:
-- [`PromptResourceLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptResourceLoader.java): loads raw prompt resources
-- [`PromptTemplateService.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/PromptTemplateService.java): formats reusable prompt fragments
-- [`StoryChatPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
-- [`ValidationPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationPromptBuilder.java): builds validator system and user payloads
-- [`SummaryPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
+- [`PromptResourceLoader.java`](src/main/java/nl/llm/storyteller/service/PromptResourceLoader.java): loads raw prompt resources
+- [`PromptTemplateService.java`](src/main/java/nl/llm/storyteller/service/PromptTemplateService.java): formats reusable prompt fragments
+- [`StoryChatPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
+- [`ValidationPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/ValidationPromptBuilder.java): builds validator system and user payloads
+- [`SummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](src/main/java/nl/llm/storyteller/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
 
-Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/model`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
+Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/model`](src/main/java/nl/llm/storyteller/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
 
 Configuration follows the same separation:
-- [`AppConfigLoader.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
-- [`AppConfig.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime settings only
+- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
+- [`AppConfig.java`](src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime settings only
 
 Validation is also split into focused parts:
-- [`ValidationClient.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationClient.java): sends the validator prompt to the configured model
-- [`ValidationDecisionParser.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
-- [`ValidationOutcome.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/model/ValidationOutcome.java): compact validation decision model with small decision helpers
-- [`ResponseSanitizer.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
-- [`ResponseGuard.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
+- [`ValidationClient.java`](src/main/java/nl/llm/storyteller/service/ValidationClient.java): sends the validator prompt to the configured model
+- [`ValidationDecisionParser.java`](src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
+- [`ValidationOutcome.java`](src/main/java/nl/llm/storyteller/model/ValidationOutcome.java): compact validation decision model with small decision helpers
+- [`ResponseSanitizer.java`](src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
+- [`ResponseGuard.java`](src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
+
+LLM backend resilience is handled separately:
+- [`ResilientChatClient.java`](src/main/java/nl/llm/storyteller/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
+- [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
 
 The three derived-memory updaters now share one common infrastructure layer:
-- [`DerivedMemoryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination
-- [`SummaryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](/Users/jbrugman/Assistant/src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
+- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination
+- [`SummaryManager.java`](src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
+
+Those background memory refreshes are asynchronous by design:
+- `StorySessionService` triggers them after the current turn has already been appended to history
+- each manager uses its own daemon-backed single-thread executor
+- if a background refresh fails, the current user-facing turn still completes normally
 
 ## Example usage
 
@@ -267,6 +292,11 @@ Not yet.
 
 ## Changelog
 
+### 1.0.2
+- Added more test coverage
+- Added a lightweight resilience layer for repeated LLM backend failures, with separate cooldown policies for chat, validation, and background memory refreshes
+
+### 1.0.1
 - Extracted prompt construction into dedicated builder services for chat, validation, summary, recent summary, and canonical state updates.
 - Added small prompt-input records in `model` so prompt builders no longer depend on long ordered `String` parameter lists.
 - Moved `ValidationOutcome` into the `model` package as a pure decision/result type.
@@ -274,9 +304,3 @@ Not yet.
 - Tightened small parser and config cleanups, including the redundant null check in `ValidationDecisionParser` and a smaller top-level `AppConfig` constructor shape.
 - Added a `systemprompts.example/` folder with English example prompt files, including a narrative-engine `systemprompt.md` and a `fixed_protagonists.yml` example with top-level `living_environment`, `world_view`, and `world_physics`.
 - Updated the README and PlantUML diagrams to match the current storyteller prompt and validation architecture.
-
-# Future improvements - TODO's
-
-1. The tests are still thinner than the orchestration risk profile. The most valuable additions would now be derived-memory refresh cutoffs, background update cursor protection, and more end-to-end validator bypass behavior.
-
-2. If prompt variants keep growing further, the next step would likely be a dedicated prompt subpackage or a few richer prompt-domain types once the current small input records stop being enough.

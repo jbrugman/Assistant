@@ -12,6 +12,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -80,6 +82,32 @@ class ResponseGuardTest {
         );
 
         assertEquals("Corrected replacement response", validatedResponse);
+    }
+
+    @Test
+    @DisplayName("""
+        Given validation is disabled in configuration,
+        When the response guard validates a candidate story response,
+        Then the candidate response should be sanitized and returned without calling the validator backend
+        """)
+    void shouldBypassValidatorBackendWhenValidationIsDisabled() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-validation-disabled");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, "validation.enabled=false");
+
+        ResponseGuard responseGuard = new ResponseGuard(
+            new ThrowingChatClient(),
+            AppConfigLoader.load(baseDirectory, null)
+        );
+
+        String validatedResponse = responseGuard.validate(
+            "validator system prompt",
+            "validator request",
+            "Line one\\nLine two"
+        );
+
+        assertEquals("Line one\nLine two", validatedResponse);
     }
 
     @Test
@@ -197,6 +225,13 @@ class ResponseGuardTest {
         @Override
         public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds) throws IOException {
             return response;
+        }
+    }
+
+    private record ThrowingChatClient() implements ChatClient {
+        @Override
+        public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds) {
+            throw new AssertionError("Validation backend should not be called when validation is disabled.");
         }
     }
 }
