@@ -34,7 +34,7 @@ These numbers are practical estimates, not hard guarantees. Actual memory use de
 
 ## Used Tools / Hardware
 
-- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local and remote LLM backends
+- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local a LLM backend
 - [LM Studio](https://lmstudio.ai/docs/developer) for model management, local serving, and OpenAI-compatible API access
 - [Jan](https://www.jan.ai/docs) for compatibility testing
 - [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
