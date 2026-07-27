@@ -5,10 +5,11 @@
 
   <groupId>nl.llm</groupId>
   <artifactId>storyteller</artifactId>
-  <version>1.0.0</version>
+  <version>${revision}</version>
   <name>storyteller</name>
 
   <properties>
+    <revision>1.0.0</revision>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.22.0</jackson.version>

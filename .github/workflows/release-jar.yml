@@ -1,0 +1,63 @@
+name: Release JAR
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Determine next release version
+        id: version
+        run: |
+          last_tag="$(git tag -l 'v1.0.*' --sort=-version:refname | head -n 1)"
+          if [ -z "$last_tag" ]; then
+            next_patch=1
+          else
+            current_patch="${last_tag#v1.0.}"
+            next_patch=$((current_patch + 1))
+          fi
+          version="1.0.${next_patch}"
+          tag="v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release JAR
+        run: mvn -B -Drevision=${{ steps.version.outputs.version }} clean package
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            gh release upload "${{ steps.version.outputs.tag }}" \
+              "target/storyteller-${{ steps.version.outputs.version }}.jar" \
+              --clobber
+          else
+            gh release create "${{ steps.version.outputs.tag }}" \
+              "target/storyteller-${{ steps.version.outputs.version }}.jar" \
+              --target "${GITHUB_SHA}" \
+              --title "${{ steps.version.outputs.tag }}" \
+              --generate-notes
+          fi

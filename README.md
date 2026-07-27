@@ -34,7 +34,7 @@ These numbers are practical estimates, not hard guarantees. Actual memory use de
 
 ## Used Tools / Hardware
 
-- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local a LLM backend
+- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring using a local llm-server
 - [LM Studio](https://lmstudio.ai/docs/developer) for model management, local serving, and OpenAI-compatible API access
 - [Jan](https://www.jan.ai/docs) for compatibility testing
 - [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
@@ -72,8 +72,12 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.0.0-SNAPSHOT.jar
+java -jar target/storyteller-1.0.0.jar
 ```
+
+The local default build version is `1.0.0`.
+GitHub releases use automatic patch versioning on every push to `main`, producing tags and release jars such as `v1.0.1`, `v1.0.2`, `v1.0.3`, and so on.
+Each push to `main`, including merges from pull requests, automatically builds a release jar and publishes it to GitHub Releases.
 
 ### Native Build
 
