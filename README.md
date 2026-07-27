@@ -261,16 +261,6 @@ The answer comes with another pulse behind my eyes.
 Not yet.
 ```
 
-## Used Tools / Hardware
-
-- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local and remote LLM backends
-- [LM Studio](https://lmstudio.ai/docs/developer) for model management, local serving, and OpenAI-compatible API access
-- [Jan](https://www.jan.ai/docs) for compatibility testing
-- [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
-- [mlx-community/gemma-4-26B-A4B-it-qat-6bit](https://huggingface.co/mlx-community/gemma-4-26B-A4B-it-qat-6bit) for local story-model testing
-- [Qwen/Qwen3-Coder-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) as a local coding model during development
-- MacBook Pro with M1 Max and 64 GB unified memory
-
 ## Changelog
 
 - Extracted prompt construction into dedicated builder services for chat, validation, summary, recent summary, and canonical state updates.
