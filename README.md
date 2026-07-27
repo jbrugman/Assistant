@@ -277,6 +277,4 @@ Not yet.
 
 # Future improvements - TODO's
 
-1. The tests are still thinner than the orchestration risk profile. The most valuable additions would now be derived-memory refresh cutoffs, background update cursor protection, and more end-to-end validator bypass behavior.
-
-2. If prompt variants keep growing further, the next step would likely be a dedicated prompt subpackage or a few richer prompt-domain types once the current small input records stop being enough.
+1. If prompt variants keep growing further, the next step would likely be a dedicated prompt subpackage or a few richer prompt-domain types once the current small input records stop being enough.
