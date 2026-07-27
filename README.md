@@ -5,7 +5,7 @@ It started as a small assistant app and gradually evolved into a dedicated story
 
 A deliberate design choice was to keep the codebase framework-light rather than building it around Spring Boot or Quarkus.
 The goal was to learn about LLM application design, prompting, memory shaping, and validation behavior, not to spend most of the project inside framework infrastructure.
-That choice also helps keep the runtime and source layout comparatively small and easy to inspect.
+That choice also helps keep the runtime and source layout relatively small and easy to inspect.
 
 A LLM handled a meaningful share of the routine implementation work, while I remained responsible for the architecture, direction, constraints, review, and final decisions.
 
@@ -17,9 +17,30 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 
 ## Recommended Setup
 
-- Recommended development machine: a MacBook M1 with 64 GB of memory
-- Better results usually come from a relatively large mature instruct model, such as `google/gemma-4-26b-a4b-it-qat` at 6-bit quantization with reasoning disabled, using roughly 21.8 GB and a 32K to 48K context window
+- Recommended reference machine: MacBook Pro with M1 Max and 64 GB unified memory
+- Better results usually come from a relatively large mature instruct model, such as `google/gemma-4-26b-a4b-it-qat` in a 6-bit MLX quantization with reasoning disabled, using roughly 21.8 GB and a 32K to 48K context window
 - Minimum recommended class: Gemma 4 12B QAT or a roughly comparable model
+- If you have less memory available, the default Gemma 4 26B A4B 4-bit variant is roughly `16 GB`, which makes it practical to experiment with a `32K` context window on a machine such as an M1 Mac with `32 GB` of unified memory
+
+### Note
+
+On the reference machine above, a larger local model such as Gemma 4 26B 6-bit typically uses about `32 to 36 GB` of shared memory in practice:
+
+- about `22 GB` for the model itself
+- about `8 to 12 GB` for a `32K to 48K` context window
+- about `2 GB` for runtime overhead
+
+These numbers are practical estimates, not hard guarantees. Actual memory use depends on the exact quantization, runtime, backend, and context length.
+
+## Used Tools / Hardware
+
+- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local and remote LLM backends
+- [LM Studio](https://lmstudio.ai/docs/developer) for model management, local serving, and OpenAI-compatible API access
+- [Jan](https://www.jan.ai/docs) for compatibility testing
+- [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
+- [mlx-community/gemma-4-26B-A4B-it-qat-6bit](https://huggingface.co/mlx-community/gemma-4-26B-A4B-it-qat-6bit) for local story-model testing
+- [Qwen/Qwen3-Coder-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) as a local coding model during development
+- MacBook Pro with M1 Max and 64 GB unified memory
 
 ## Packaging Behavior
 
@@ -220,7 +241,7 @@ or:
   > It is Saturday morning. Mark wakes up after another restless night. The past week has been mentally exhausting. The scene is experienced entirely from Mark's perspective. His headache should naturally influence his mood and concentration.
 ```
 
-Something like that might return:
+That kind of prompt might return something like:
 
 ```text
 The light behind the curtains is thin, but it still finds me. It presses straight through my eyelids and into the dull ache behind my forehead. For a moment I stay flat on my back, one arm over my eyes, hoping the headache will settle if I refuse to move.
@@ -239,6 +260,16 @@ The answer comes with another pulse behind my eyes.
 
 Not yet.
 ```
+
+## Used Tools / Hardware
+
+- [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring with local and remote LLM backends
+- [LM Studio](https://lmstudio.ai/docs/developer) for model management, local serving, and OpenAI-compatible API access
+- [Jan](https://www.jan.ai/docs) for compatibility testing
+- [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
+- [mlx-community/gemma-4-26B-A4B-it-qat-6bit](https://huggingface.co/mlx-community/gemma-4-26B-A4B-it-qat-6bit) for local story-model testing
+- [Qwen/Qwen3-Coder-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) as a local coding model during development
+- MacBook Pro with M1 Max and 64 GB unified memory
 
 ## Changelog
 
