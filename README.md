@@ -3,12 +3,11 @@
 A Java CLI storyteller that talks to an OpenAI-compatible chat endpoint, whether that endpoint runs locally or remotely.
 It started as a small assistant app and gradually evolved into a dedicated storytelling tool.
 
-The project intentionally avoids heavy application frameworks such as Spring Boot or Quarkus.
-It can be built and run with just Java and Maven, which keeps the runnable application relatively small, keeps startup simple, and makes the architecture easy to inspect.
-That was a deliberate choice: the goal was to learn about LLM application design, prompting, memory shaping, and validation behavior, not to spend most of the project inside framework infrastructure.
+A deliberate design choice was to keep the codebase framework-light rather than building it around Spring Boot or Quarkus.
+The goal was to learn about LLM application design, prompting, memory shaping, and validation behavior, not to spend most of the project inside framework infrastructure.
+That choice also helps keep the runtime and source layout comparatively small and easy to inspect.
 
-A LLM handled a meaningful share of the routine implementation work, while the developer remained responsible for the architecture, direction, constraints, review, and final decisions.
-The source is not using heavy frameworks like Spring-boot or Quarkus, so it can be built and run with just Java and Maven.
+A LLM handled a meaningful share of the routine implementation work, while I remained responsible for the architecture, direction, constraints, review, and final decisions.
 
 ## Requirements
 
