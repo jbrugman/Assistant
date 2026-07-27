@@ -6,62 +6,65 @@ skinparam packageStyle rectangle
 skinparam shadowing false
 skinparam linetype ortho
 
+skinparam package {
+  BorderColor #4B5563
+  FontColor #111827
+  BackgroundColor #F9FAFB
+}
+
+skinparam component {
+  BorderColor #6B7280
+  FontColor #111827
+  BackgroundColor #FFFFFF
+}
+
 package "CLI" {
   [AssistantApp]
 }
 
-package "Configuration" {
+package "Configuration" #E0F2FE {
   [AppConfigLoader]
-  [AppConfigSource]
   [AppConfig]
 }
 
-package "Session Flow" {
+package "Story Session" #DCFCE7 {
   [StorySessionService]
   [PromptAssemblyService]
   [ResponseGuard]
 }
 
-package "Prompts & Validation" {
+package "Prompting" #FEF3C7 {
   [PromptResourceLoader]
   [PromptTemplateService]
-  [StoryChatPromptBuilder]
-  [ValidationPromptBuilder]
-  [SummaryPromptBuilder]
-  [RecentSummaryPromptBuilder]
-  [CanonicalStatePromptBuilder]
-  [ValidationClient]
-  [ValidationDecisionParser]
-  [ResponseSanitizer]
+  [Prompt Builders]
 }
 
-package "Model" {
-  [Message]
-  [HistoryState]
-  [ValidationOutcome]
-  [StoryChatPromptInput]
-  [ValidationPromptInput]
-  [SummaryPromptInput]
-  [RecentSummaryPromptInput]
-  [CanonicalStatePromptInput]
-}
-
-package "Memory" {
-  [DerivedMemoryManager]
+package "Memory" #FCE7F3 {
   [HistoryStore]
+  [DerivedMemoryManager]
   [SummaryManager]
   [RecentSummaryManager]
   [CanonicalStateManager]
 }
 
-package "Model Access" {
+package "Validation" #FEE2E2 {
+  [ValidationClient]
+  [ValidationDecisionParser]
+  [ResponseSanitizer]
+}
+
+package "Model Access" #EDE9FE {
   [LMStudioClient]
 }
 
-package "Filesystem" {
-  [systemprompts/]
-  [memory/]
+package "Model Records" #F3F4F6 {
+  [Message / HistoryState]
+  [Prompt Input Records]
+  [ValidationOutcome]
 }
+
+database "systemprompts/" as SystemPrompts
+database "memory/" as MemoryFiles
 
 [AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
@@ -69,9 +72,8 @@ package "Filesystem" {
 [AssistantApp] --> [RecentSummaryManager] : shutdown
 [AssistantApp] --> [CanonicalStateManager] : shutdown
 
-[AppConfigLoader] --> [AppConfigSource]
 [AppConfigLoader] --> [AppConfig]
-[AppConfigLoader] --> [systemprompts/] : reads application.config
+[AppConfigLoader] --> SystemPrompts : loads defaults and overrides
 
 [StorySessionService] --> [AppConfig]
 [StorySessionService] --> [PromptAssemblyService]
@@ -86,66 +88,45 @@ package "Filesystem" {
 [PromptAssemblyService] --> [SummaryManager]
 [PromptAssemblyService] --> [RecentSummaryManager]
 [PromptAssemblyService] --> [CanonicalStateManager]
-[PromptAssemblyService] --> [StoryChatPromptBuilder]
-[PromptAssemblyService] --> [ValidationPromptBuilder]
-[PromptAssemblyService] --> [StoryChatPromptInput]
-[PromptAssemblyService] --> [ValidationPromptInput]
+[PromptAssemblyService] --> [Prompt Builders]
 
-[PromptResourceLoader] --> [systemprompts/]
+[Prompt Builders] --> [PromptResourceLoader]
+[Prompt Builders] --> [PromptTemplateService]
+[Prompt Builders] --> [Prompt Input Records]
+[PromptResourceLoader] --> SystemPrompts
 [PromptTemplateService] --> [PromptResourceLoader]
-[StoryChatPromptBuilder] --> [PromptResourceLoader]
-[StoryChatPromptBuilder] --> [PromptTemplateService]
-[StoryChatPromptBuilder] --> [StoryChatPromptInput]
-[ValidationPromptBuilder] --> [PromptResourceLoader]
-[ValidationPromptBuilder] --> [PromptTemplateService]
-[ValidationPromptBuilder] --> [ValidationPromptInput]
-[SummaryPromptBuilder] --> [PromptResourceLoader]
-[SummaryPromptBuilder] --> [PromptTemplateService]
-[SummaryPromptBuilder] --> [SummaryPromptInput]
-[RecentSummaryPromptBuilder] --> [PromptResourceLoader]
-[RecentSummaryPromptBuilder] --> [PromptTemplateService]
-[RecentSummaryPromptBuilder] --> [RecentSummaryPromptInput]
-[CanonicalStatePromptBuilder] --> [PromptResourceLoader]
-[CanonicalStatePromptBuilder] --> [PromptTemplateService]
-[CanonicalStatePromptBuilder] --> [CanonicalStatePromptInput]
-[HistoryStore] --> [memory/] : history
-[HistoryStore] --> [HistoryState]
-[HistoryStore] --> [Message]
-[DerivedMemoryManager] --> [HistoryStore]
-[DerivedMemoryManager] --> [LMStudioClient]
-[DerivedMemoryManager] --> [HistoryState]
-[DerivedMemoryManager] --> [Message]
-[PromptAssemblyService] --> [Message]
-[ValidationClient] --> [Message]
-[SummaryManager] --> [memory/] : summary
-[RecentSummaryManager] --> [memory/] : recent summary
-[CanonicalStateManager] --> [memory/] : canonical state
-[SummaryManager] --> [SummaryPromptBuilder]
-[SummaryManager] --> [SummaryPromptInput]
-[RecentSummaryManager] --> [RecentSummaryPromptBuilder]
-[RecentSummaryManager] --> [RecentSummaryPromptInput]
-[CanonicalStateManager] --> [CanonicalStatePromptBuilder]
-[CanonicalStateManager] --> [CanonicalStatePromptInput]
 
 [SummaryManager] --|> [DerivedMemoryManager]
 [RecentSummaryManager] --|> [DerivedMemoryManager]
 [CanonicalStateManager] --|> [DerivedMemoryManager]
+[DerivedMemoryManager] --> [HistoryStore]
+[DerivedMemoryManager] --> [LMStudioClient]
+
+[HistoryStore] --> MemoryFiles
+[SummaryManager] --> MemoryFiles : summary.md
+[RecentSummaryManager] --> MemoryFiles : recent-summary.md
+[CanonicalStateManager] --> MemoryFiles : canonical-state.yaml
 
 [ResponseGuard] --> [ValidationClient]
 [ResponseGuard] --> [ValidationDecisionParser]
-[ResponseGuard] --> [ValidationOutcome]
 [ResponseGuard] --> [ResponseSanitizer]
 [ValidationClient] --> [LMStudioClient]
 [ValidationDecisionParser] --> [ValidationOutcome]
 
-note bottom of [systemprompts/]
-Contains bundled defaults and optional local overrides:
+[HistoryStore] --> [Message / HistoryState]
+[PromptAssemblyService] --> [Message / HistoryState]
+[ValidationClient] --> [Message / HistoryState]
+
+note right of SystemPrompts
+Bundled defaults and optional overrides:
 - application.config
-- prompt markdown files
-- fixed protagonists YAML
+- systemprompt.md
+- rules.md
+- fixed_protagonists.yml
+- summary and validation prompts
 end note
 
-note bottom of [memory/]
+note right of MemoryFiles
 Runtime story state:
 - history.json
 - summary.md
