@@ -33,6 +33,11 @@ package "Story Session" #DCFCE7 {
   [ResponseGuard]
 }
 
+package "Resilience" #DBEAFE {
+  [ResilientChatClient]
+  [LlmBackendGuard]
+}
+
 package "Prompting" #FEF3C7 {
   [PromptResourceLoader]
   [PromptTemplateService]
@@ -45,6 +50,7 @@ package "Memory" #FCE7F3 {
   [SummaryManager]
   [RecentSummaryManager]
   [CanonicalStateManager]
+  [Background Worker Threads]
 }
 
 package "Validation" #FEE2E2 {
@@ -82,7 +88,8 @@ database "memory/" as MemoryFiles
 [StorySessionService] --> [SummaryManager]
 [StorySessionService] --> [RecentSummaryManager]
 [StorySessionService] --> [CanonicalStateManager]
-[StorySessionService] --> [LMStudioClient]
+[StorySessionService] --> [ResilientChatClient]
+[StorySessionService] ..> [Background Worker Threads] : triggers async refreshes
 
 [PromptAssemblyService] --> [HistoryStore]
 [PromptAssemblyService] --> [SummaryManager]
@@ -99,8 +106,11 @@ database "memory/" as MemoryFiles
 [SummaryManager] --|> [DerivedMemoryManager]
 [RecentSummaryManager] --|> [DerivedMemoryManager]
 [CanonicalStateManager] --|> [DerivedMemoryManager]
+[SummaryManager] --> [Background Worker Threads]
+[RecentSummaryManager] --> [Background Worker Threads]
+[CanonicalStateManager] --> [Background Worker Threads]
 [DerivedMemoryManager] --> [HistoryStore]
-[DerivedMemoryManager] --> [LMStudioClient]
+[DerivedMemoryManager] --> [ResilientChatClient]
 
 [HistoryStore] --> MemoryFiles
 [SummaryManager] --> MemoryFiles : summary.md
@@ -110,8 +120,11 @@ database "memory/" as MemoryFiles
 [ResponseGuard] --> [ValidationClient]
 [ResponseGuard] --> [ValidationDecisionParser]
 [ResponseGuard] --> [ResponseSanitizer]
-[ValidationClient] --> [LMStudioClient]
+[ValidationClient] --> [ResilientChatClient]
 [ValidationDecisionParser] --> [ValidationOutcome]
+
+[ResilientChatClient] --> [LlmBackendGuard]
+[ResilientChatClient] --> [LMStudioClient]
 
 [HistoryStore] --> [Message / HistoryState]
 [PromptAssemblyService] --> [Message / HistoryState]
@@ -132,6 +145,18 @@ Runtime story state:
 - summary.md
 - recent-summary.md
 - canonical-state.yaml
+end note
+
+note bottom of [Background Worker Threads]
+Asynchronous after-turn processing:
+- one single-thread worker per derived-memory manager
+- summary, recent summary, and canonical state updates run off the foreground turn path
+end note
+
+note bottom of [LlmBackendGuard]
+Cooldown-based fail-fast behavior:
+- repeated failures open the guard temporarily
+- the next call after cooldown acts as the recovery probe
 end note
 
 @enduml

@@ -15,7 +15,7 @@ public final class AppConfig {
     private final ModelAccessConfig modelAccess;
     private final FilesConfig files;
     private final ConversationConfig conversation;
-    private final TimeoutConfig timeouts;
+    private final ExecutionConfig execution;
     private final RuntimeTextConfig runtimeText;
     private final OptionsConfig options;
 
@@ -24,7 +24,7 @@ public final class AppConfig {
         ModelAccessConfig modelAccess,
         FilesConfig files,
         ConversationConfig conversation,
-        TimeoutConfig timeouts,
+        ExecutionConfig execution,
         RuntimeTextConfig runtimeText,
         OptionsConfig options
     ) {
@@ -32,7 +32,7 @@ public final class AppConfig {
         this.modelAccess = modelAccess;
         this.files = files;
         this.conversation = conversation;
-        this.timeouts = timeouts;
+        this.execution = execution;
         this.runtimeText = runtimeText;
         this.options = options;
     }
@@ -50,6 +50,12 @@ public final class AppConfig {
         }
         if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1) {
             throw new IllegalArgumentException("Batch sizes must all be at least 1.");
+        }
+        if (chatFailureThreshold() < 1 || validationFailureThreshold() < 1 || backgroundFailureThreshold() < 1) {
+            throw new IllegalArgumentException("Resilience failure thresholds must all be at least 1.");
+        }
+        if (chatCooldownSeconds() < 1 || validationCooldownSeconds() < 1 || backgroundCooldownSeconds() < 1) {
+            throw new IllegalArgumentException("Resilience cooldown values must all be at least 1 second.");
         }
         return this;
     }
@@ -159,15 +165,39 @@ public final class AppConfig {
     }
 
     public int requestTimeoutSeconds() {
-        return timeouts.requestTimeoutSeconds();
+        return execution.timeouts().requestTimeoutSeconds();
     }
 
     public int summaryRequestTimeoutSeconds() {
-        return timeouts.summaryRequestTimeoutSeconds();
+        return execution.timeouts().summaryRequestTimeoutSeconds();
     }
 
     public int validationRequestTimeoutSeconds() {
-        return timeouts.validationRequestTimeoutSeconds();
+        return execution.timeouts().validationRequestTimeoutSeconds();
+    }
+
+    public int chatFailureThreshold() {
+        return execution.resilience().chatFailureThreshold();
+    }
+
+    public int chatCooldownSeconds() {
+        return execution.resilience().chatCooldownSeconds();
+    }
+
+    public int validationFailureThreshold() {
+        return execution.resilience().validationFailureThreshold();
+    }
+
+    public int validationCooldownSeconds() {
+        return execution.resilience().validationCooldownSeconds();
+    }
+
+    public int backgroundFailureThreshold() {
+        return execution.resilience().backgroundFailureThreshold();
+    }
+
+    public int backgroundCooldownSeconds() {
+        return execution.resilience().backgroundCooldownSeconds();
     }
 
     public boolean hideReasoningBlocks() {
@@ -264,10 +294,20 @@ public final class AppConfig {
                 source.requiredInt("recentSummary.batchMessages"),
                 source.requiredInt("canonicalState.batchMessages")
             ),
-            new TimeoutConfig(
-                source.requiredInt("timeout.chatSeconds"),
-                source.requiredInt("timeout.summarySeconds"),
-                source.requiredInt("timeout.validationSeconds")
+            new ExecutionConfig(
+                new TimeoutConfig(
+                    source.requiredInt("timeout.chatSeconds"),
+                    source.requiredInt("timeout.summarySeconds"),
+                    source.requiredInt("timeout.validationSeconds")
+                ),
+                new ResilienceConfig(
+                    source.requiredInt("resilience.chat.failureThreshold"),
+                    source.requiredInt("resilience.chat.cooldownSeconds"),
+                    source.requiredInt("resilience.validation.failureThreshold"),
+                    source.requiredInt("resilience.validation.cooldownSeconds"),
+                    source.requiredInt("resilience.background.failureThreshold"),
+                    source.requiredInt("resilience.background.cooldownSeconds")
+                )
             ),
             new RuntimeTextConfig(
                 source.requiredBoolean("validation.enabled"),
@@ -335,10 +375,24 @@ public final class AppConfig {
         int canonicalStateBatchMessages
     ) {}
 
+    private record ExecutionConfig(
+        TimeoutConfig timeouts,
+        ResilienceConfig resilience
+    ) {}
+
     private record TimeoutConfig(
         int requestTimeoutSeconds,
         int summaryRequestTimeoutSeconds,
         int validationRequestTimeoutSeconds
+    ) {}
+
+    private record ResilienceConfig(
+        int chatFailureThreshold,
+        int chatCooldownSeconds,
+        int validationFailureThreshold,
+        int validationCooldownSeconds,
+        int backgroundFailureThreshold,
+        int backgroundCooldownSeconds
     ) {}
 
     private record RuntimeTextConfig(

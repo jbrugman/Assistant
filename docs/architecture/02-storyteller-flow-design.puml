@@ -25,7 +25,9 @@ else (no)
 
   :StoryChatPromptBuilder assembles storyteller prompt stack;
 
-  :Send prompt to LM Studio chat model;
+  :ResilientChatClient checks cooldown guard;
+
+  :Send prompt to LM Studio chat model if backend is available;
 
   :Receive candidate story response;
 
@@ -33,7 +35,7 @@ else (no)
 
     :ValidationPromptBuilder builds rules validation request;
 
-    :ValidationClient sends validator request;
+    :ValidationClient sends validator request through its own resilience guard;
 
     :ValidationDecisionParser extracts ALLOW or REPLACE;
 
@@ -59,13 +61,18 @@ else (no)
 
   :Append user turn and response to history;
 
-  :Trigger canonical state refresh if enough older messages exist;
-
-  :Trigger recent summary refresh if enough recent-window messages exist;
-
-  :Trigger long-term summary refresh if enough older messages exist;
-
   :AssistantApp formats and prints final response;
+
+  fork
+    :Trigger canonical state refresh;
+    :Run canonical state update on background worker thread through background resilience guard if enough older messages exist;
+  fork again
+    :Trigger recent summary refresh;
+    :Run recent summary update on background worker thread through background resilience guard if enough recent-window messages exist;
+  fork again
+    :Trigger long-term summary refresh;
+    :Run long-term summary update on background worker thread through background resilience guard if enough older messages exist;
+  end fork
 
 endif
 

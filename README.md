@@ -170,6 +170,12 @@ Important settings:
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=2`
 - `validation.enabled=true`
+- `resilience.chat.failureThreshold=3`
+- `resilience.chat.cooldownSeconds=20`
+- `resilience.validation.failureThreshold=2`
+- `resilience.validation.cooldownSeconds=15`
+- `resilience.background.failureThreshold=2`
+- `resilience.background.cooldownSeconds=60`
 
 If a model behaves badly with the rules engine, disable it with:
 
@@ -179,6 +185,11 @@ validation.enabled=false
 
 When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
 When validation is enabled, the validator now either returns `ALLOW` or returns corrected replacement text that becomes the final response.
+
+The app also uses a small built-in resilience layer around LLM calls:
+- foreground chat calls use a short cooldown-based fail-fast guard
+- validation calls use their own guard and remain independent from the foreground response policy
+- background memory refresh calls use a more aggressive cooldown so repeated summary/state updates stop hammering an unavailable backend
 
 ## Prompt Assembly
 
@@ -199,6 +210,11 @@ The storyteller uses three derived memory layers beside the latest raw turns:
 - `memory/canonical-state.yaml`: compact confirmed canon
 
 This keeps prompt size down while preserving continuity.
+
+Important runtime detail:
+- the foreground story turn stays synchronous for prompt assembly, model response, validation, and history append
+- the derived-memory refreshes for `summary.md`, `recent-summary.md`, and `canonical-state.yaml` are triggered asynchronously afterward
+- each derived-memory manager runs its own single-threaded background worker, so those LLM calls do not block the user from getting the current story response
 
 ## Runtime Structure
 
@@ -227,9 +243,18 @@ Validation is also split into focused parts:
 - [`ResponseSanitizer.java`](src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
 - [`ResponseGuard.java`](src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
 
+LLM backend resilience is handled separately:
+- [`ResilientChatClient.java`](src/main/java/nl/llm/storyteller/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
+- [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
+
 The three derived-memory updaters now share one common infrastructure layer:
 - [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination
 - [`SummaryManager.java`](src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
+
+Those background memory refreshes are asynchronous by design:
+- `StorySessionService` triggers them after the current turn has already been appended to history
+- each manager uses its own daemon-backed single-thread executor
+- if a background refresh fails, the current user-facing turn still completes normally
 
 ## Example usage
 
@@ -267,6 +292,11 @@ Not yet.
 
 ## Changelog
 
+### 1.0.2
+- Added more test coverage
+- Added a lightweight resilience layer for repeated LLM backend failures, with separate cooldown policies for chat, validation, and background memory refreshes
+
+### 1.0.1
 - Extracted prompt construction into dedicated builder services for chat, validation, summary, recent summary, and canonical state updates.
 - Added small prompt-input records in `model` so prompt builders no longer depend on long ordered `String` parameter lists.
 - Moved `ValidationOutcome` into the `model` package as a pure decision/result type.
@@ -274,4 +304,3 @@ Not yet.
 - Tightened small parser and config cleanups, including the redundant null check in `ValidationDecisionParser` and a smaller top-level `AppConfig` constructor shape.
 - Added a `systemprompts.example/` folder with English example prompt files, including a narrative-engine `systemprompt.md` and a `fixed_protagonists.yml` example with top-level `living_environment`, `world_view`, and `world_physics`.
 - Updated the README and PlantUML diagrams to match the current storyteller prompt and validation architecture.
-- Added more test coverage
