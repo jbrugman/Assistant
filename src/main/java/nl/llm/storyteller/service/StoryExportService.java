@@ -16,6 +16,8 @@ public final class StoryExportService {
     private final HistoryStore historyStore;
     private final Path baseDir;
     private final Clock clock;
+    private static final String ASSISTANT = "assistant";
+    private static final String EXPORT = "# Story Export\n\n";
 
     public StoryExportService(HistoryStore historyStore, Path baseDir) {
         this(historyStore, baseDir, Clock.systemDefaultZone());
@@ -41,11 +43,11 @@ public final class StoryExportService {
     }
 
     private String exportAll(List<Message> messages) {
-        StringBuilder markdown = new StringBuilder("# Story Export\n\n");
+        StringBuilder markdown = new StringBuilder(EXPORT);
         for (Message message : messages) {
             if ("user".equals(message.role())) {
                 appendBlock(markdown, "## Prompt", message.content());
-            } else if ("assistant".equals(message.role())) {
+            } else if (ASSISTANT.equals(message.role())) {
                 appendBlock(markdown, "## Story", message.content());
             }
         }
@@ -53,11 +55,11 @@ public final class StoryExportService {
     }
 
     private String exportIntro(List<Message> messages) {
-        StringBuilder markdown = new StringBuilder("# Story Export\n\n");
+        StringBuilder markdown = new StringBuilder(EXPORT);
         for (Message message : messages) {
             if ("user".equals(message.role())) {
                 markdown.append('*').append(escapeInlineMarkdown(message.content())).append("*\n\n");
-            } else if ("assistant".equals(message.role())) {
+            } else if (ASSISTANT.equals(message.role())) {
                 markdown.append(message.content().trim()).append("\n\n");
             }
         }
@@ -65,9 +67,9 @@ public final class StoryExportService {
     }
 
     private String exportClean(List<Message> messages) {
-        StringBuilder markdown = new StringBuilder("# Story Export\n\n");
+        StringBuilder markdown = new StringBuilder(EXPORT);
         for (Message message : messages) {
-            if ("assistant".equals(message.role())) {
+            if (ASSISTANT.equals(message.role())) {
                 markdown.append(message.content().trim()).append("\n\n");
             }
         }

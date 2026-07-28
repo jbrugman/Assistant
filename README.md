@@ -302,6 +302,12 @@ Not yet.
 
 ## Changelog
 
+### 1.0.3
+- Switched terminal control commands from plain `exit` and `quit` to `/exit` and `/quit`
+- Added Markdown story export commands: `/export`, `/export -intro`, `/export -clean`, and `/export -all`
+- Added `StoryExportService` to export story history into Markdown files in the application working directory
+- Updated the README and PlantUML diagrams to document the new command and export flow
+
 ### 1.0.2
 - Added more test coverage
 - Added a lightweight resilience layer for repeated LLM backend failures, with separate cooldown policies for chat, validation, and background memory refreshes

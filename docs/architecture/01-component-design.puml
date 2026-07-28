@@ -29,6 +29,7 @@ package "Configuration" #E0F2FE {
 
 package "Story Session" #DCFCE7 {
   [StorySessionService]
+  [StoryExportService]
   [PromptAssemblyService]
   [ResponseGuard]
 }
@@ -74,6 +75,7 @@ database "memory/" as MemoryFiles
 
 [AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
+[AssistantApp] --> [StoryExportService]
 [AssistantApp] --> [SummaryManager] : shutdown
 [AssistantApp] --> [RecentSummaryManager] : shutdown
 [AssistantApp] --> [CanonicalStateManager] : shutdown
@@ -90,6 +92,9 @@ database "memory/" as MemoryFiles
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [ResilientChatClient]
 [StorySessionService] ..> [Background Worker Threads] : triggers async refreshes
+
+[StoryExportService] --> [HistoryStore]
+[StoryExportService] --> MemoryFiles : story-export-*.md
 
 [PromptAssemblyService] --> [HistoryStore]
 [PromptAssemblyService] --> [SummaryManager]
@@ -145,6 +150,7 @@ Runtime story state:
 - summary.md
 - recent-summary.md
 - canonical-state.yaml
+- story-export-*.md
 end note
 
 note bottom of [Background Worker Threads]

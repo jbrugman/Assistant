@@ -21,7 +21,7 @@ class LlmBackendGuardTest {
         When another call is attempted during the cooldown window,
         Then the guard should fail fast without calling the backend again
         """)
-    void shouldFailFastAfterConfiguredFailureThreshold() throws Exception {
+    void shouldFailFastAfterConfiguredFailureThreshold() {
         MutableClock clock = new MutableClock(Instant.parse("2026-07-27T10:00:00Z"));
         LlmBackendGuard guard = new LlmBackendGuard("Chat backend", 2, 30, clock);
         AtomicInteger delegateCalls = new AtomicInteger();

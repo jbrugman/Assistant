@@ -43,22 +43,7 @@ class PromptAssemblyServiceTest {
         Files.createDirectories(baseDirectory.resolve("memory"));
 
         AppConfig config = AppConfigLoader.load(baseDirectory, null);
-        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-        historyStore.save(
-            new HistoryState(
-                List.of(
-                    new Message("user", "Older user"),
-                    new Message("assistant", "Older assistant"),
-                    new Message("user", "Recent user 1"),
-                    new Message("assistant", "Recent assistant 1"),
-                    new Message("user", "Recent user 2"),
-                    new Message("assistant", "Recent assistant 2")
-                ),
-                0,
-                0,
-                0
-            )
-        );
+        HistoryStore historyStore = getHistoryStore(config);
 
         FileSupport.writeTextFile(config.summaryFile(), "LONG SUMMARY");
         FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
@@ -131,6 +116,26 @@ class PromptAssemblyServiceTest {
             recentSummaryManager.shutdown();
             canonicalStateManager.shutdown();
         }
+    }
+
+    private static HistoryStore getHistoryStore(AppConfig config) {
+        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
+        historyStore.save(
+            new HistoryState(
+                List.of(
+                    new Message("user", "Older user"),
+                    new Message("assistant", "Older assistant"),
+                    new Message("user", "Recent user 1"),
+                    new Message("assistant", "Recent assistant 1"),
+                    new Message("user", "Recent user 2"),
+                    new Message("assistant", "Recent assistant 2")
+                ),
+                0,
+                0,
+                0
+            )
+        );
+        return historyStore;
     }
 
     private void writeOverride(Path baseDirectory, String relativePath, String content) {

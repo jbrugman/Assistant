@@ -1,8 +1,5 @@
 package nl.llm.storyteller;
 
-import nl.llm.storyteller.AppConfig;
-import nl.llm.storyteller.AppConfigLoader;
-import nl.llm.storyteller.FileSupport;
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
 import nl.llm.storyteller.service.ChatClient;
@@ -23,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -158,7 +157,7 @@ class DerivedMemoryManagerTest {
             client.allowFinish().countDown();
             assertTrue(client.finished().await(5, TimeUnit.SECONDS));
 
-            waitForBackgroundWork();
+            awaitWorkerIdle(summaryManager);
 
             assertEquals("Original summary", FileSupport.readTextFile(context.config().summaryFile()));
             assertEquals(1, context.historyStore().load().summaryCursor());
@@ -202,9 +201,21 @@ class DerivedMemoryManagerTest {
         );
     }
 
-    private void waitForBackgroundWork() throws InterruptedException {
-        for (int attempt = 0; attempt < 20; attempt++) {
-            Thread.sleep(50L);
+    private void awaitWorkerIdle(Object manager) {
+        try {
+            var runningField = manager.getClass().getSuperclass().getDeclaredField("running");
+            runningField.setAccessible(true);
+            AtomicBoolean running = (AtomicBoolean) runningField.get(manager);
+
+            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (running.get()) {
+                if (System.nanoTime() >= deadlineNanos) {
+                    throw new AssertionError("Background worker did not become idle within the timeout.");
+                }
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+            }
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError(ex);
         }
     }
 

@@ -13,6 +13,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StoryExportServiceTest {
@@ -35,7 +36,7 @@ class StoryExportServiceTest {
         StoryExportService exportService = new StoryExportService(
             historyStore,
             baseDirectory,
-            fixedClock("2026-07-28T10:15:30Z")
+            fixedClock()
         );
 
         Path exportFile = exportService.export(StoryExportService.ExportMode.INTRO);
@@ -67,15 +68,15 @@ class StoryExportServiceTest {
         StoryExportService exportService = new StoryExportService(
             historyStore,
             baseDirectory,
-            fixedClock("2026-07-28T10:15:30Z")
+            fixedClock()
         );
 
         String markdown = Files.readString(exportService.export(StoryExportService.ExportMode.CLEAN));
 
         assertTrue(markdown.contains("Story one"));
         assertTrue(markdown.contains("Story two"));
-        assertTrue(!markdown.contains("Prompt one"));
-        assertTrue(!markdown.contains("Prompt two"));
+        assertFalse(markdown.contains("Prompt one"));
+        assertFalse(markdown.contains("Prompt two"));
     }
 
     @Test
@@ -97,7 +98,7 @@ class StoryExportServiceTest {
         StoryExportService exportService = new StoryExportService(
             historyStore,
             baseDirectory,
-            fixedClock("2026-07-28T10:15:30Z")
+            fixedClock()
         );
 
         String markdown = Files.readString(exportService.export(StoryExportService.ExportMode.ALL));
@@ -112,7 +113,7 @@ class StoryExportServiceTest {
         return new HistoryState(List.of(messages), 0, 0, 0);
     }
 
-    private Clock fixedClock(String instant) {
-        return Clock.fixed(Instant.parse(instant), ZoneId.systemDefault());
+    private Clock fixedClock() {
+        return Clock.fixed(Instant.parse("2026-07-28T10:15:30Z"), ZoneId.systemDefault());
     }
 }
