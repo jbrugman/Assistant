@@ -262,6 +262,37 @@ class ResponseGuardTest {
 
     @Test
     @DisplayName("""
+        Given a validator payload wrapped in a full chat completion envelope,
+        When the validation decision is parsed,
+        Then the replacement text should still be extracted from choices message content
+        """)
+    void shouldExtractReplacementTextFromChatCompletionEnvelope() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("""
+            {
+              "id": "chatcmpl-test",
+              "object": "chat.completion",
+              "created": 1785225311,
+              "model": "google/gemma-4-12b-qat",
+              "choices": [
+                {
+                  "index": 0,
+                  "message": {
+                    "role": "assistant",
+                    "content": "REPLACE\\n\\n{\\"decision\\":\\"REPLACE\\",\\"response\\":\\"Corrected response\\"}"
+                  }
+                }
+              ]
+            }
+            """);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Corrected response", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
         Given a replace payload with replacement text,
         When the validation decision is parsed,
         Then the replacement text should be extracted as part of the validation outcome

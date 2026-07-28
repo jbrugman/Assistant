@@ -304,6 +304,7 @@ Not yet.
 
 ### 1.0.4
 - Fixed validator rewrite handling so `REPLACE` responses now use the corrected text instead of falling back to the fail-closed warning message.
+- Made validator parsing more tolerant for smaller or less strict models by supporting wrapped rewrite payloads in `content`, `message.content`, and full chat-completion `choices[0].message.content` envelopes.
 - Added test coverage for plain-text validator rewrite payloads such as `REPLACE: ...` and `REPLACE` followed by corrected text on the next line.
 
 ### 1.0.3

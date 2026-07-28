@@ -5,13 +5,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import nl.llm.storyteller.JsonSupport;
 import nl.llm.storyteller.model.ValidationOutcome;
 
+import java.util.Iterator;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class ValidationDecisionParser {
-    private static final Pattern VALIDATION_DECISION_PATTERN = Pattern.compile(
-        "\"decision\"\\s*:\\s*\"(ALLOW|REPLACE|BLOCK)\"",
-        Pattern.CASE_INSENSITIVE
-    );
+    private static final String ALLOW = "ALLOW";
+    private static final String REPLACE = "REPLACE";
+    private static final String BLOCK = "BLOCK";
     private static final Pattern DECISION_ONLY_PATTERN = Pattern.compile(
         "\\b(ALLOW|REPLACE|BLOCK)\\b",
         Pattern.CASE_INSENSITIVE
@@ -19,75 +20,239 @@ public final class ValidationDecisionParser {
 
     public ValidationOutcome parse(String validationResult) {
         String normalizedPayload = unwrapNestedJsonObject(validationResult);
+        if (normalizedPayload.isBlank()) {
+            return null;
+        }
+
+        boolean replaceRequested = containsDecision(normalizedPayload, REPLACE);
+        if (replaceRequested) {
+            String firstResponse = extractFirstResponseFromRawPayload(normalizedPayload);
+            if (!firstResponse.isBlank()) {
+                return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+            }
+        }
+
         try {
             JsonNode root = JsonSupport.OBJECT_MAPPER.readTree(normalizedPayload);
-            ValidationOutcome structuredOutcome = parseStructuredNode(root, 0);
-            return structuredOutcome != null ? structuredOutcome : parseFallback(normalizedPayload);
-        } catch (JsonProcessingException _) {
-            return parseFallback(normalizedPayload);
-        }
-    }
-
-    private ValidationOutcome parseStructuredNode(JsonNode root, int depth) {
-        if (root == null || depth > 3) {
-            return null;
-        }
-        if (root.isTextual()) {
-            return parseNestedText(root.asText());
-        }
-
-        String decision = root.path("decision").asText("").trim().toUpperCase();
-        if (!decision.isEmpty()) {
-            return new ValidationOutcome(decision, extractReplacementText(root));
-        }
-
-        ValidationOutcome nestedMessageOutcome = parseStructuredNode(root.path("message"), depth + 1);
-        if (nestedMessageOutcome != null) {
-            return nestedMessageOutcome;
-        }
-
-        ValidationOutcome nestedOutputOutcome = parseStructuredNode(root.path("output"), depth + 1);
-        if (nestedOutputOutcome != null) {
-            return nestedOutputOutcome;
-        }
-
-        ValidationOutcome nestedContentOutcome = parseNestedTextField(root, "content");
-        if (nestedContentOutcome != null) {
-            return nestedContentOutcome;
-        }
-
-        ValidationOutcome nestedTextOutcome = parseNestedTextField(root, "text");
-        if (nestedTextOutcome != null) {
-            return nestedTextOutcome;
-        }
-
-        String replacementText = extractReplacementText(root);
-        if (!replacementText.isBlank()) {
-            return new ValidationOutcome("REPLACE", replacementText);
-        }
-        return null;
-    }
-
-    private ValidationOutcome parseNestedTextField(JsonNode root, String fieldName) {
-        JsonNode field = root.path(fieldName);
-        if (!field.isTextual()) {
-            return null;
-        }
-        return parseNestedText(field.asText());
-    }
-
-    private ValidationOutcome parseNestedText(String text) {
-        String normalizedText = unwrapNestedJsonObject(text);
-        try {
-            JsonNode nestedRoot = JsonSupport.OBJECT_MAPPER.readTree(normalizedText);
-            ValidationOutcome structuredOutcome = parseStructuredNode(nestedRoot, 1);
+            ValidationOutcome structuredOutcome = parseStructuredNode(root);
             if (structuredOutcome != null) {
                 return structuredOutcome;
             }
         } catch (JsonProcessingException _) {
-            // Fall back to tolerant plain-text parsing below.
+            // Fall through to tolerant text parsing.
         }
-        return parseFallback(normalizedText);
+
+        if (containsDecision(normalizedPayload, ALLOW)) {
+            return new ValidationOutcome(ALLOW, "");
+        }
+        if (containsDecision(normalizedPayload, BLOCK)) {
+            return new ValidationOutcome(BLOCK, "");
+        }
+        if (replaceRequested) {
+            String trailingReplacement = extractTrailingReplacement(normalizedPayload);
+            if (!trailingReplacement.isBlank()) {
+                return new ValidationOutcome(REPLACE, trailingReplacement);
+            }
+            return new ValidationOutcome(REPLACE, "");
+        }
+
+        return new ValidationOutcome(REPLACE, normalizedPayload.trim());
+    }
+
+    private ValidationOutcome parseStructuredNode(JsonNode root) {
+        if (root == null || root.isMissingNode() || root.isNull()) {
+            return null;
+        }
+        if (root.isTextual()) {
+            return parse(root.asText());
+        }
+        if (root.isArray()) {
+            Iterator<JsonNode> elements = root.elements();
+            while (elements.hasNext()) {
+                ValidationOutcome nestedOutcome = parseStructuredNode(elements.next());
+                if (nestedOutcome != null) {
+                    return nestedOutcome;
+                }
+            }
+            return null;
+        }
+
+        String decision = root.path("decision").asText("").trim().toUpperCase();
+        String firstResponse = findFirstResponseField(root);
+        if (REPLACE.equals(decision) && !firstResponse.isBlank()) {
+            return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+        }
+        if (ALLOW.equals(decision)) {
+            return new ValidationOutcome(ALLOW, "");
+        }
+        if (BLOCK.equals(decision)) {
+            return new ValidationOutcome(BLOCK, "");
+        }
+        if (!firstResponse.isBlank()) {
+            return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+        }
+
+        ValidationOutcome nestedChoicesOutcome = parseStructuredNode(root.path("choices"));
+        if (nestedChoicesOutcome != null) {
+            return nestedChoicesOutcome;
+        }
+
+        ValidationOutcome nestedMessageOutcome = parseStructuredNode(root.path("message"));
+        if (nestedMessageOutcome != null) {
+            return nestedMessageOutcome;
+        }
+
+        ValidationOutcome nestedOutputOutcome = parseStructuredNode(root.path("output"));
+        if (nestedOutputOutcome != null) {
+            return nestedOutputOutcome;
+        }
+
+        JsonNode contentNode = root.path("content");
+        if (contentNode.isTextual()) {
+            ValidationOutcome nestedContentOutcome = parse(contentNode.asText());
+            if (nestedContentOutcome != null) {
+                return nestedContentOutcome;
+            }
+        }
+
+        JsonNode textNode = root.path("text");
+        if (textNode.isTextual()) {
+            ValidationOutcome nestedTextOutcome = parse(textNode.asText());
+            if (nestedTextOutcome != null) {
+                return nestedTextOutcome;
+            }
+        }
+        return null;
+    }
+
+    private boolean containsReplaceSignal(JsonNode root) {
+        String serialized;
+        try {
+            serialized = JsonSupport.OBJECT_MAPPER.writeValueAsString(root);
+        } catch (JsonProcessingException _) {
+            return false;
+        }
+        return containsDecision(serialized, REPLACE);
+    }
+
+    private String findFirstResponseField(JsonNode root) {
+        if (root == null || root.isMissingNode() || root.isNull()) {
+            return "";
+        }
+        if (root.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                if ("response".equals(field.getKey()) && field.getValue().isTextual()) {
+                    return field.getValue().asText("");
+                }
+            }
+            fields = root.fields();
+            while (fields.hasNext()) {
+                String nested = findFirstResponseField(fields.next().getValue());
+                if (!nested.isBlank()) {
+                    return nested;
+                }
+            }
+            return "";
+        }
+        if (root.isArray()) {
+            Iterator<JsonNode> elements = root.elements();
+            while (elements.hasNext()) {
+                String nested = findFirstResponseField(elements.next());
+                if (!nested.isBlank()) {
+                    return nested;
+                }
+            }
+        }
+        return "";
+    }
+
+    private String extractFirstResponseFromRawPayload(String rawPayload) {
+        return extractQuotedFieldValue(rawPayload, "response");
+    }
+
+    private String extractQuotedFieldValue(String rawPayload, String fieldName) {
+        String marker = "\"" + fieldName + "\"";
+        int markerIndex = rawPayload.indexOf(marker);
+        if (markerIndex < 0) {
+            return "";
+        }
+
+        int colonIndex = rawPayload.indexOf(':', markerIndex + marker.length());
+        if (colonIndex < 0) {
+            return "";
+        }
+
+        int quoteIndex = rawPayload.indexOf('"', colonIndex + 1);
+        if (quoteIndex < 0) {
+            return "";
+        }
+
+        StringBuilder value = new StringBuilder();
+        boolean escaping = false;
+        for (int index = quoteIndex + 1; index < rawPayload.length(); index++) {
+            char character = rawPayload.charAt(index);
+            if (escaping) {
+                value.append('\\').append(character);
+                escaping = false;
+                continue;
+            }
+            if (character == '\\') {
+                escaping = true;
+                continue;
+            }
+            if (character == '"') {
+                return value.toString();
+            }
+            value.append(character);
+        }
+        return value.toString();
+    }
+
+    private String unwrapReplacementText(String replacementText) {
+        String normalizedText = unwrapNestedJsonObject(replacementText).trim();
+        if (normalizedText.isBlank()) {
+            return normalizedText;
+        }
+        if (containsDecision(normalizedText, REPLACE)) {
+            String nestedResponse = extractFirstResponseFromRawPayload(normalizedText);
+            if (!nestedResponse.isBlank()) {
+                return unwrapReplacementText(nestedResponse);
+            }
+            String trailingReplacement = extractTrailingReplacement(normalizedText);
+            if (!trailingReplacement.isBlank()) {
+                return trailingReplacement;
+            }
+        }
+        return normalizedText;
+    }
+
+    private String extractTrailingReplacement(String payload) {
+        var matcher = DECISION_ONLY_PATTERN.matcher(payload);
+        if (!matcher.find() || !REPLACE.equals(matcher.group(1).toUpperCase())) {
+            return "";
+        }
+
+        String trailingText = payload.substring(matcher.end()).trim();
+        while (!trailingText.isEmpty() && startsWithSeparator(trailingText.charAt(0))) {
+            trailingText = trailingText.substring(1).trim();
+        }
+        return trailingText;
+    }
+
+    private boolean startsWithSeparator(char character) {
+        return character == ':' || character == '-' || character == '\n' || character == '\r';
+    }
+
+    private boolean containsDecision(String payload, String decision) {
+        var matcher = DECISION_ONLY_PATTERN.matcher(payload);
+        while (matcher.find()) {
+            if (decision.equals(matcher.group(1).toUpperCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String unwrapNestedJsonObject(String raw) {
@@ -109,89 +274,5 @@ public final class ValidationDecisionParser {
             }
         }
         return current;
-    }
-
-    private ValidationOutcome parseFallback(String validationResult) {
-        ValidationOutcome embeddedJsonOutcome = parseEmbeddedJsonOutcome(validationResult);
-        if (embeddedJsonOutcome != null) {
-            return embeddedJsonOutcome;
-        }
-
-        var decisionMatcher = VALIDATION_DECISION_PATTERN.matcher(validationResult);
-        if (decisionMatcher.find()) {
-            return new ValidationOutcome(decisionMatcher.group(1).toUpperCase(), "");
-        }
-
-        var plainMatcher = DECISION_ONLY_PATTERN.matcher(validationResult);
-        if (plainMatcher.find()) {
-            String decision = plainMatcher.group(1).toUpperCase();
-            if ("REPLACE".equals(decision)) {
-                String trailingReplacement = extractTrailingReplacementText(validationResult, plainMatcher.end());
-                if (!trailingReplacement.isBlank()) {
-                    return new ValidationOutcome(decision, trailingReplacement);
-                }
-            }
-            return new ValidationOutcome(decision, "");
-        }
-
-        String trimmed = validationResult.trim();
-        return trimmed.isBlank() ? null : new ValidationOutcome("REPLACE", trimmed);
-    }
-
-    private ValidationOutcome parseEmbeddedJsonOutcome(String validationResult) {
-        int jsonStart = validationResult.indexOf('{');
-        int jsonEnd = validationResult.lastIndexOf('}');
-        if (jsonStart < 0 || jsonEnd <= jsonStart) {
-            return null;
-        }
-
-        String jsonCandidate = validationResult.substring(jsonStart, jsonEnd + 1).trim();
-        try {
-            JsonNode root = JsonSupport.OBJECT_MAPPER.readTree(jsonCandidate);
-            if (root.isTextual()) {
-                return null;
-            }
-
-            String decision = root.path("decision").asText("").trim().toUpperCase();
-            String replacementText = extractReplacementText(root);
-            if (!decision.isEmpty() || !replacementText.isBlank()) {
-                return new ValidationOutcome(
-                    decision.isEmpty() ? "REPLACE" : decision,
-                    replacementText
-                );
-            }
-            return null;
-        } catch (JsonProcessingException _) {
-            return null;
-        }
-    }
-
-    private String extractTrailingReplacementText(String validationResult, int decisionEndIndex) {
-        String trailingText = validationResult.substring(decisionEndIndex).trim();
-        while (!trailingText.isEmpty() && startsWithSeparator(trailingText.charAt(0))) {
-            trailingText = trailingText.substring(1).trim();
-        }
-        return trailingText;
-    }
-
-    private boolean startsWithSeparator(char character) {
-        return character == ':' || character == '-' || character == '\n' || character == '\r';
-    }
-
-    private String extractReplacementText(JsonNode root) {
-        String replacementText = root.path("response").asText("");
-        if (replacementText.isBlank()) {
-            replacementText = root.path("replacement_text").asText("");
-        }
-        if (replacementText.isBlank()) {
-            replacementText = root.path("replacement").asText("");
-        }
-        if (replacementText.isBlank()) {
-            replacementText = root.path("text").asText("");
-        }
-        if (replacementText.isBlank()) {
-            replacementText = root.path("content").asText("");
-        }
-        return replacementText;
     }
 }
