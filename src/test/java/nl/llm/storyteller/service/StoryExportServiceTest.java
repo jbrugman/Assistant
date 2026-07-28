@@ -14,6 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StoryExportServiceTest {
@@ -107,6 +108,45 @@ class StoryExportServiceTest {
         assertTrue(markdown.contains("## Story"));
         assertTrue(markdown.indexOf("Prompt one") < markdown.indexOf("Story one"));
         assertTrue(markdown.indexOf("Prompt two") < markdown.indexOf("Story two"));
+    }
+
+    @Test
+    @DisplayName("""
+        Given no history file exists yet,
+        When a story export is requested,
+        Then a clear error should explain that there is no story history to export
+        """)
+    void shouldFailClearlyWhenNoHistoryExistsYet() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-export-no-history");
+        HistoryStore historyStore = new HistoryStore(baseDirectory.resolve("memory/history.json"), baseDirectory.resolve("memory/history.md"));
+        StoryExportService exportService = new StoryExportService(historyStore, baseDirectory, fixedClock());
+
+        IllegalStateException error = assertThrows(
+            IllegalStateException.class,
+            () -> exportService.export(StoryExportService.ExportMode.INTRO)
+        );
+
+        assertEquals("There is no story history to export yet.", error.getMessage());
+    }
+
+    @Test
+    @DisplayName("""
+        Given an existing but empty history file,
+        When a story export is requested,
+        Then a clear error should explain that there is no story history to export
+        """)
+    void shouldFailClearlyWhenHistoryIsEmpty() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-export-empty-history");
+        HistoryStore historyStore = new HistoryStore(baseDirectory.resolve("memory/history.json"), baseDirectory.resolve("memory/history.md"));
+        historyStore.save(new HistoryState(List.of(), 0, 0, 0));
+        StoryExportService exportService = new StoryExportService(historyStore, baseDirectory, fixedClock());
+
+        IllegalStateException error = assertThrows(
+            IllegalStateException.class,
+            () -> exportService.export(StoryExportService.ExportMode.ALL)
+        );
+
+        assertEquals("There is no story history to export yet.", error.getMessage());
     }
 
     private HistoryState history(Message... messages) {

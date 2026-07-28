@@ -31,6 +31,7 @@ public final class StoryExportService {
 
     public Path export(ExportMode mode) {
         List<Message> messages = historyStore.load().messages();
+        ensureExportable(messages, mode);
         String markdown = switch (mode) {
             case ALL -> exportAll(messages);
             case INTRO -> exportIntro(messages);
@@ -40,6 +41,16 @@ public final class StoryExportService {
         Path output = baseDir.resolve("story-export-" + FILE_TIMESTAMP.format(LocalDateTime.now(clock)) + ".md");
         FileSupport.writeTextFile(output, markdown);
         return output;
+    }
+
+    private void ensureExportable(List<Message> messages, ExportMode mode) {
+        if (messages.isEmpty()) {
+            throw new IllegalStateException("There is no story history to export yet.");
+        }
+
+        if (mode == ExportMode.CLEAN && messages.stream().noneMatch(message -> ASSISTANT.equals(message.role()))) {
+            throw new IllegalStateException("There is no assistant story output to export yet.");
+        }
     }
 
     private String exportAll(List<Message> messages) {
