@@ -170,6 +170,96 @@ class ResponseGuardTest {
         assertEquals("Maybe this is fine.", outcome.replacementText());
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        textBlock = """
+            'REPLACE: Fixed line'|Fixed line
+            'REPLACE - Fixed line'|Fixed line
+            """
+    )
+    @DisplayName("""
+        Given a validator payload that starts with REPLACE followed by corrected prose on the same line,
+        When the validation decision is parsed,
+        Then the corrected prose should be preserved as replacement text
+        """)
+    void shouldExtractTrailingReplacementTextAfterReplaceDecisionOnSameLine(String payload, String expectedReplacement) {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse(payload);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals(expectedReplacement, outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validator payload that starts with REPLACE followed by corrected prose on the next line,
+        When the validation decision is parsed,
+        Then the corrected prose should be preserved as replacement text
+        """)
+    void shouldExtractTrailingReplacementTextAfterReplaceDecisionOnNextLine() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("REPLACE\nFixed line");
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Fixed line", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validator payload with a leading REPLACE marker and an embedded JSON rewrite response,
+        When the validation decision is parsed,
+        Then the embedded replacement response should be extracted and used
+        """)
+    void shouldExtractReplacementTextFromEmbeddedJsonAfterReplaceMarker() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("""
+            REPLACE
+
+            {"decision":"REPLACE","response":"Corrected response"}
+            """);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Corrected response", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validator payload wrapped in a top-level content field,
+        When the validation decision is parsed,
+        Then the nested rewrite response should still be extracted
+        """)
+    void shouldExtractReplacementTextFromTopLevelContentWrapper() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("""
+            {"content":"REPLACE\\n\\n{\\"decision\\":\\"REPLACE\\",\\"response\\":\\"Corrected response\\"}"}
+            """);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Corrected response", outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validator payload wrapped in a nested message content field,
+        When the validation decision is parsed,
+        Then the nested rewrite response should still be extracted
+        """)
+    void shouldExtractReplacementTextFromNestedMessageContentWrapper() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("""
+            {"message":{"role":"assistant","content":"REPLACE\\n\\n{\\"decision\\":\\"REPLACE\\",\\"response\\":\\"Corrected response\\"}"}}
+            """);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Corrected response", outcome.replacementText());
+    }
+
     @Test
     @DisplayName("""
         Given a replace payload with replacement text,

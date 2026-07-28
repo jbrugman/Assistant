@@ -43,11 +43,7 @@ class StoryExportServiceTest {
         Path exportFile = exportService.export(StoryExportService.ExportMode.INTRO);
         String markdown = Files.readString(exportFile);
 
-<<<<<<< Updated upstream
-        assertTrue(exportFile.getFileName().toString().startsWith("story-export-20260728-"));
-=======
         assertTrue(exportFile.getFileName().toString().startsWith("story-export-"));
->>>>>>> Stashed changes
         assertTrue(exportFile.getFileName().toString().endsWith(".md"));
         assertTrue(markdown.contains("*Write the next scene.*"));
         assertTrue(markdown.contains("The room was quiet."));
