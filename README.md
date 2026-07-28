@@ -116,6 +116,16 @@ java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 
 On macOS, `Cmd-G` and `Cmd-W` only work if the terminal forwards those key combinations as meta or escape input.
 
+## Commands
+
+- `/exit` or `/quit`: leave the application
+- `/export`: export the story as Markdown with user prompts in italic
+- `/export -intro`: same as `/export`, with user prompts in italic between story sections
+- `/export -clean`: export only assistant story output
+- `/export -all`: export user prompts and assistant output chronologically with explicit headings
+
+Exports are written as Markdown files in the application working directory.
+
 ## Runtime Files
 
 ### Bundled defaults

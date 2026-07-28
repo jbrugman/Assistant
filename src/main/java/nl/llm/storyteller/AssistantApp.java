@@ -12,6 +12,7 @@ import nl.llm.storyteller.service.RecentSummaryPromptBuilder;
 import nl.llm.storyteller.service.ResilientChatClient;
 import nl.llm.storyteller.service.ResponseGuard;
 import nl.llm.storyteller.service.StoryChatPromptBuilder;
+import nl.llm.storyteller.service.StoryExportService;
 import nl.llm.storyteller.service.StorySessionService;
 import nl.llm.storyteller.service.SummaryManager;
 import nl.llm.storyteller.service.SummaryPromptBuilder;
@@ -34,8 +35,12 @@ import java.util.regex.Pattern;
 
 public final class AssistantApp {
     private static final String APP_NAME = "storyteller";
-    private static final String EXIT_COMMAND = "exit";
-    private static final String QUIT_COMMAND = "quit";
+    private static final String EXIT_COMMAND = "/exit";
+    private static final String QUIT_COMMAND = "/quit";
+    private static final String EXPORT_COMMAND = "/export";
+    private static final String EXPORT_ALL_OPTION = "-all";
+    private static final String EXPORT_INTRO_OPTION = "-intro";
+    private static final String EXPORT_CLEAN_OPTION = "-clean";
     private static final String CONTINUE_STORY_WIDGET = "continue-story";
     private static final String RESET_WIDGET = "reset-behavior";
     private static final int DISPLAY_MARGIN = 2;
@@ -144,7 +149,8 @@ public final class AssistantApp {
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            storySessionService
+            storySessionService,
+            new StoryExportService(historyStore, config.baseDir())
         );
     }
 
@@ -198,6 +204,7 @@ public final class AssistantApp {
     private static void printBanner(Terminal terminal, PrintWriter output, AppConfig config) {
         output.println(formatForDisplay(
             config.bannerStartText() + " "
+                + config.commandHelpText() + " "
                 + config.shortcutContinueHint() + " "
                 + config.shortcutResetHint(),
             terminal
@@ -211,6 +218,9 @@ public final class AssistantApp {
         while ((userInput = readUserInput(reader)) != null) {
             if (shouldExit(userInput)) {
                 return;
+            }
+            if (handleCommand(userInput, terminal, output, context)) {
+                continue;
             }
             if (!userInput.isEmpty() && !handleUserTurn(userInput, terminal, output, context)) {
                 return;
@@ -232,6 +242,45 @@ public final class AssistantApp {
 
     private static boolean shouldExit(String userInput) {
         return EXIT_COMMAND.equalsIgnoreCase(userInput) || QUIT_COMMAND.equalsIgnoreCase(userInput);
+    }
+
+    private static boolean handleCommand(String userInput, Terminal terminal, PrintWriter output, AppContext context) {
+        if (!userInput.startsWith(EXPORT_COMMAND)) {
+            return false;
+        }
+
+        StoryExportService.ExportMode exportMode = parseExportMode(userInput);
+        if (exportMode == null) {
+            printError(
+                terminal,
+                output,
+                "Export command error",
+                "Use /export, /export -intro, /export -clean, or /export -all."
+            );
+            return true;
+        }
+
+        try {
+            var path = context.storyExportService().export(exportMode);
+            printMessage(terminal, output, "Story exported to " + path.getFileName());
+        } catch (RuntimeException ex) {
+            printError(terminal, output, context.config().processHistoryErrorText(), ex.getMessage());
+        }
+        return true;
+    }
+
+    private static StoryExportService.ExportMode parseExportMode(String userInput) {
+        String trimmed = userInput.trim();
+        if (EXPORT_COMMAND.equalsIgnoreCase(trimmed) || (EXPORT_COMMAND + " " + EXPORT_INTRO_OPTION).equalsIgnoreCase(trimmed)) {
+            return StoryExportService.ExportMode.INTRO;
+        }
+        if ((EXPORT_COMMAND + " " + EXPORT_ALL_OPTION).equalsIgnoreCase(trimmed)) {
+            return StoryExportService.ExportMode.ALL;
+        }
+        if ((EXPORT_COMMAND + " " + EXPORT_CLEAN_OPTION).equalsIgnoreCase(trimmed)) {
+            return StoryExportService.ExportMode.CLEAN;
+        }
+        return null;
     }
 
     private static boolean handleUserTurn(String userInput, Terminal terminal, PrintWriter output, AppContext context) {
@@ -340,6 +389,7 @@ public final class AssistantApp {
         SummaryManager summaryManager,
         RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,
-        StorySessionService storySessionService
+        StorySessionService storySessionService,
+        StoryExportService storyExportService
     ) {}
 }
