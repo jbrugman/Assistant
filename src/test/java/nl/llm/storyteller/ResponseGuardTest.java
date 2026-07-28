@@ -170,6 +170,43 @@ class ResponseGuardTest {
         assertEquals("Maybe this is fine.", outcome.replacementText());
     }
 
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = '|',
+        textBlock = """
+            'REPLACE: Fixed line'|Fixed line
+            'REPLACE - Fixed line'|Fixed line
+            """
+    )
+    @DisplayName("""
+        Given a validator payload that starts with REPLACE followed by corrected prose on the same line,
+        When the validation decision is parsed,
+        Then the corrected prose should be preserved as replacement text
+        """)
+    void shouldExtractTrailingReplacementTextAfterReplaceDecisionOnSameLine(String payload, String expectedReplacement) {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse(payload);
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals(expectedReplacement, outcome.replacementText());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a validator payload that starts with REPLACE followed by corrected prose on the next line,
+        When the validation decision is parsed,
+        Then the corrected prose should be preserved as replacement text
+        """)
+    void shouldExtractTrailingReplacementTextAfterReplaceDecisionOnNextLine() {
+        ValidationDecisionParser parser = new ValidationDecisionParser();
+
+        ValidationOutcome outcome = parser.parse("REPLACE\nFixed line");
+
+        assertEquals("REPLACE", outcome.decision());
+        assertEquals("Fixed line", outcome.replacementText());
+    }
+
     @Test
     @DisplayName("""
         Given a replace payload with replacement text,

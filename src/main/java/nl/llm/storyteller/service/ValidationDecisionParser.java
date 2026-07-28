@@ -69,11 +69,30 @@ public final class ValidationDecisionParser {
 
         var plainMatcher = DECISION_ONLY_PATTERN.matcher(validationResult);
         if (plainMatcher.find()) {
-            return new ValidationOutcome(plainMatcher.group(1).toUpperCase(), "");
+            String decision = plainMatcher.group(1).toUpperCase();
+            if ("REPLACE".equals(decision)) {
+                String trailingReplacement = extractTrailingReplacementText(validationResult, plainMatcher.end());
+                if (!trailingReplacement.isBlank()) {
+                    return new ValidationOutcome(decision, trailingReplacement);
+                }
+            }
+            return new ValidationOutcome(decision, "");
         }
 
         String trimmed = validationResult.trim();
         return trimmed.isBlank() ? null : new ValidationOutcome("REPLACE", trimmed);
+    }
+
+    private String extractTrailingReplacementText(String validationResult, int decisionEndIndex) {
+        String trailingText = validationResult.substring(decisionEndIndex).trim();
+        while (!trailingText.isEmpty() && startsWithSeparator(trailingText.charAt(0))) {
+            trailingText = trailingText.substring(1).trim();
+        }
+        return trailingText;
+    }
+
+    private boolean startsWithSeparator(char character) {
+        return character == ':' || character == '-' || character == '\n' || character == '\r';
     }
 
     private String extractReplacementText(JsonNode root) {

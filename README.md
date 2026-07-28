@@ -302,6 +302,10 @@ Not yet.
 
 ## Changelog
 
+### 1.0.4
+- Fixed validator rewrite handling so `REPLACE` responses now use the corrected text instead of falling back to the fail-closed warning message.
+- Added test coverage for plain-text validator rewrite payloads such as `REPLACE: ...` and `REPLACE` followed by corrected text on the next line.
+
 ### 1.0.3
 - Switched terminal control commands from plain `exit` and `quit` to `/exit` and `/quit`
 - Added Markdown story export commands: `/export`, `/export -intro`, `/export -clean`, and `/export -all`
