@@ -9,70 +9,80 @@ start
 
 :Read user input;
 
-if (exit command?) then (yes)
+if (/exit or /quit?) then (yes)
 
   stop
 
 else (no)
 
-  :AssistantApp delegates turn to StorySessionService;
+  if (/export command?) then (yes)
 
-  :PromptResourceLoader loads raw prompt files;
-
-  :PromptTemplateService formats reusable prompt fragments;
-
-  :PromptAssemblyService coordinates prompt builders;
-
-  :StoryChatPromptBuilder assembles storyteller prompt stack;
-
-  :ResilientChatClient checks cooldown guard;
-
-  :Send prompt to LM Studio chat model if backend is available;
-
-  :Receive candidate story response;
-
-  if (validation enabled?) then (yes)
-
-    :ValidationPromptBuilder builds rules validation request;
-
-    :ValidationClient sends validator request through its own resilience guard;
-
-    :ValidationDecisionParser extracts ALLOW or REPLACE;
-
-    if (validator returned ALLOW?) then (yes)
-
-      :ResponseSanitizer normalizes visible escapes;
-
-      :Print final response;
-
-    else (no)
-
-      :ResponseSanitizer normalizes replacement text;
-
-      :Use validator replacement text as final response;
-
-    endif
+    :Load history from HistoryStore;
+    :StoryExportService writes Markdown export to the application working directory;
+    :AssistantApp prints export confirmation;
 
   else (no)
 
-    :Print final response;
+    :AssistantApp delegates turn to StorySessionService;
+
+    :PromptResourceLoader loads raw prompt files;
+
+    :PromptTemplateService formats reusable prompt fragments;
+
+    :PromptAssemblyService coordinates prompt builders;
+
+    :StoryChatPromptBuilder assembles storyteller prompt stack;
+
+    :ResilientChatClient checks cooldown guard;
+
+    :Send prompt to LM Studio chat model if backend is available;
+
+    :Receive candidate story response;
+
+    if (validation enabled?) then (yes)
+
+      :ValidationPromptBuilder builds rules validation request;
+
+      :ValidationClient sends validator request through its own resilience guard;
+
+      :ValidationDecisionParser extracts ALLOW or REPLACE;
+
+      if (validator returned ALLOW?) then (yes)
+
+        :ResponseSanitizer normalizes visible escapes;
+
+        :Print final response;
+
+      else (no)
+
+        :ResponseSanitizer normalizes replacement text;
+
+        :Use validator replacement text as final response;
+
+      endif
+
+    else (no)
+
+      :Print final response;
+
+    endif
+
+    :Append user turn and response to history;
+
+    :AssistantApp formats and prints final response;
+
+    fork
+      :Trigger canonical state refresh;
+      :Run canonical state update on background worker thread through background resilience guard if enough older messages exist;
+    fork again
+      :Trigger recent summary refresh;
+      :Run recent summary update on background worker thread through background resilience guard if enough recent-window messages exist;
+    fork again
+      :Trigger long-term summary refresh;
+      :Run long-term summary update on background worker thread through background resilience guard if enough older messages exist;
+    end fork
 
   endif
-
-  :Append user turn and response to history;
-
-  :AssistantApp formats and prints final response;
-
-  fork
-    :Trigger canonical state refresh;
-    :Run canonical state update on background worker thread through background resilience guard if enough older messages exist;
-  fork again
-    :Trigger recent summary refresh;
-    :Run recent summary update on background worker thread through background resilience guard if enough recent-window messages exist;
-  fork again
-    :Trigger long-term summary refresh;
-    :Run long-term summary update on background worker thread through background resilience guard if enough older messages exist;
-  end fork
 
 endif
 

@@ -252,6 +252,10 @@ public final class AppConfig {
         return runtimeText.processHistoryErrorText();
     }
 
+    public String commandHelpText() {
+        return runtimeText.commandHelpText();
+    }
+
     private static Map<String, Object> linkedMapOf(Object... entries) {
         Map<String, Object> values = new LinkedHashMap<>();
         for (int i = 0; i < entries.length; i += 2) {
@@ -316,6 +320,7 @@ public final class AppConfig {
                 source.requiredString("command.continueStory"),
                 source.requiredString("command.resetStory"),
                 source.requiredString("ui.bannerStart"),
+                source.requiredString("ui.commandHelp"),
                 source.requiredString("ui.shortcutContinueHint"),
                 source.requiredString("ui.shortcutResetHint"),
                 source.requiredString("ui.errorLmStudioRequest"),
@@ -402,6 +407,7 @@ public final class AppConfig {
         String continueStoryCommand,
         String resetStoryCommand,
         String bannerStartText,
+        String commandHelpText,
         String shortcutContinueHint,
         String shortcutResetHint,
         String lmStudioRequestErrorText,

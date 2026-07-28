@@ -116,6 +116,16 @@ java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 
 On macOS, `Cmd-G` and `Cmd-W` only work if the terminal forwards those key combinations as meta or escape input.
 
+## Commands
+
+- `/exit` or `/quit`: leave the application
+- `/export`: export the story as Markdown with user prompts in italic
+- `/export -intro`: same as `/export`, with user prompts in italic between story sections
+- `/export -clean`: export only assistant story output
+- `/export -all`: export user prompts and assistant output chronologically with explicit headings
+
+Exports are written as Markdown files in the application working directory.
+
 ## Runtime Files
 
 ### Bundled defaults
@@ -291,6 +301,12 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.0.3
+- Switched terminal control commands from plain `exit` and `quit` to `/exit` and `/quit`
+- Added Markdown story export commands: `/export`, `/export -intro`, `/export -clean`, and `/export -all`
+- Added `StoryExportService` to export story history into Markdown files in the application working directory
+- Updated the README and PlantUML diagrams to document the new command and export flow
 
 ### 1.0.2
 - Added more test coverage
