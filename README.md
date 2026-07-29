@@ -22,6 +22,45 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 - Minimum recommended class: Gemma 4 12B QAT or a roughly comparable model
 - If you have less memory available, the default Gemma 4 26B A4B 4-bit variant is roughly `16 GB`, which makes it practical to experiment with a `32K` context window on a machine such as an M1 Mac with `32 GB` of unified memory
 
+## Workable Setup
+
+- MacBook Pro with Apple Silicon (`M`-series) and `32 GB` to `48 GB` of unified memory
+- [google/gemma-4-12b-qat](https://lmstudio.ai/models/google/gemma-4-12b-qat), preferably the 4-bit variant, using roughly `8 GB` of model memory
+- A `32K` context window, using roughly another `8 GB` of memory
+
+The 12B dense model occasionally makes stylistic mistakes, but it is generally good enough to follow story rules and hard constraints.
+It is a practical model for experimenting with the storyteller app on a smaller machine.
+Including runtime, context, and general system overhead, total memory usage will usually end up around `18 GB` to `20 GB`, which is still workable on a `32 GB` unified memory machine.
+The broader takeaway is that Apple Silicon with a moderate amount of unified memory is already a very capable platform for exploring local large language models.
+
+## Hardware Fit At A Glance
+
+This table is a practical fit guide for local storyteller use with quantized models.
+The context ranges in the hardware columns refer to the model context window size used for this app.
+It is meant as a quick "is this worth trying on my machine?" reference, not as a benchmark table or a hard compatibility guarantee.
+
+| Model | Parameters | RTX 3080 Ti 12 GB (`16K` recommended) | RTX 4090 24 GB (`16K` to `32K` recommended) | Mac 32 GB unified (`16K` to `32K` recommended) | Mac 64 GB unified (`32K` to `48K` recommended) | Practical take |
+|---|---:|---|---|---|---|---|
+| `Qwen3-8B` | 8.2B | Yes | Yes | Yes | Yes | Good entry-level choice |
+| `Llama-3.1-8B-Instruct` | 8B | Yes | Yes | Yes | Yes | Safe and practical |
+| `Granite-3.1-8B-Instruct` | 8B | Yes | Yes | Yes | Yes | Good compact alternative |
+| `Gemma-4-12B-QAT` | 12B | Maybe | Yes | Yes | Yes | Strong option, but `12 GB` VRAM is tight |
+| `Gemma-4-26B-A4B` | 26B A4B | No | Maybe | Maybe | Yes | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
+
+Interpretation:
+- `Yes` means the setup is generally workable for this app at the recommended context range for that machine.
+- `Maybe` means it can work, but it is more sensitive to quantization, runtime overhead, and context length.
+- `No` means it is usually not a practical match for this storyteller use case.
+
+Note:
+On an Apple Silicon machine with enough unified memory, especially `64 GB`, `Gemma-4-26B-A4B` will often not only produce better results, but will likely also respond noticeably faster than dense `8B` or `12B` models.
+
+Practical guidance:
+- `RTX 3080 Ti 12 GB`: mainly suitable for `8B` models, and borderline for some `12B` setups.
+- `RTX 4090 24 GB`: a strong fit for `8B` and `12B` models at moderate context sizes.
+- `Mac 32 GB unified`: a good fit for `8B` and `12B` models.
+- `Mac 64 GB unified`: the most comfortable option here, with much more room for larger models and longer context windows.
+
 ### Note
 
 On the reference machine above, a larger local model such as Gemma 4 26B 6-bit typically uses about `32 to 36 GB` of shared memory in practice:
@@ -304,6 +343,7 @@ Not yet.
 
 ### 1.0.4
 - Fixed validator rewrite handling so `REPLACE` responses now use the corrected text instead of falling back to the fail-closed warning message.
+- Made validator parsing more tolerant for smaller or less strict models by supporting wrapped rewrite payloads in `content`, `message.content`, and full chat-completion `choices[0].message.content` envelopes.
 - Added test coverage for plain-text validator rewrite payloads such as `REPLACE: ...` and `REPLACE` followed by corrected text on the next line.
 
 ### 1.0.3
