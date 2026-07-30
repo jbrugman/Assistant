@@ -52,11 +52,11 @@ jobs:
         run: |
           if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
             gh release upload "${{ steps.version.outputs.tag }}" \
-              "target/storyteller-${{ steps.version.outputs.version }}.jar" \
+              "target/storyteller-${{ steps.version.outputs.version }}-all.jar" \
               --clobber
           else
             gh release create "${{ steps.version.outputs.tag }}" \
-              "target/storyteller-${{ steps.version.outputs.version }}.jar" \
+              "target/storyteller-${{ steps.version.outputs.version }}-all.jar" \
               --target "${GITHUB_SHA}" \
               --title "${{ steps.version.outputs.tag }}" \
               --generate-notes

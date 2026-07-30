@@ -267,7 +267,9 @@ class DerivedMemoryManagerTest {
         @Override
         public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds) throws InterruptedException {
             started.countDown();
-            allowFinish.await(5, TimeUnit.SECONDS);
+            if (!allowFinish.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Timed out while waiting for the test to release the blocking chat client.");
+            }
             finished.countDown();
             return response;
         }

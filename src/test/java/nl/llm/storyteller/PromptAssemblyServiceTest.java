@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PromptAssemblyServiceTest {
     @Test
@@ -210,12 +211,12 @@ class PromptAssemblyServiceTest {
             promptAssemblyService.buildChatMessages("(Eldrin) I open the stone door.");
             List<Message> messages = promptAssemblyService.buildChatMessages("(Eldrin) I cast another spell immediately.");
 
-            Message latestUserInput = messages.get(messages.size() - 1);
+            Message latestUserInput = messages.getLast();
 
             assertEquals("user", latestUserInput.role());
-            assertEquals(true, latestUserInput.content().startsWith("(Eldrin) I cast another spell immediately."));
-            assertEquals(true, latestUserInput.content().contains("(this action is attempted out of turn."));
-            assertEquals(true, latestUserInput.content().contains("must lose 5 or 10 health points"));
+            assertTrue(latestUserInput.content().startsWith("(Eldrin) I cast another spell immediately."));
+            assertTrue(latestUserInput.content().contains("(this action is attempted out of turn."));
+            assertTrue(latestUserInput.content().contains("must lose 5 or 10 health points"));
         } finally {
             summaryManager.shutdown();
             recentSummaryManager.shutdown();
