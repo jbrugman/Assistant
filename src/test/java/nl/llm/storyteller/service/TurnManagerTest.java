@@ -1,15 +1,10 @@
-package nl.llm.storyteller;
+package nl.llm.storyteller.service;
 
 import nl.llm.storyteller.AppConfig;
-import nl.llm.storyteller.AppConfigLoader;
 import nl.llm.storyteller.FileSupport;
+import nl.llm.storyteller.TestAppConfigFactory;
 import nl.llm.storyteller.model.TurnRuleDecision;
 import nl.llm.storyteller.model.TurnState;
-import nl.llm.storyteller.service.GameModeDefinitionParser;
-import nl.llm.storyteller.service.PromptResourceLoader;
-import nl.llm.storyteller.service.PromptTemplateService;
-import nl.llm.storyteller.service.TurnManager;
-import nl.llm.storyteller.service.TurnStateStore;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -111,7 +106,7 @@ class TurnManagerTest {
             game.turnPenaltySingleHighHp=10
             """.formatted(turnBasedEnabled));
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        AppConfig config = TestAppConfigFactory.load(baseDirectory);
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         TurnStateStore turnStateStore = new TurnStateStore(config.turnStateFile());
         TurnManager turnManager = new TurnManager(
