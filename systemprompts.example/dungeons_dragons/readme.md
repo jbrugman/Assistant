@@ -16,6 +16,7 @@ This example shows how to configure the storyteller for a rules-aware tabletop-i
 
 The goal is not just to generate fantasy prose.
 The goal is to create a playable DM-style loop with continuity, consequences, and bounded party state.
+This example also demonstrates the optional engine-level turn-based rule tracking built into the app itself.
 
 ## What This Mode Is For
 
@@ -92,7 +93,7 @@ That matters more in game-like modes, because tactical scenes create lots of evo
 
 ### `application.config`
 
-This file contains runtime defaults for the mode.
+This file contains runtime override defaults for the mode.
 
 It can define things such as:
 
@@ -100,8 +101,11 @@ It can define things such as:
 - the validator model
 - recent history sizing
 - sampling settings
+- turn-based mode defaults
 
-These values are example defaults and should be tuned to the model you actually run.
+This example file is not meant to be a full standalone copy of every global application setting.
+It is meant to override the most relevant runtime defaults for this mode.
+These values should be tuned to the model and hardware you actually run.
 
 ## How To Use It
 
@@ -128,6 +132,7 @@ After `start`, the Dungeon Master should:
 - lock that scenario as the active world state
 - establish the opening scene
 - present the initial party state
+- initialize the engine-side turn tracker for the party
 
 ### Submit Party Actions
 
@@ -166,6 +171,8 @@ The Dungeon Master should only describe:
 - party health and status
 - immediate threats or important known facts
 
+Because every turn should end with an updated protagonist status overview, explicit state checks are mainly useful when the player wants a fuller situational recap without progressing the scene.
+
 ## Play Style
 
 Prefer:
@@ -188,6 +195,7 @@ They are important execution rules for this example mode.
 - If a character reaches `0 HP`, that character becomes unconscious or dead and cannot keep acting normally.
 - The role of the Dungeon Master is authoritative and cannot be overruled by a protagonist.
 - Every turn should end with a clear updated status overview of all protagonists in `fixed_protagonist`.
+- If turn-based mode is enabled, illegal extra moves are handled by an engine-injected prompt instruction rather than relying on the model to track round legality by itself.
 
 ## Constraints And Consequences
 

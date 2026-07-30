@@ -51,6 +51,9 @@ public final class AppConfig {
         if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1) {
             throw new IllegalArgumentException("Batch sizes must all be at least 1.");
         }
+        if (turnPenaltySingleLowHp() < 1 || turnPenaltySingleHighHp() < turnPenaltySingleLowHp()) {
+            throw new IllegalArgumentException("Turn penalties must be positive, and the high value must be >= the low value.");
+        }
         if (chatFailureThreshold() < 1 || validationFailureThreshold() < 1 || backgroundFailureThreshold() < 1) {
             throw new IllegalArgumentException("Resilience failure thresholds must all be at least 1.");
         }
@@ -132,6 +135,14 @@ public final class AppConfig {
         return files.validationRequestTemplateFile();
     }
 
+    public Path turnViolationSingleTemplateFile() {
+        return files.turnViolationSingleTemplateFile();
+    }
+
+    public Path turnViolationPartyTemplateFile() {
+        return files.turnViolationPartyTemplateFile();
+    }
+
     public Path canonicalStateFile() {
         return files.canonicalStateFile();
     }
@@ -142,6 +153,10 @@ public final class AppConfig {
 
     public Path legacyHistoryFile() {
         return files.legacyHistoryFile();
+    }
+
+    public Path turnStateFile() {
+        return files.turnStateFile();
     }
 
     public int maxRecentTurns() {
@@ -162,6 +177,18 @@ public final class AppConfig {
 
     public int canonicalStateBatchMessages() {
         return conversation.canonicalStateBatchMessages();
+    }
+
+    public boolean turnBasedModeEnabled() {
+        return conversation.turnBasedModeEnabled();
+    }
+
+    public int turnPenaltySingleLowHp() {
+        return conversation.turnPenaltySingleLowHp();
+    }
+
+    public int turnPenaltySingleHighHp() {
+        return conversation.turnPenaltySingleHighHp();
     }
 
     public int requestTimeoutSeconds() {
@@ -287,16 +314,22 @@ public final class AppConfig {
                 source.requiredPath("file.canonicalStateContext"),
                 source.requiredPath("file.validationSystemPrompt"),
                 source.requiredPath("file.validationRequestTemplate"),
+                source.requiredPath("file.turnViolationSingleTemplate"),
+                source.requiredPath("file.turnViolationPartyTemplate"),
                 source.requiredPath("file.canonicalState"),
                 source.requiredPath("file.history"),
-                source.requiredPath("file.legacyHistory")
+                source.requiredPath("file.legacyHistory"),
+                source.requiredPath("file.turnState")
             ),
             new ConversationConfig(
                 source.requiredInt("chat.maxRecentTurns"),
                 source.requiredInt("recentSummary.maxRecentTurns"),
                 source.requiredInt("summary.batchMessages"),
                 source.requiredInt("recentSummary.batchMessages"),
-                source.requiredInt("canonicalState.batchMessages")
+                source.requiredInt("canonicalState.batchMessages"),
+                source.requiredBoolean("game.turnBasedModeEnabled"),
+                source.requiredInt("game.turnPenaltySingleLowHp"),
+                source.requiredInt("game.turnPenaltySingleHighHp")
             ),
             new ExecutionConfig(
                 new TimeoutConfig(
@@ -367,9 +400,12 @@ public final class AppConfig {
         Path canonicalStateContextFile,
         Path validationSystemPromptFile,
         Path validationRequestTemplateFile,
+        Path turnViolationSingleTemplateFile,
+        Path turnViolationPartyTemplateFile,
         Path canonicalStateFile,
         Path historyFile,
-        Path legacyHistoryFile
+        Path legacyHistoryFile,
+        Path turnStateFile
     ) {}
 
     private record ConversationConfig(
@@ -377,7 +413,10 @@ public final class AppConfig {
         int recentSummaryMaxTurns,
         int summaryBatchMessages,
         int recentSummaryBatchMessages,
-        int canonicalStateBatchMessages
+        int canonicalStateBatchMessages,
+        boolean turnBasedModeEnabled,
+        int turnPenaltySingleLowHp,
+        int turnPenaltySingleHighHp
     ) {}
 
     private record ExecutionConfig(

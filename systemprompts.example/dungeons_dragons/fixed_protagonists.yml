@@ -16,12 +16,12 @@ fixed_protagonist:
       - name: "Healing Potion"
         quantity: 3
         effect: "+10 HP"
-      - name: "Staf"
+      - name: "Staff"
     abilities:
       - "Heal (+25 HP)"
 
   - name: "Thorin"
-    race: "Dwerg"
+    race: "Dwarf"
     class: "Fighter / Tank"
     max_hp: 150
     starting_hp: 150
@@ -33,7 +33,7 @@ fixed_protagonist:
       - name: "Heavy shield"
 
   - name: "Lyra"
-    race: "Mens"
+    race: "Human"
     class: "Rogue"
     max_hp: 90
     starting_hp: 90

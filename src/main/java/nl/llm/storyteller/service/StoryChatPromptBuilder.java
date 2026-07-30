@@ -31,8 +31,15 @@ public final class StoryChatPromptBuilder {
         addIfPresent(messages, promptTemplateService.buildRecentSummaryContext(input.recentSummary()));
 
         messages.addAll(input.recentMessages());
-        messages.add(new Message(USER, input.userInput()));
+        messages.add(new Message(USER, appendInlineInstruction(input.userInput(), input.extraSystemInstruction())));
         return messages;
+    }
+
+    private String appendInlineInstruction(String userInput, String extraInstruction) {
+        if (extraInstruction == null || extraInstruction.isBlank()) {
+            return userInput;
+        }
+        return userInput + " " + extraInstruction.trim();
     }
 
     private void addIfPresent(List<Message> messages, String content) {

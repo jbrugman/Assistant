@@ -31,4 +31,13 @@ public final class PromptTemplateService {
         return promptResourceLoader.loadValidationRequestTemplate()
             .formatted(rulesPrompt, fixedProtagonistsContext, userInstruction, assistantResponse);
     }
+
+    public String buildTurnViolationSingleInstruction(int lowPenaltyHp, int highPenaltyHp) {
+        return promptResourceLoader.loadTurnViolationSingleTemplate()
+            .formatted(lowPenaltyHp, highPenaltyHp);
+    }
+
+    public String buildTurnViolationPartyInstruction() {
+        return promptResourceLoader.loadTurnViolationPartyTemplate();
+    }
 }

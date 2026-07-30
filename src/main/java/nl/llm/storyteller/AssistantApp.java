@@ -4,6 +4,7 @@ import nl.llm.storyteller.service.CanonicalStateManager;
 import nl.llm.storyteller.service.HistoryStore;
 import nl.llm.storyteller.service.LMStudioClient;
 import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
+import nl.llm.storyteller.service.GameModeDefinitionParser;
 import nl.llm.storyteller.service.PromptAssemblyService;
 import nl.llm.storyteller.service.PromptResourceLoader;
 import nl.llm.storyteller.service.PromptTemplateService;
@@ -16,6 +17,8 @@ import nl.llm.storyteller.service.StoryExportService;
 import nl.llm.storyteller.service.StorySessionService;
 import nl.llm.storyteller.service.SummaryManager;
 import nl.llm.storyteller.service.SummaryPromptBuilder;
+import nl.llm.storyteller.service.TurnManager;
+import nl.llm.storyteller.service.TurnStateStore;
 import nl.llm.storyteller.service.ValidationPromptBuilder;
 import nl.llm.storyteller.service.LlmBackendGuard;
 import org.jline.reader.EndOfFileException;
@@ -126,11 +129,19 @@ public final class AssistantApp {
             promptTemplateService,
             canonicalStatePromptBuilder
         );
+        TurnManager turnManager = new TurnManager(
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new GameModeDefinitionParser(),
+            new TurnStateStore(config.turnStateFile())
+        );
         PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
             historyStore,
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
+            turnManager,
             storyChatPromptBuilder,
             validationPromptBuilder
         );

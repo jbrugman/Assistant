@@ -57,7 +57,7 @@ class LlmBackendGuardTest {
         }));
         assertTrue(guard.isOpen());
 
-        clock.advanceSeconds(11);
+        clock.advanceSeconds();
         String response = guard.execute(() -> "ok");
 
         assertEquals("ok", response);
@@ -92,8 +92,8 @@ class LlmBackendGuardTest {
             return now;
         }
 
-        void advanceSeconds(long seconds) {
-            now = now.plusSeconds(seconds);
+        void advanceSeconds() {
+            now = now.plusSeconds(11);
         }
     }
 }

@@ -1,6 +1,7 @@
 package nl.llm.storyteller.service;
 
 import nl.llm.storyteller.model.StoryChatPromptInput;
+import nl.llm.storyteller.model.TurnRuleDecision;
 import nl.llm.storyteller.model.ValidationPromptInput;
 import nl.llm.storyteller.model.Message;
 
@@ -11,6 +12,7 @@ public final class PromptAssemblyService {
     private final SummaryManager summaryManager;
     private final RecentSummaryManager recentSummaryManager;
     private final CanonicalStateManager canonicalStateManager;
+    private final TurnManager turnManager;
     private final StoryChatPromptBuilder storyChatPromptBuilder;
     private final ValidationPromptBuilder validationPromptBuilder;
 
@@ -19,6 +21,7 @@ public final class PromptAssemblyService {
         SummaryManager summaryManager,
         RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,
+        TurnManager turnManager,
         StoryChatPromptBuilder storyChatPromptBuilder,
         ValidationPromptBuilder validationPromptBuilder
     ) {
@@ -26,18 +29,21 @@ public final class PromptAssemblyService {
         this.summaryManager = summaryManager;
         this.recentSummaryManager = recentSummaryManager;
         this.canonicalStateManager = canonicalStateManager;
+        this.turnManager = turnManager;
         this.storyChatPromptBuilder = storyChatPromptBuilder;
         this.validationPromptBuilder = validationPromptBuilder;
     }
 
     public List<Message> buildChatMessages(String userInput) {
+        TurnRuleDecision turnRuleDecision = turnManager.evaluate(userInput);
         return storyChatPromptBuilder.build(
             new StoryChatPromptInput(
                 userInput,
                 canonicalStateManager.loadCanonicalState(),
                 summaryManager.loadSummary(),
                 recentSummaryManager.loadRecentSummary(),
-                historyStore.recentMessages(summaryManager.config.maxRecentTurns())
+                historyStore.recentMessages(summaryManager.config.maxRecentTurns()),
+                turnRuleDecision.promptInstruction()
             )
         );
     }
