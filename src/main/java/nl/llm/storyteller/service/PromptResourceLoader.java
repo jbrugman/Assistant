@@ -57,4 +57,12 @@ public final class PromptResourceLoader {
     public String loadValidationRequestTemplate() {
         return FileSupport.readRequiredTextFileOrResource(config.validationRequestTemplateFile(), config.baseDir());
     }
+
+    public String loadTurnViolationSingleTemplate() {
+        return FileSupport.readRequiredTextFileOrResource(config.turnViolationSingleTemplateFile(), config.baseDir());
+    }
+
+    public String loadTurnViolationPartyTemplate() {
+        return FileSupport.readRequiredTextFileOrResource(config.turnViolationPartyTemplateFile(), config.baseDir());
+    }
 }

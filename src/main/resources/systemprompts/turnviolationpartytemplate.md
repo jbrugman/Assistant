@@ -1,0 +1,1 @@
+(this action is attempted out of turn by the party. the action may partially fail or fully fail, and each participating protagonist must lose up to 5 health points. keep the consequence in-world and consistent with the active scenario.)

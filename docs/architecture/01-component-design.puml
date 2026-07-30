@@ -1,10 +1,12 @@
 @startuml
 title Component Design - Storyteller
 
-left to right direction
+top to bottom direction
 skinparam packageStyle rectangle
 skinparam shadowing false
 skinparam linetype ortho
+skinparam ranksep 45
+skinparam nodesep 30
 
 skinparam package {
   BorderColor #4B5563
@@ -18,35 +20,35 @@ skinparam component {
   BackgroundColor #FFFFFF
 }
 
-package "CLI" {
-  [AssistantApp]
+skinparam database {
+  BorderColor #6B7280
+  FontColor #111827
+  BackgroundColor #FFFFFF
 }
 
-package "Configuration" #E0F2FE {
+package "Entry Points" #E0F2FE {
+  [AssistantApp]
   [AppConfigLoader]
   [AppConfig]
 }
 
-package "Story Session" #DCFCE7 {
+package "Story Orchestration" #DCFCE7 {
   [StorySessionService]
-  [StoryExportService]
   [PromptAssemblyService]
+  [StoryExportService]
   [ResponseGuard]
-}
-
-package "Resilience" #DBEAFE {
-  [ResilientChatClient]
-  [LlmBackendGuard]
+  [TurnManager]
 }
 
 package "Prompting" #FEF3C7 {
+  [Prompt Builders]
   [PromptResourceLoader]
   [PromptTemplateService]
-  [Prompt Builders]
 }
 
-package "Memory" #FCE7F3 {
+package "State & Memory" #FCE7F3 {
   [HistoryStore]
+  [TurnStateStore]
   [DerivedMemoryManager]
   [SummaryManager]
   [RecentSummaryManager]
@@ -54,13 +56,12 @@ package "Memory" #FCE7F3 {
   [Background Worker Threads]
 }
 
-package "Validation" #FEE2E2 {
+package "Validation & Backend" #DBEAFE {
   [ValidationClient]
   [ValidationDecisionParser]
   [ResponseSanitizer]
-}
-
-package "Model Access" #EDE9FE {
+  [ResilientChatClient]
+  [LlmBackendGuard]
   [LMStudioClient]
 }
 
@@ -68,39 +69,63 @@ package "Model Records" #F3F4F6 {
   [Message / HistoryState]
   [Prompt Input Records]
   [ValidationOutcome]
+  [TurnState / TurnRuleDecision / GameModeDefinition]
 }
 
 database "systemprompts/" as SystemPrompts
 database "memory/" as MemoryFiles
 
+together {
+  [AssistantApp]
+  [StorySessionService]
+  [StoryExportService]
+}
+
+together {
+  [PromptAssemblyService]
+  [ResponseGuard]
+  [TurnManager]
+}
+
+together {
+  [SummaryManager]
+  [RecentSummaryManager]
+  [CanonicalStateManager]
+}
+
 [AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
 [AssistantApp] --> [StoryExportService]
-[AssistantApp] --> [SummaryManager] : shutdown
-[AssistantApp] --> [RecentSummaryManager] : shutdown
-[AssistantApp] --> [CanonicalStateManager] : shutdown
+[AssistantApp] ..> [SummaryManager] : shutdown
+[AssistantApp] ..> [RecentSummaryManager] : shutdown
+[AssistantApp] ..> [CanonicalStateManager] : shutdown
 
 [AppConfigLoader] --> [AppConfig]
-[AppConfigLoader] --> SystemPrompts : loads defaults and overrides
+[AppConfigLoader] --> SystemPrompts : load defaults and overrides
 
-[StorySessionService] --> [AppConfig]
 [StorySessionService] --> [PromptAssemblyService]
-[StorySessionService] --> [HistoryStore]
 [StorySessionService] --> [ResponseGuard]
+[StorySessionService] --> [HistoryStore]
 [StorySessionService] --> [SummaryManager]
 [StorySessionService] --> [RecentSummaryManager]
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [ResilientChatClient]
-[StorySessionService] ..> [Background Worker Threads] : triggers async refreshes
+[StorySessionService] ..> [Background Worker Threads] : trigger async refreshes
 
-[StoryExportService] --> [HistoryStore]
-[StoryExportService] --> MemoryFiles : story-export-*.md
-
+[PromptAssemblyService] --> [Prompt Builders]
 [PromptAssemblyService] --> [HistoryStore]
 [PromptAssemblyService] --> [SummaryManager]
 [PromptAssemblyService] --> [RecentSummaryManager]
 [PromptAssemblyService] --> [CanonicalStateManager]
-[PromptAssemblyService] --> [Prompt Builders]
+[PromptAssemblyService] --> [TurnManager]
+
+[TurnManager] --> [AppConfig]
+[TurnManager] --> [PromptResourceLoader]
+[TurnManager] --> [TurnStateStore]
+[TurnManager] --> [TurnState / TurnRuleDecision / GameModeDefinition]
+
+[StoryExportService] --> [HistoryStore]
+[StoryExportService] --> MemoryFiles : story-export-*.md
 
 [Prompt Builders] --> [PromptResourceLoader]
 [Prompt Builders] --> [PromptTemplateService]
@@ -117,7 +142,8 @@ database "memory/" as MemoryFiles
 [DerivedMemoryManager] --> [HistoryStore]
 [DerivedMemoryManager] --> [ResilientChatClient]
 
-[HistoryStore] --> MemoryFiles
+[HistoryStore] --> MemoryFiles : history.json
+[TurnStateStore] --> MemoryFiles : turn-state.json
 [SummaryManager] --> MemoryFiles : summary.md
 [RecentSummaryManager] --> MemoryFiles : recent-summary.md
 [CanonicalStateManager] --> MemoryFiles : canonical-state.yaml
@@ -132,7 +158,6 @@ database "memory/" as MemoryFiles
 [ResilientChatClient] --> [LMStudioClient]
 
 [HistoryStore] --> [Message / HistoryState]
-[PromptAssemblyService] --> [Message / HistoryState]
 [ValidationClient] --> [Message / HistoryState]
 
 note right of SystemPrompts
@@ -141,22 +166,41 @@ Bundled defaults and optional overrides:
 - systemprompt.md
 - rules.md
 - fixed_protagonists.yml
-- summary and validation prompts
+- summary and validation prompt files
 end note
 
 note right of MemoryFiles
 Runtime story state:
 - history.json
+- turn-state.json
 - summary.md
 - recent-summary.md
 - canonical-state.yaml
 - story-export-*.md
 end note
 
+note bottom of [PromptAssemblyService]
+Foreground prompt stack:
+- system prompt
+- fixed protagonists
+- canonical state
+- summaries
+- recent history
+- optional turn-rule instruction
+end note
+
+note bottom of [TurnManager]
+Optional engine-level game rule support:
+- initializes round tracking on trigger word
+- tracks protagonist participation per round
+- injects penalty instructions for illegal extra moves
+end note
+
 note bottom of [Background Worker Threads]
 Asynchronous after-turn processing:
-- one single-thread worker per derived-memory manager
-- summary, recent summary, and canonical state updates run off the foreground turn path
+- one worker per derived-memory manager
+- summary, recent summary, and canonical state updates
+- off the foreground turn path
 end note
 
 note bottom of [LlmBackendGuard]

@@ -6,6 +6,7 @@ import nl.llm.storyteller.service.CanonicalStateManager;
 import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.service.ChatClient;
 import nl.llm.storyteller.service.HistoryStore;
+import nl.llm.storyteller.service.GameModeDefinitionParser;
 import nl.llm.storyteller.service.PromptAssemblyService;
 import nl.llm.storyteller.service.PromptResourceLoader;
 import nl.llm.storyteller.service.PromptTemplateService;
@@ -14,6 +15,8 @@ import nl.llm.storyteller.service.RecentSummaryPromptBuilder;
 import nl.llm.storyteller.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.service.SummaryManager;
 import nl.llm.storyteller.service.SummaryPromptBuilder;
+import nl.llm.storyteller.service.TurnManager;
+import nl.llm.storyteller.service.TurnStateStore;
 import nl.llm.storyteller.service.ValidationPromptBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -83,6 +86,13 @@ class PromptAssemblyServiceTest {
             promptTemplateService,
             new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
         );
+        TurnManager turnManager = new TurnManager(
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new GameModeDefinitionParser(),
+            new TurnStateStore(config.turnStateFile())
+        );
 
         try {
             PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
@@ -90,6 +100,7 @@ class PromptAssemblyServiceTest {
                 summaryManager,
                 recentSummaryManager,
                 canonicalStateManager,
+                turnManager,
                 storyChatPromptBuilder,
                 validationPromptBuilder
             );
@@ -111,6 +122,100 @@ class PromptAssemblyServiceTest {
                 ),
                 messages
             );
+        } finally {
+            summaryManager.shutdown();
+            recentSummaryManager.shutdown();
+            canonicalStateManager.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("""
+        Given turn-based mode is enabled for a fixed party,
+        When the same protagonist tries to act twice before the round is complete,
+        Then the assembled prompt should append the turn violation rule to the latest user turn
+        """)
+    void shouldInjectTurnViolationInstructionForExtraMove() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-turn-based-prompt");
+        writeOverride(baseDirectory, "systemprompts/systemprompt.md", "SYSTEM PROMPT");
+        writeOverride(baseDirectory, "systemprompts/fixedprotagonistscontext.md", "FIXED PROTAGONISTS:%n%s");
+        writeOverride(baseDirectory, "systemprompts/summarycontext.md", "SUMMARY CONTEXT:%n%s");
+        writeOverride(baseDirectory, "systemprompts/recentsummarycontext.md", "RECENT CONTEXT:%n%s");
+        writeOverride(baseDirectory, "systemprompts/canonicalstatecontext.md", "CANONICAL CONTEXT:%n%s");
+        writeOverride(baseDirectory, "systemprompts/fixed_protagonists.yml", """
+            game:
+              trigger_word: "start"
+
+            fixed_protagonist:
+              - name: "Eldrin"
+              - name: "Thorin"
+            """);
+        writeOverride(baseDirectory, "systemprompts/application.config", """
+            game.turnBasedModeEnabled=true
+            game.turnPenaltySingleLowHp=5
+            game.turnPenaltySingleHighHp=10
+            """);
+        Files.createDirectories(baseDirectory.resolve("memory"));
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+        StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
+        ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);
+        SummaryManager summaryManager = new SummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        TurnManager turnManager = new TurnManager(
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new GameModeDefinitionParser(),
+            new TurnStateStore(config.turnStateFile())
+        );
+
+        try {
+            PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
+                historyStore,
+                summaryManager,
+                recentSummaryManager,
+                canonicalStateManager,
+                turnManager,
+                storyChatPromptBuilder,
+                validationPromptBuilder
+            );
+
+            promptAssemblyService.buildChatMessages("start");
+            promptAssemblyService.buildChatMessages("(Eldrin) I open the stone door.");
+            List<Message> messages = promptAssemblyService.buildChatMessages("(Eldrin) I cast another spell immediately.");
+
+            Message latestUserInput = messages.get(messages.size() - 1);
+
+            assertEquals("user", latestUserInput.role());
+            assertEquals(true, latestUserInput.content().startsWith("(Eldrin) I cast another spell immediately."));
+            assertEquals(true, latestUserInput.content().contains("(this action is attempted out of turn."));
+            assertEquals(true, latestUserInput.content().contains("must lose 5 or 10 health points"));
         } finally {
             summaryManager.shutdown();
             recentSummaryManager.shutdown();

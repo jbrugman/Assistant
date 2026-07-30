@@ -36,16 +36,16 @@ The broader takeaway is that Apple Silicon with a moderate amount of unified mem
 ## Hardware Fit At A Glance
 
 This table is a practical fit guide for local storyteller use with quantized models.
-The context ranges in the hardware columns refer to the model context window size used for this app.
+The context ranges in the hardware columns refer to the model context window size used for this app (recommended values).
 It is meant as a quick "is this worth trying on my machine?" reference, not as a benchmark table or a hard compatibility guarantee.
 
-| Model | Parameters | RTX 3080 Ti 12 GB (`16K` recommended) | RTX 4090 24 GB (`16K` to `32K` recommended) | Mac 32 GB unified (`16K` to `32K` recommended) | Mac 64 GB unified (`32K` to `48K` recommended) | Practical take |
-|---|---:|---|---|---|---|---|
-| `Qwen3-8B` | 8.2B | Yes | Yes | Yes | Yes | Good entry-level choice |
-| `Llama-3.1-8B-Instruct` | 8B | Yes | Yes | Yes | Yes | Safe and practical |
-| `Granite-3.1-8B-Instruct` | 8B | Yes | Yes | Yes | Yes | Good compact alternative |
-| `Gemma-4-12B-QAT` | 12B | Maybe | Yes | Yes | Yes | Strong option, but `12 GB` VRAM is tight |
-| `Gemma-4-26B-A4B` | 26B A4B | No | Maybe | Maybe | Yes | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
+| Model | Parameters | RTX 3080 Ti 12 GB (`16K`) | RTX 4090 24 GB (`16K` to `32K`) | Mac 32 GB unified (`16K` to `32K`) | Mac 64 GB unified (`32K` to `48K`) | Practical take |
+|---|---:|---|---------------------------------|---|---|---|
+| `Qwen3-8B` | 8.2B | Yes | Yes                             | Yes | Yes | Good entry-level choice |
+| `Llama-3.1-8B-Instruct` | 8B | Yes | Yes                             | Yes | Yes | Safe and practical |
+| `Granite-3.1-8B-Instruct` | 8B | Yes | Yes                             | Yes | Yes | Good compact alternative |
+| `Gemma-4-12B-QAT` | 12B | Maybe | Yes                             | Yes | Yes | Strong option, but `12 GB` VRAM is tight |
+| `Gemma-4-26B-A4B` | 26B A4B | No | Maybe                           | Maybe | Yes | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
 
 Interpretation:
 - `Yes` means the setup is generally workable for this app at the recommended context range for that machine.
@@ -188,7 +188,11 @@ These are compiled into the app from `src/main/resources/systemprompts/`:
 
 If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
-An example override folder is included at [`systemprompts.example/`](systemprompts.example), including an example [`systemprompt.md`](systemprompts.example/systemprompt.md) and a more extensive [`fixed_protagonists.yml`](systemprompts.example/fixed_protagonists.yml) that shows multiple characters plus optional sections such as `living_environment`, `world_view`, `world_physics`, and character-specific `hard_constraints`.
+An example override folder is included at [`systemprompts.example/`](systemprompts.example), including mode-specific examples such as [`cowriter_story`](systemprompts.example/cowriter_story) and [`dungeons_dragons`](systemprompts.example/dungeons_dragons).
+Those examples show complete prompt sets, fixed protagonists, and runtime defaults for different storytelling modes.
+
+The Dungeons & Dragons example also demonstrates the optional engine-level turn-based game mode.
+When enabled, the app itself tracks round participation and can inject penalty instructions into the prompt when a protagonist or the whole party tries to take an extra move before the round is complete.
 
 ### Runtime memory
 
@@ -341,6 +345,15 @@ Not yet.
 
 ## Changelog
 
+### 1.0.6
+- Added an optional engine-level turn-based game mode that tracks round participation outside the LLM and injects prompt penalties for illegal extra moves.
+- Added persistent turn-state storage in `memory/turn-state.json` and integrated turn-rule evaluation into prompt assembly before each story turn.
+- Updated the Dungeons & Dragons example configuration to demonstrate turn-based mode defaults and revised the example READMEs to use a more consistent structure.
+- Updated the README and PlantUML diagrams to document the new turn-based game flow and example-mode positioning.
+
+### 1.0.5
+- Added the first `systemprompts.example/` mode examples as reusable reference configurations for alternative storyteller setups.
+
 ### 1.0.4
 - Fixed validator rewrite handling so `REPLACE` responses now use the corrected text instead of falling back to the fail-closed warning message.
 - Made validator parsing more tolerant for smaller or less strict models by supporting wrapped rewrite payloads in `content`, `message.content`, and full chat-completion `choices[0].message.content` envelopes.
@@ -362,5 +375,4 @@ Not yet.
 - Moved `ValidationOutcome` into the `model` package as a pure decision/result type.
 - Simplified `DerivedMemoryManager` by removing unused prompt helper code and renaming the enablement hook to `isDisabled()` for clearer control flow.
 - Tightened small parser and config cleanups, including the redundant null check in `ValidationDecisionParser` and a smaller top-level `AppConfig` constructor shape.
-- Added a `systemprompts.example/` folder with English example prompt files, including a narrative-engine `systemprompt.md` and a `fixed_protagonists.yml` example with top-level `living_environment`, `world_view`, and `world_physics`.
 - Updated the README and PlantUML diagrams to match the current storyteller prompt and validation architecture.

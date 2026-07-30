@@ -3,87 +3,79 @@ title Storyteller Flow Design
 
 start
 
-:AssistantApp uses AppConfigLoader to build AppConfig and app context;
-
-:AssistantApp boots terminal UI;
-
+:AssistantApp starts and builds runtime context;
 :Read user input;
 
 if (/exit or /quit?) then (yes)
-
   stop
-
 else (no)
 
-  if (/export command?) then (yes)
-
-    :Load history from HistoryStore;
-    :StoryExportService writes Markdown export to the application working directory;
-    :AssistantApp prints export confirmation;
-
+  if (/export?) then (yes)
+    :Load history;
+    :Create Markdown export;
+    :Print export confirmation;
+    stop
   else (no)
 
-    :AssistantApp delegates turn to StorySessionService;
+    :Delegate the turn to StorySessionService;
 
-    :PromptResourceLoader loads raw prompt files;
-
-    :PromptTemplateService formats reusable prompt fragments;
-
-    :PromptAssemblyService coordinates prompt builders;
-
-    :StoryChatPromptBuilder assembles storyteller prompt stack;
-
-    :ResilientChatClient checks cooldown guard;
-
-    :Send prompt to LM Studio chat model if backend is available;
-
-    :Receive candidate story response;
-
-    if (validation enabled?) then (yes)
-
-      :ValidationPromptBuilder builds rules validation request;
-
-      :ValidationClient sends validator request through its own resilience guard;
-
-      :ValidationDecisionParser extracts ALLOW or REPLACE;
-
-      if (validator returned ALLOW?) then (yes)
-
-        :ResponseSanitizer normalizes visible escapes;
-
-        :Print final response;
-
+    if (turn-based mode enabled?) then (yes)
+      if (start trigger?) then (yes)
+        :Initialize or reset turn-state;
       else (no)
-
-        :ResponseSanitizer normalizes replacement text;
-
-        :Use validator replacement text as final response;
-
+        :Evaluate actor scope and round participation;
+        if (illegal extra move?) then (yes)
+          :Prepare engine-side penalty instruction;
+        endif
       endif
-
-    else (no)
-
-      :Print final response;
-
     endif
 
-    :Append user turn and response to history;
+    :Assemble prompt stack;
+    note right
+    Prompt stack may include:
+    - system prompt
+    - fixed protagonists
+    - canonical state
+    - summaries
+    - recent history
+    - optional turn-rule instruction
+    end note
 
-    :AssistantApp formats and prints final response;
+    :Send chat request through resilience guard;
+    :Receive draft response;
+
+    if (validation enabled?) then (yes)
+      :Build validation request;
+      :Send validator request through validation guard;
+
+      if (validator returns ALLOW?) then (yes)
+        :Use sanitized draft response;
+      else (no)
+        :Use sanitized replacement response;
+      endif
+    else (no)
+      :Use draft response;
+    endif
+
+    :Append turn to history;
+    :Persist turn-state if active;
+    :Print final response;
 
     fork
       :Trigger canonical state refresh;
-      :Run canonical state update on background worker thread through background resilience guard if enough older messages exist;
     fork again
       :Trigger recent summary refresh;
-      :Run recent summary update on background worker thread through background resilience guard if enough recent-window messages exist;
     fork again
       :Trigger long-term summary refresh;
-      :Run long-term summary update on background worker thread through background resilience guard if enough older messages exist;
     end fork
 
-  endif
+    note right
+    Background updates run asynchronously
+    on separate worker threads and do not
+    block the foreground response.
+    end note
 
+  endif
 endif
 
 stop
