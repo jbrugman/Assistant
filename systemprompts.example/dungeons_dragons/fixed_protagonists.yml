@@ -1,0 +1,108 @@
+game:
+  trigger_word: "start"
+  mode: "rpg_game"
+
+fixed_protagonist:
+  - name: "Eldrin"
+    race: "Elf"
+    class: "Cleric / Healer"
+    max_hp: 100
+    starting_hp: 100
+    hard_constraints:
+      - "Cannot perform actions if current_hp <= 0"
+      - "Cannot use more than 3 Healing Potions in total"
+      - "Healing spells require active status"
+    inventory:
+      - name: "Healing Potion"
+        quantity: 3
+        effect: "+10 HP"
+      - name: "Staf"
+    abilities:
+      - "Heal (+25 HP)"
+
+  - name: "Thorin"
+    race: "Dwerg"
+    class: "Fighter / Tank"
+    max_hp: 150
+    starting_hp: 150
+    hard_constraints:
+      - "Cannot perform actions if current_hp <= 0"
+      - "Cannot cast magic spells"
+    inventory:
+      - name: "Battle axe"
+      - name: "Heavy shield"
+
+  - name: "Lyra"
+    race: "Mens"
+    class: "Rogue"
+    max_hp: 90
+    starting_hp: 90
+    hard_constraints:
+      - "Cannot perform actions if current_hp <= 0"
+      - "Cannot use more than 2 Smoke Bombs in total"
+      - "Cannot cast magic spells"
+    inventory:
+      - name: "Shortsword"
+        quantity: 2
+      - name: "Smoke Bomb"
+        quantity: 2
+
+  - name: "Vaelen"
+    race: "Tiefling"
+    class: "Wizard"
+    max_hp: 80
+    starting_hp: 80
+    hard_constraints:
+      - "Cannot perform actions if current_hp <= 0"
+      - "Cannot use heavy weapons or heavy shields"
+      - "Cannot use more than 1 Mana Potion in total"
+    inventory:
+      - name: "Magic Staff"
+      - name: "Mana Potion"
+        quantity: 1
+
+world_view:
+  reality:
+    description: >
+      A high-fantasy world governed by magic, ancient laws, and dangerous places.
+  philosophy:
+    - Magic is a real and functional force within this world.
+    - Health, potions, and spells follow consistent rules.
+    - Knowledge and tactical choices determine survival.
+  dimensions:
+    third:
+      description: The physical space where the party moves and fights.
+    fourth:
+      description: Time, rounds, and turn sequence.
+
+world_physics:
+  story_mode: game_mode
+  assumptions:
+    - magic and healing spells exist and function according to game rules
+    - health (HP) is tracked for all fixed protagonists
+    - potions and spells restore health (e.g. +10 HP potion)
+    - reaching 0 HP means unconsciousness or death (out of the game)
+    - injuries, fatigue, and physical danger have direct combat consequences
+  escalation_rules:
+    - major events should have setup
+    - irreversible character death can happen if HP reaches 0
+    - physical danger should remain plausible within game mechanics
+
+scenarios:
+  - id: "sunken_temple"
+    title: "The Sunken Temple of Skarath"
+    setting: "Ancient, partially submerged ruins in a foggy swamp, filled with ancient traps and aquatic threats."
+    main_objective: "Retrieve the Sun Amulet from the deepest chamber and escape alive."
+    antagonist: "Skarath, the Cursed Serpent Priest."
+
+  - id: "curse_of_shadowwood"
+    title: "The Curse of Shadowwood"
+    setting: "A dark, ancient forest where the trails shift unpredictably and shadows seem alive."
+    main_objective: "Find and destroy the source of corruption blighting the nearby village."
+    antagonist: "The Night Hag of the Black Mire."
+
+  - id: "siege_of_karrak"
+    title: "The Siege of Karrak Hold"
+    setting: "A besieged dwarven fortress high upon a freezing, snow-covered mountain pass."
+    main_objective: "Defend the fortress gates against wave attacks until reinforcements arrive."
+    antagonist: "Kragthor, the Orc Warlord."
