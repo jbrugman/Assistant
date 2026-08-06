@@ -2,6 +2,10 @@ package nl.llm.storyteller;
 
 import nl.llm.storyteller.model.HistoryState;
 import nl.llm.storyteller.model.Message;
+import nl.llm.storyteller.model.CanonicalStatePromptInput;
+import nl.llm.storyteller.model.RecentSummaryPromptInput;
+import nl.llm.storyteller.model.SummaryPromptInput;
+import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.service.ChatClient;
 import nl.llm.storyteller.service.HistoryStore;
 import nl.llm.storyteller.service.PromptResourceLoader;
@@ -166,6 +170,41 @@ class DerivedMemoryManagerTest {
         }
     }
 
+    @Test
+    @DisplayName("""
+        Given derived-memory prompt builders and fixed protagonists context,
+        When background summary prompts are assembled,
+        Then each request should contain one combined system message followed by one user message
+        """)
+    void shouldBuildDerivedMemoryPromptsWithSingleSystemMessage() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-derived-prompts");
+        writeOverride(baseDirectory, "systemprompts/fixed_protagonists.yml", "FIXED DATA");
+        writeOverride(baseDirectory, "systemprompts/fixedprotagonistscontext.md", "FIXED PROTAGONISTS:%n%s");
+        writeOverride(baseDirectory, "systemprompts/summarysystemprompt.md", "SUMMARY SYSTEM");
+        writeOverride(baseDirectory, "systemprompts/recentsummarysystemprompt.md", "RECENT SYSTEM");
+        writeOverride(baseDirectory, "systemprompts/canonicalstatesystemprompt.md", "CANONICAL SYSTEM");
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+
+        assertDerivedPromptShape(
+            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+                .build(new SummaryPromptInput("Old summary", "USER: Turn one")),
+            "SUMMARY SYSTEM"
+        );
+        assertDerivedPromptShape(
+            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+                .build(new RecentSummaryPromptInput("Old recent", "USER: Turn two")),
+            "RECENT SYSTEM"
+        );
+        assertDerivedPromptShape(
+            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
+                .build(new CanonicalStatePromptInput("Old canonical", "USER: Turn three")),
+            "CANONICAL SYSTEM"
+        );
+    }
+
     private TestContext createContext(String overrides) throws Exception {
         Path baseDirectory = Files.createTempDirectory("storyteller-derived-memory");
         Path configFile = baseDirectory.resolve("systemprompts/application.config");
@@ -238,6 +277,24 @@ class DerivedMemoryManagerTest {
         } catch (ReflectiveOperationException ex) {
             throw new AssertionError(ex);
         }
+    }
+
+    private void assertDerivedPromptShape(List<Message> messages, String expectedSystemHeader) {
+        assertEquals(2, messages.size());
+        assertEquals("system", messages.getFirst().role());
+        assertTrue(messages.getFirst().content().startsWith(expectedSystemHeader));
+        assertTrue(messages.getFirst().content().contains("FIXED PROTAGONISTS:\nFIXED DATA"));
+        assertEquals("user", messages.getLast().role());
+    }
+
+    private void writeOverride(Path baseDirectory, String relativePath, String content) {
+        Path path = baseDirectory.resolve(relativePath);
+        try {
+            Files.createDirectories(path.getParent());
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+        FileSupport.writeTextFile(path, content);
     }
 
     private record TestContext(

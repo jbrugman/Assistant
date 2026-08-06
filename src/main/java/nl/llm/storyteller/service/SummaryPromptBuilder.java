@@ -24,8 +24,7 @@ public final class SummaryPromptBuilder {
 
     public List<Message> build(SummaryPromptInput input) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new Message(SYSTEM, promptResourceLoader.loadSummarySystemPrompt()));
-        addFixedProtagonistsIfPresent(messages);
+        messages.add(new Message(SYSTEM, buildSystemMessage()));
         messages.add(
             new Message(
                 USER,
@@ -38,10 +37,16 @@ public final class SummaryPromptBuilder {
         return messages;
     }
 
-    private void addFixedProtagonistsIfPresent(List<Message> messages) {
-        String fixedProtagonists = promptTemplateService.buildFixedProtagonistsContext();
-        if (!fixedProtagonists.isBlank()) {
-            messages.add(new Message(SYSTEM, fixedProtagonists));
+    private String buildSystemMessage() {
+        List<String> sections = new ArrayList<>();
+        addIfPresent(sections, promptResourceLoader.loadSummarySystemPrompt());
+        addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext());
+        return String.join("\n\n", sections);
+    }
+
+    private void addIfPresent(List<String> sections, String content) {
+        if (!content.isBlank()) {
+            sections.add(content);
         }
     }
 
