@@ -258,6 +258,13 @@ The app does not send the full history back to the model. It sends:
 
 This single-system-message layout improves compatibility with stricter OpenAI-compatible chat templates, including LM Studio model templates that require the system message to appear only at the beginning of the conversation.
 
+The same compatibility rule is also applied to the three background derived-memory updates:
+- long-term summary refresh
+- recent summary refresh
+- canonical state refresh
+
+Those background requests now also use one combined first `system` message followed by one `user` message.
+
 ## Memory Layers
 
 The storyteller uses three derived memory layers beside the latest raw turns:
@@ -348,8 +355,12 @@ Not yet.
 
 ## Changelog
 
+### 1.0.8
+- Fixed prompt assembly for stricter LM Studio and OpenAI-compatible chat templates by sending story chat as one combined first `system` message instead of multiple separate `system` messages.
+- Fixed long-term summary, recent summary, and canonical state background updates to use the same single-system-message layout, preventing LM Studio template failures on derived-memory refresh calls.
+- Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.
+
 ### 1.0.7
-- Changed story chat prompt assembly to send a single combined first `system` message instead of multiple separate `system` messages, improving compatibility with stricter LM Studio and OpenAI-compatible chat templates.
 - Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.
 
 ### 1.0.6
