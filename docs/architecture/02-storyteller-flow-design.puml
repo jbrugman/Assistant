@@ -32,11 +32,12 @@ else (no)
 
     :Assemble prompt stack;
     note right
-    Prompt stack may include:
-    - system prompt
-    - fixed protagonists
-    - canonical state
-    - summaries
+    Prompt stack contains:
+    - one first system message with:
+      system prompt
+      fixed protagonists
+      canonical state
+      summaries
     - recent history
     - optional turn-rule instruction
     end note

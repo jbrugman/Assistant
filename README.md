@@ -111,7 +111,7 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.0.0.jar
+java -jar target/storyteller-1.0.0-all.jar
 ```
 
 The local default build version is `1.0.0`.
@@ -247,13 +247,16 @@ The app also uses a small built-in resilience layer around LLM calls:
 ## Prompt Assembly
 
 The app does not send the full history back to the model. It sends:
-- the main system prompt
-- fixed protagonists
-- canonical state
-- long-term summary
-- recent summary
+- one combined first `system` message containing:
+  the main system prompt
+  fixed protagonists
+  canonical state
+  long-term summary
+  recent summary
 - the last `chat.maxRecentTurns` raw turns
 - the latest user message
+
+This single-system-message layout improves compatibility with stricter OpenAI-compatible chat templates, including LM Studio model templates that require the system message to appear only at the beginning of the conversation.
 
 ## Memory Layers
 
@@ -344,6 +347,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.0.7
+- Changed story chat prompt assembly to send a single combined first `system` message instead of multiple separate `system` messages, improving compatibility with stricter LM Studio and OpenAI-compatible chat templates.
+- Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.
 
 ### 1.0.6
 - Added an optional engine-level turn-based game mode that tracks round participation outside the LLM and injects prompt penalties for illegal extra moves.

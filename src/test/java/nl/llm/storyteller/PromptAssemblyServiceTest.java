@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -110,11 +111,21 @@ class PromptAssemblyServiceTest {
 
             assertEquals(
                 List.of(
-                    new Message("system", "SYSTEM PROMPT"),
-                    new Message("system", "FIXED PROTAGONISTS:\nFIXED DATA"),
-                    new Message("system", "CANONICAL CONTEXT:\nCANONICAL STATE"),
-                    new Message("system", "SUMMARY CONTEXT:\nLONG SUMMARY"),
-                    new Message("system", "RECENT CONTEXT:\nRECENT SUMMARY"),
+                    new Message("system", """
+                        SYSTEM PROMPT
+
+                        FIXED PROTAGONISTS:
+                        FIXED DATA
+
+                        CANONICAL CONTEXT:
+                        CANONICAL STATE
+
+                        SUMMARY CONTEXT:
+                        LONG SUMMARY
+
+                        RECENT CONTEXT:
+                        RECENT SUMMARY
+                        """.stripIndent().trim()),
                     new Message("user", "Recent user 1"),
                     new Message("assistant", "Recent assistant 1"),
                     new Message("user", "Recent user 2"),
@@ -122,6 +133,10 @@ class PromptAssemblyServiceTest {
                     new Message("user", "Newest user input")
                 ),
                 messages
+            );
+            assertEquals(
+                1L,
+                messages.stream().filter(message -> "system".equals(message.role())).count()
             );
         } finally {
             summaryManager.shutdown();
@@ -211,6 +226,10 @@ class PromptAssemblyServiceTest {
             promptAssemblyService.buildChatMessages("(Eldrin) I open the stone door.");
             List<Message> messages = promptAssemblyService.buildChatMessages("(Eldrin) I cast another spell immediately.");
 
+            assertEquals(
+                1L,
+                messages.stream().filter(message -> "system".equals(message.role())).count()
+            );
             Message latestUserInput = messages.getLast();
 
             assertEquals("user", latestUserInput.role());
