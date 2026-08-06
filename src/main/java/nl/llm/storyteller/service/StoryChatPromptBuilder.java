@@ -23,16 +23,21 @@ public final class StoryChatPromptBuilder {
 
     public List<Message> build(StoryChatPromptInput input) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new Message(SYSTEM, promptResourceLoader.loadSystemPrompt()));
-
-        addIfPresent(messages, promptTemplateService.buildFixedProtagonistsContext());
-        addIfPresent(messages, promptTemplateService.buildCanonicalStateContext(input.canonicalState()));
-        addIfPresent(messages, promptTemplateService.buildSummaryContext(input.summary()));
-        addIfPresent(messages, promptTemplateService.buildRecentSummaryContext(input.recentSummary()));
+        messages.add(new Message(SYSTEM, buildSystemMessage(input)));
 
         messages.addAll(input.recentMessages());
         messages.add(new Message(USER, appendInlineInstruction(input.userInput(), input.extraSystemInstruction())));
         return messages;
+    }
+
+    private String buildSystemMessage(StoryChatPromptInput input) {
+        List<String> sections = new ArrayList<>();
+        addIfPresent(sections, promptResourceLoader.loadSystemPrompt());
+        addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext());
+        addIfPresent(sections, promptTemplateService.buildCanonicalStateContext(input.canonicalState()));
+        addIfPresent(sections, promptTemplateService.buildSummaryContext(input.summary()));
+        addIfPresent(sections, promptTemplateService.buildRecentSummaryContext(input.recentSummary()));
+        return String.join("\n\n", sections);
     }
 
     private String appendInlineInstruction(String userInput, String extraInstruction) {
@@ -42,9 +47,9 @@ public final class StoryChatPromptBuilder {
         return userInput + " " + extraInstruction.trim();
     }
 
-    private void addIfPresent(List<Message> messages, String content) {
+    private void addIfPresent(List<String> sections, String content) {
         if (!content.isBlank()) {
-            messages.add(new Message(SYSTEM, content));
+            sections.add(content);
         }
     }
 }
