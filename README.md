@@ -151,9 +151,29 @@ java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
 ## Terminal Shortcuts
 
 - `Ctrl-G`: sends `(continue the story)`
-- `Ctrl-W`: sends a reset instruction that tells the model to strictly follow the active story rules again
+- `Ctrl-W`: sends a transient reset instruction that tells the model to strictly follow the active story rules again
+- `Ctrl-U`: removes the last persisted turn, sends a transient reset instruction, and restores your last prompt in the input buffer so you can edit and retry it
+- `Ctrl-L`: shows the last persisted user prompt and assistant reply without sending anything to the model
 
-On macOS, `Cmd-G` and `Cmd-W` only work if the terminal forwards those key combinations as meta or escape input.
+On macOS, `Cmd-G`, `Cmd-W`, `Cmd-U`, and `Cmd-L` only work if the terminal forwards those key combinations as meta or escape input.
+
+The `Ctrl-W` / reset turn is treated as a control action rather than as a normal story turn:
+- its prompt and response are not appended to `history.json`
+- it does not trigger summary, recent-summary, or canonical-state refreshes
+- it adds a transient cache-buster token to the first `system` message as a presumed best-effort cache-bust, so stricter or cache-sensitive backends are less likely to reuse the exact same cached prefix for that single request
+
+This is not a documented LM Studio KV-cache flush. It is a portable best-effort prefix break for OpenAI-compatible backends that may reuse internal prompt state when the leading prompt prefix matches exactly.
+
+The `Ctrl-U` / undo-and-retry action builds on that reset flow:
+- it removes the last user+assistant turn from `history.json`
+- it clamps the summary, recent-summary, and canonical-state cursors to the shortened history
+- it sends the same transient reset request
+- it restores your previous user prompt in the terminal input buffer so you can revise it before sending it again
+
+The `Ctrl-L` action is read-only:
+- it does not contact the model
+- it does not modify `history.json`
+- it simply prints the latest persisted user+assistant turn so you can quickly see where you left off
 
 ## Commands
 
@@ -355,10 +375,20 @@ Not yet.
 
 ## Changelog
 
+### 1.0.9
+- Added `Ctrl-U` / `Cmd-U` as an undo-and-retry control action that removes the last persisted turn, sends a transient reset request, and restores the previous user prompt into the input buffer for editing.
+- Added `Ctrl-L` / `Cmd-L` as a local read-only shortcut that shows the last persisted user prompt and assistant reply without sending anything to the model.
+- Fixed reset-only `Ctrl-W` turns so they are treated as transient control requests instead of normal story turns.
+- Fixed reset-only turns to stay out of `history.json` and to skip long-term summary, recent summary, and canonical state refresh triggers.
+- Added a transient request-local cache-buster token to reset-only turns as a presumed best-effort portable cache-break for LM Studio and other OpenAI-compatible backends that do not expose a standard per-request KV-cache flush or slot-selection API.
+- Fixed history rollback so undoing the last turn safely clamps the summary, recent-summary, and canonical-state cursors to the shortened `history.json`.
+- Added a history helper for retrieving the latest persisted turn as a user+assistant pair.
+- Documented the new last-turn inspection shortcut and the transient undo/reset control flow in the README.
+- Documented the transient undo/reset control flow and its non-persisted behavior in the README.
+
 ### 1.0.8
 - Fixed prompt assembly for stricter LM Studio and OpenAI-compatible chat templates by sending story chat as one combined first `system` message instead of multiple separate `system` messages.
 - Fixed long-term summary, recent summary, and canonical state background updates to use the same single-system-message layout, preventing LM Studio template failures on derived-memory refresh calls.
-- Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.
 
 ### 1.0.7
 - Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.

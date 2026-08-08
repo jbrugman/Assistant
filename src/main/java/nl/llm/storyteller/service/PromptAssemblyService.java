@@ -36,14 +36,22 @@ public final class PromptAssemblyService {
 
     public List<Message> buildChatMessages(String userInput) {
         TurnRuleDecision turnRuleDecision = turnManager.evaluate(userInput);
+        return buildStoryChatMessages(userInput, historyStore.recentMessages(summaryManager.config.maxRecentTurns()), turnRuleDecision.promptInstruction());
+    }
+
+    public List<Message> buildResetMessages(String userInput) {
+        return buildStoryChatMessages(userInput, List.of(), "");
+    }
+
+    private List<Message> buildStoryChatMessages(String userInput, List<Message> recentMessages, String extraSystemInstruction) {
         return storyChatPromptBuilder.build(
             new StoryChatPromptInput(
                 userInput,
                 canonicalStateManager.loadCanonicalState(),
                 summaryManager.loadSummary(),
                 recentSummaryManager.loadRecentSummary(),
-                historyStore.recentMessages(summaryManager.config.maxRecentTurns()),
-                turnRuleDecision.promptInstruction()
+                recentMessages,
+                extraSystemInstruction
             )
         );
     }

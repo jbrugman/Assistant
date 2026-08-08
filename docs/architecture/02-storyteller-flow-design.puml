@@ -10,72 +10,81 @@ if (/exit or /quit?) then (yes)
   stop
 else (no)
 
-  if (/export?) then (yes)
-    :Load history;
-    :Create Markdown export;
-    :Print export confirmation;
+  if (Ctrl-U undo-and-retry?) then (yes)
+    :Remove last persisted turn from history;
+    :Clamp derived-memory cursors;
+    :Send transient reset request;
+    :Restore last user prompt in input buffer;
     stop
   else (no)
 
-    :Delegate the turn to StorySessionService;
+    if (/export?) then (yes)
+      :Load history;
+      :Create Markdown export;
+      :Print export confirmation;
+      stop
+    else (no)
 
-    if (turn-based mode enabled?) then (yes)
-      if (start trigger?) then (yes)
-        :Initialize or reset turn-state;
-      else (no)
-        :Evaluate actor scope and round participation;
-        if (illegal extra move?) then (yes)
-          :Prepare engine-side penalty instruction;
+      :Delegate the turn to StorySessionService;
+
+      if (turn-based mode enabled?) then (yes)
+        if (start trigger?) then (yes)
+          :Initialize or reset turn-state;
+        else (no)
+          :Evaluate actor scope and round participation;
+          if (illegal extra move?) then (yes)
+            :Prepare engine-side penalty instruction;
+          endif
         endif
       endif
-    endif
 
-    :Assemble prompt stack;
-    note right
-    Prompt stack contains:
-    - one first system message with:
-      system prompt
-      fixed protagonists
-      canonical state
-      summaries
-    - recent history
-    - optional turn-rule instruction
-    end note
+      :Assemble prompt stack;
+      note right
+      Prompt stack contains:
+      - one first system message with:
+        system prompt
+        fixed protagonists
+        canonical state
+        summaries
+      - recent history
+      - optional turn-rule instruction
+      end note
 
-    :Send chat request through resilience guard;
-    :Receive draft response;
+      :Send chat request through resilience guard;
+      :Receive draft response;
 
-    if (validation enabled?) then (yes)
-      :Build validation request;
-      :Send validator request through validation guard;
+      if (validation enabled?) then (yes)
+        :Build validation request;
+        :Send validator request through validation guard;
 
-      if (validator returns ALLOW?) then (yes)
-        :Use sanitized draft response;
+        if (validator returns ALLOW?) then (yes)
+          :Use sanitized draft response;
+        else (no)
+          :Use sanitized replacement response;
+        endif
       else (no)
-        :Use sanitized replacement response;
+        :Use draft response;
       endif
-    else (no)
-      :Use draft response;
+
+      :Append turn to history;
+      :Persist turn-state if active;
+      :Print final response;
+
+      fork
+        :Trigger canonical state refresh;
+      fork again
+        :Trigger recent summary refresh;
+      fork again
+        :Trigger long-term summary refresh;
+      end fork
+
+      note right
+      Background updates run asynchronously
+      on separate worker threads and do not
+      block the foreground response.
+      end note
+
     endif
-
-    :Append turn to history;
-    :Persist turn-state if active;
-    :Print final response;
-
-    fork
-      :Trigger canonical state refresh;
-    fork again
-      :Trigger recent summary refresh;
-    fork again
-      :Trigger long-term summary refresh;
-    end fork
-
-    note right
-    Background updates run asynchronously
-    on separate worker threads and do not
-    block the foreground response.
-    end note
-
   endif
 endif
 

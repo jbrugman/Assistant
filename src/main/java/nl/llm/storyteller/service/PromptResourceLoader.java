@@ -65,4 +65,8 @@ public final class PromptResourceLoader {
     public String loadTurnViolationPartyTemplate() {
         return FileSupport.readRequiredTextFileOrResource(config.turnViolationPartyTemplateFile(), config.baseDir());
     }
+
+    public String loadResetCacheBusterTemplate() {
+        return FileSupport.readRequiredTextFileOrResource(config.resetCacheBusterTemplateFile(), config.baseDir());
+    }
 }

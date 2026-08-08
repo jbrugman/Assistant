@@ -159,6 +159,10 @@ public final class AppConfig {
         return files.turnStateFile();
     }
 
+    public Path resetCacheBusterTemplateFile() {
+        return files.resetCacheBusterTemplateFile();
+    }
+
     public int maxRecentTurns() {
         return conversation.maxRecentTurns();
     }
@@ -271,12 +275,48 @@ public final class AppConfig {
         return runtimeText.shortcutResetHint();
     }
 
+    public String shortcutUndoHint() {
+        return runtimeText.shortcutUndoHint();
+    }
+
+    public String shortcutLastTurnHint() {
+        return runtimeText.shortcutLastTurnHint();
+    }
+
+    public String resetSentText() {
+        return runtimeText.resetSentText();
+    }
+
+    public String undoSentText() {
+        return runtimeText.undoSentText();
+    }
+
+    public String noStoryTurnToUndoText() {
+        return runtimeText.noStoryTurnToUndoText();
+    }
+
+    public String undoRestoredText() {
+        return runtimeText.undoRestoredText();
+    }
+
+    public String noLastTurnText() {
+        return runtimeText.noLastTurnText();
+    }
+
+    public String lastTurnTemplate() {
+        return runtimeText.lastTurnTemplate();
+    }
+
     public String lmStudioRequestErrorText() {
         return runtimeText.lmStudioRequestErrorText();
     }
 
     public String processHistoryErrorText() {
         return runtimeText.processHistoryErrorText();
+    }
+
+    public String macHint() {
+        return runtimeText.macHint();
     }
 
     public String commandHelpText() {
@@ -319,7 +359,8 @@ public final class AppConfig {
                 source.requiredPath("file.canonicalState"),
                 source.requiredPath("file.history"),
                 source.requiredPath("file.legacyHistory"),
-                source.requiredPath("file.turnState")
+                source.requiredPath("file.turnState"),
+                source.requiredPath("file.resetCacheBusterTemplate")
             ),
             new ConversationConfig(
                 source.requiredInt("chat.maxRecentTurns"),
@@ -356,8 +397,17 @@ public final class AppConfig {
                 source.requiredString("ui.commandHelp"),
                 source.requiredString("ui.shortcutContinueHint"),
                 source.requiredString("ui.shortcutResetHint"),
+                source.requiredString("ui.shortcutUndoHint"),
+                source.requiredString("ui.shortcutLastTurnHint"),
+                source.requiredString("ui.resetSent"),
+                source.requiredString("ui.undoSent"),
+                source.requiredString("ui.noStoryTurnToUndo"),
+                source.requiredString("ui.undoRestored"),
+                source.requiredString("ui.noLastTurn"),
+                source.requiredString("ui.lastTurnTemplate"),
                 source.requiredString("ui.errorLmStudioRequest"),
-                source.requiredString("ui.errorProcessHistory")
+                source.requiredString("ui.errorProcessHistory"),
+                source.requiredString("ui.macHint")
             ),
             new OptionsConfig(
                 linkedMapOf(
@@ -405,7 +455,8 @@ public final class AppConfig {
         Path canonicalStateFile,
         Path historyFile,
         Path legacyHistoryFile,
-        Path turnStateFile
+        Path turnStateFile,
+        Path resetCacheBusterTemplateFile
     ) {}
 
     private record ConversationConfig(
@@ -449,9 +500,17 @@ public final class AppConfig {
         String commandHelpText,
         String shortcutContinueHint,
         String shortcutResetHint,
+        String shortcutUndoHint,
+        String shortcutLastTurnHint,
+        String resetSentText,
+        String undoSentText,
+        String noStoryTurnToUndoText,
+        String undoRestoredText,
+        String noLastTurnText,
+        String lastTurnTemplate,
         String lmStudioRequestErrorText,
-        String processHistoryErrorText
-    ) {}
+        String processHistoryErrorText,
+        String macHint) {}
 
     private record OptionsConfig(
         Map<String, Object> chatOptions,
