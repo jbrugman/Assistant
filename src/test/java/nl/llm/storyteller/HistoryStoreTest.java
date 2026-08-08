@@ -107,6 +107,59 @@ class HistoryStoreTest {
         assertTrue(Files.exists(historyFile));
     }
 
+    @Test
+    @DisplayName("""
+        Given a history with three turns and cursors that already moved forward,
+        When the last turn is removed,
+        Then the last user input should be returned and all cursors should be clamped to the shortened history
+        """)
+    void shouldRemoveLastTurnAndClampCursors() throws Exception {
+        Path tempDirectory = Files.createTempDirectory("storyteller-history-remove");
+        Path historyFile = tempDirectory.resolve("history.json");
+        Path legacyFile = tempDirectory.resolve("history.md");
+        HistoryStore historyStore = new HistoryStore(historyFile, legacyFile);
+        historyStore.save(new HistoryState(
+            List.of(
+                new Message("user", "user-1"),
+                new Message("assistant", "assistant-1"),
+                new Message("user", "user-2"),
+                new Message("assistant", "assistant-2"),
+                new Message("user", "user-3"),
+                new Message("assistant", "assistant-3")
+            ),
+            6,
+            6,
+            6
+        ));
+
+        String restoredInput = historyStore.removeLastTurn();
+        HistoryState state = historyStore.load();
+
+        assertEquals("user-3", restoredInput);
+        assertIterableEquals(
+            List.of("user-1", "assistant-1", "user-2", "assistant-2"),
+            state.messages().stream().map(Message::content).toList()
+        );
+        assertEquals(4, state.summaryCursor());
+        assertEquals(4, state.recentSummaryCursor());
+        assertEquals(4, state.canonicalStateCursor());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a history with several complete turns,
+        When the most recent persisted turn is requested,
+        Then the latest user input and assistant reply should be returned as a pair
+        """)
+    void shouldLoadLastTurn() throws Exception {
+        HistoryStore historyStore = createStoreWithThreeTurns();
+
+        HistoryStore.LastTurn lastTurn = historyStore.loadLastTurn();
+
+        assertEquals("user-3", lastTurn.userInput());
+        assertEquals("assistant-3", lastTurn.assistantResponse());
+    }
+
     private static Stream<Arguments> recentTurnCases() {
         return Stream.of(
             Arguments.of(1, List.of("user-3", "assistant-3")),

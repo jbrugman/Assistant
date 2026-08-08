@@ -46,10 +46,11 @@ public final class AssistantApp {
     private static final String EXPORT_CLEAN_OPTION = "-clean";
     private static final String CONTINUE_STORY_WIDGET = "continue-story";
     private static final String RESET_WIDGET = "reset-behavior";
+    private static final String UNDO_WIDGET = "undo-last-turn";
+    private static final String LAST_TURN_WIDGET = "show-last-turn";
     private static final int DISPLAY_MARGIN = 2;
     private static final int MIN_CONTENT_WIDTH = 20;
     private static final Pattern LIST_PREFIX_PATTERN = Pattern.compile("^(\\s*(?:[-*]|\\d+\\.)\\s+)(.*)$");
-
     private AssistantApp() {
     }
 
@@ -57,8 +58,8 @@ public final class AssistantApp {
         AppContext context = createAppContext();
 
         try (Terminal terminal = TerminalBuilder.builder().system(true).build()) {
-            LineReader reader = createReader(terminal, context.config());
             PrintWriter output = terminal.writer();
+            LineReader reader = createReader(terminal, output, context);
             printBanner(terminal, output, context.config());
             runChatLoop(reader, terminal, output, context);
         } finally {
@@ -153,7 +154,8 @@ public final class AssistantApp {
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            promptAssemblyService
+            promptAssemblyService,
+            promptResourceLoader
         );
         return new AppContext(
             config,
@@ -165,14 +167,16 @@ public final class AssistantApp {
         );
     }
 
-    private static LineReader createReader(Terminal terminal, AppConfig config) {
+    private static LineReader createReader(Terminal terminal, PrintWriter output, AppContext context) {
         LineReader reader = LineReaderBuilder.builder()
             .terminal(terminal)
             .appName(APP_NAME)
             .build();
 
-        registerContinueStoryShortcut(reader, config);
-        registerResetShortcut(reader, config);
+        registerContinueStoryShortcut(reader, context.config());
+        registerResetShortcut(reader, terminal, output, context);
+        registerUndoShortcut(reader, terminal, output, context);
+        registerLastTurnShortcut(reader, terminal, output, context);
         return reader;
     }
 
@@ -190,18 +194,77 @@ public final class AssistantApp {
         bindShortcut(reader, LineReader.VIINS, binding, 'G', 'g');
     }
 
-    private static void registerResetShortcut(LineReader reader, AppConfig config) {
+    private static void registerResetShortcut(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {
         reader.getWidgets().put(RESET_WIDGET, () -> {
-            reader.getBuffer().clear();
-            reader.getBuffer().write(config.resetStoryCommand());
-            reader.callWidget(LineReader.ACCEPT_LINE);
-            return true;
+            try {
+                reader.getBuffer().clear();
+                printMessage(terminal, output, context.config().resetSentText());
+                context.storySessionService().handleUserTurn(context.config().resetStoryCommand());
+                return true;
+            } catch (InterruptedException ex) {
+                printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
+                Thread.currentThread().interrupt();
+                return true;
+            } catch (IOException ex) {
+                printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
+                return true;
+            } catch (RuntimeException ex) {
+                printError(terminal, output, context.config().processHistoryErrorText(), ex.getMessage());
+                return true;
+            }
         });
 
         Reference binding = new Reference(RESET_WIDGET);
         bindShortcut(reader, LineReader.MAIN, binding, 'W', 'w');
         bindShortcut(reader, LineReader.EMACS, binding, 'W', 'w');
         bindShortcut(reader, LineReader.VIINS, binding, 'W', 'w');
+    }
+
+    private static void registerUndoShortcut(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {
+        reader.getWidgets().put(UNDO_WIDGET, () -> {
+            try {
+                printMessage(terminal, output, context.config().undoSentText());
+                StorySessionService.UndoResult result = context.storySessionService().undoLastTurnAndReset();
+                reader.getBuffer().clear();
+
+                if (!result.hasRestoredUserInput()) {
+                    printMessage(terminal, output, context.config().noStoryTurnToUndoText());
+                    return true;
+                }
+
+                printLastPersistedTurn(terminal, output, context.config(), context.storySessionService().loadLastTurn());
+                printMessage(terminal, output, context.config().undoRestoredText());
+                reader.getBuffer().write(result.restoredUserInput());
+                return true;
+            } catch (InterruptedException ex) {
+                printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
+                Thread.currentThread().interrupt();
+                return true;
+            } catch (IOException ex) {
+                printError(terminal, output, context.config().lmStudioRequestErrorText(), ex.getMessage());
+                return true;
+            } catch (RuntimeException ex) {
+                printError(terminal, output, context.config().processHistoryErrorText(), ex.getMessage());
+                return true;
+            }
+        });
+
+        Reference binding = new Reference(UNDO_WIDGET);
+        bindShortcut(reader, LineReader.MAIN, binding, 'U', 'u');
+        bindShortcut(reader, LineReader.EMACS, binding, 'U', 'u');
+        bindShortcut(reader, LineReader.VIINS, binding, 'U', 'u');
+    }
+
+    private static void registerLastTurnShortcut(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {
+        reader.getWidgets().put(LAST_TURN_WIDGET, () -> {
+            printLastPersistedTurn(terminal, output, context.config(), context.storySessionService().loadLastTurn());
+            return true;
+        });
+
+        Reference binding = new Reference(LAST_TURN_WIDGET);
+        bindShortcut(reader, LineReader.MAIN, binding, 'L', 'l');
+        bindShortcut(reader, LineReader.EMACS, binding, 'L', 'l');
+        bindShortcut(reader, LineReader.VIINS, binding, 'L', 'l');
     }
 
     private static void bindShortcut(LineReader reader, String keyMapName, Reference binding, char ctrlKey, char altKey) {
@@ -214,14 +277,37 @@ public final class AssistantApp {
 
     private static void printBanner(Terminal terminal, PrintWriter output, AppConfig config) {
         output.println(formatForDisplay(
-            config.bannerStartText() + " "
-                + config.commandHelpText() + " "
-                + config.shortcutContinueHint() + " "
-                + config.shortcutResetHint(),
+            """
+                %s
+                - %s
+                - %s
+                - %s
+                - %s
+                - %s
+                - %s
+                """.formatted(
+                config.bannerStartText(),
+                config.commandHelpText(),
+                config.shortcutContinueHint(),
+                config.shortcutResetHint(),
+                config.shortcutUndoHint(),
+                config.shortcutLastTurnHint(),
+                config.macHint()
+            ).strip(),
             terminal
         ));
         output.println();
         output.flush();
+    }
+
+    private static void printLastPersistedTurn(Terminal terminal, PrintWriter output, AppConfig config, HistoryStore.LastTurn lastTurn) {
+        if (!lastTurn.isPresent()) {
+            printMessage(terminal, output, config.noLastTurnText());
+            return;
+        }
+
+        String lastTurnText = config.lastTurnTemplate().formatted(lastTurn.userInput(), lastTurn.assistantResponse()).strip();
+        printMessage(terminal, output, lastTurnText);
     }
 
     private static void runChatLoop(LineReader reader, Terminal terminal, PrintWriter output, AppContext context) {

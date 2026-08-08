@@ -243,6 +243,88 @@ class PromptAssemblyServiceTest {
         }
     }
 
+    @Test
+    @DisplayName("""
+        Given recent history exists,
+        When a reset control prompt is assembled,
+        Then the reset request should keep the combined system context but omit raw recent turns
+        """)
+    void shouldAssembleResetPromptWithoutRecentHistory() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-reset-prompt-assembly");
+        writeOverride(baseDirectory, "systemprompts/systemprompt.md", "SYSTEM PROMPT");
+        writeOverride(baseDirectory, "systemprompts/fixed_protagonists.yml", "FIXED DATA");
+        writeOverride(baseDirectory, "systemprompts/fixedprotagonistscontext.md", "FIXED PROTAGONISTS:%n%s");
+        writeOverride(baseDirectory, "systemprompts/summarycontext.md", "SUMMARY CONTEXT:%n%s");
+        writeOverride(baseDirectory, "systemprompts/recentsummarycontext.md", "RECENT CONTEXT:%n%s");
+        writeOverride(baseDirectory, "systemprompts/canonicalstatecontext.md", "CANONICAL CONTEXT:%n%s");
+        Files.createDirectories(baseDirectory.resolve("memory"));
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        HistoryStore historyStore = getHistoryStore(config);
+        FileSupport.writeTextFile(config.summaryFile(), "LONG SUMMARY");
+        FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
+        FileSupport.writeTextFile(config.canonicalStateFile(), "CANONICAL STATE");
+
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+        StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
+        ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);
+        SummaryManager summaryManager = new SummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
+            historyStore,
+            new NoOpChatClient(),
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        TurnManager turnManager = new TurnManager(
+            config,
+            promptResourceLoader,
+            promptTemplateService,
+            new GameModeDefinitionParser(),
+            new TurnStateStore(config.turnStateFile())
+        );
+
+        try {
+            PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
+                historyStore,
+                summaryManager,
+                recentSummaryManager,
+                canonicalStateManager,
+                turnManager,
+                storyChatPromptBuilder,
+                validationPromptBuilder
+            );
+
+            List<Message> messages = promptAssemblyService.buildResetMessages(config.resetStoryCommand());
+
+            assertEquals(2, messages.size());
+            assertEquals("system", messages.getFirst().role());
+            assertEquals("user", messages.getLast().role());
+            assertEquals(config.resetStoryCommand(), messages.getLast().content());
+        } finally {
+            summaryManager.shutdown();
+            recentSummaryManager.shutdown();
+            canonicalStateManager.shutdown();
+        }
+    }
+
     private static HistoryStore getHistoryStore(AppConfig config) {
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.save(

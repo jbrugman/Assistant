@@ -82,6 +82,58 @@ public final class HistoryStore {
         save(new HistoryState(messages, state.summaryCursor(), state.recentSummaryCursor(), state.canonicalStateCursor()));
     }
 
+    public synchronized String removeLastTurn() {
+        HistoryState state = load();
+        List<Message> messages = new ArrayList<>(state.messages());
+        int lastUserIndex = -1;
+        for (int index = messages.size() - 1; index >= 0; index--) {
+            if ("user".equals(messages.get(index).role())) {
+                lastUserIndex = index;
+                break;
+            }
+        }
+
+        if (lastUserIndex < 0) {
+            return "";
+        }
+
+        String restoredUserInput = messages.get(lastUserIndex).content();
+        messages.subList(lastUserIndex, messages.size()).clear();
+        int newSize = messages.size();
+        save(new HistoryState(
+            messages,
+            Math.min(state.summaryCursor(), newSize),
+            Math.min(state.recentSummaryCursor(), newSize),
+            Math.min(state.canonicalStateCursor(), newSize)
+        ));
+        return restoredUserInput;
+    }
+
+    public synchronized LastTurn loadLastTurn() {
+        List<Message> messages = load().messages();
+        int lastUserIndex = -1;
+        for (int index = messages.size() - 1; index >= 0; index--) {
+            if ("user".equals(messages.get(index).role())) {
+                lastUserIndex = index;
+                break;
+            }
+        }
+
+        if (lastUserIndex < 0) {
+            return new LastTurn("", "");
+        }
+
+        String userInput = messages.get(lastUserIndex).content();
+        String assistantResponse = "";
+        for (int index = lastUserIndex + 1; index < messages.size(); index++) {
+            if ("assistant".equals(messages.get(index).role())) {
+                assistantResponse = messages.get(index).content();
+                break;
+            }
+        }
+        return new LastTurn(userInput, assistantResponse);
+    }
+
     public synchronized List<Message> recentMessages(int limitTurns) {
         return sliceRecentCompleteTurns(load().messages(), limitTurns);
     }
@@ -180,6 +232,12 @@ public final class HistoryStore {
         String content = String.join("\n", buffer).trim();
         if (!content.isEmpty()) {
             messages.add(new Message(role, content));
+        }
+    }
+
+    public record LastTurn(String userInput, String assistantResponse) {
+        public boolean isPresent() {
+            return (userInput != null && !userInput.isBlank()) || (assistantResponse != null && !assistantResponse.isBlank());
         }
     }
 }
