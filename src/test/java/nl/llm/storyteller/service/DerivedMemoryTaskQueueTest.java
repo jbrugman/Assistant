@@ -1,5 +1,6 @@
 package nl.llm.storyteller.service;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -10,6 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DerivedMemoryTaskQueueTest {
     @Test
+    @DisplayName("""
+        Given a running derived-memory task and another queued task,
+        When the first task has not completed,
+        Then the queued task should not start until the first task finishes
+        """)
     void shouldRunBackgroundTasksSequentially() throws Exception {
         DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue();
         CountDownLatch firstStarted = new CountDownLatch(1);

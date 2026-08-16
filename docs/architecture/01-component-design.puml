@@ -28,6 +28,9 @@ skinparam database {
 
 package "Entry Points" #E0F2FE {
   [AssistantApp]
+  [ApplicationFactory]
+  [TerminalStoryteller]
+  [TerminalRenderer]
   [AppConfigLoader]
   [AppConfig]
 }
@@ -77,6 +80,9 @@ database "memory/" as MemoryFiles
 
 together {
   [AssistantApp]
+  [ApplicationFactory]
+  [TerminalStoryteller]
+  [TerminalRenderer]
   [StorySessionService]
   [StoryExportService]
 }
@@ -93,9 +99,14 @@ together {
   [CanonicalStateManager]
 }
 
-[AssistantApp] --> [AppConfigLoader]
-[AssistantApp] --> [StorySessionService]
-[AssistantApp] --> [StoryExportService]
+[AssistantApp] --> [ApplicationFactory]
+[AssistantApp] --> [TerminalStoryteller]
+[ApplicationFactory] --> [AppConfigLoader]
+[ApplicationFactory] --> [StorySessionService]
+[ApplicationFactory] --> [StoryExportService]
+[TerminalStoryteller] --> [StorySessionService]
+[TerminalStoryteller] --> [StoryExportService]
+[TerminalStoryteller] --> [TerminalRenderer]
 
 [AppConfigLoader] --> [AppConfig]
 [AppConfigLoader] --> SystemPrompts : load defaults and overrides
