@@ -108,7 +108,7 @@ public final class StorySessionService {
         List<Message> updatedMessages = new ArrayList<>(messages);
         Message firstMessage = updatedMessages.getFirst();
         String cacheBuster = promptResourceLoader.loadResetCacheBusterTemplate().formatted(UUID.randomUUID());
-        updatedMessages.set(0, new Message(firstMessage.role(), firstMessage.content() + "\n\n" + cacheBuster.trim()));
+        updatedMessages.set(0, new Message(firstMessage.role(), cacheBuster.trim() + "\n\n" + firstMessage.content()));
         return List.copyOf(updatedMessages);
     }
 

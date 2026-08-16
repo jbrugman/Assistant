@@ -120,6 +120,7 @@ class StorySessionServiceTest {
             assertEquals(2, sentMessages.size());
             assertEquals("system", sentMessages.getFirst().role());
             assertTrue(sentMessages.getFirst().content().contains("Opaque reset cache-buster token:"));
+            assertTrue(sentMessages.getFirst().content().startsWith("Opaque reset cache-buster token:"));
             assertEquals("user", sentMessages.getLast().role());
             assertEquals(config.resetStoryCommand(), sentMessages.getLast().content());
             assertFalse(sentMessages.getFirst().content().contains("Earlier prompt"));

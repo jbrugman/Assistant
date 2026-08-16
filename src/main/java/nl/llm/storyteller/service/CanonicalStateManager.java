@@ -19,7 +19,35 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
         PromptTemplateService promptTemplateService,
         CanonicalStatePromptBuilder canonicalStatePromptBuilder
     ) {
-        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "canonical-state-worker");
+        this(
+            historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
+            new DerivedMemoryTaskQueue(), true
+        );
+    }
+
+    public CanonicalStateManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        CanonicalStatePromptBuilder canonicalStatePromptBuilder,
+        DerivedMemoryTaskQueue taskQueue
+    ) {
+        this(historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder, taskQueue, false);
+    }
+
+    private CanonicalStateManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        CanonicalStatePromptBuilder canonicalStatePromptBuilder,
+        DerivedMemoryTaskQueue taskQueue,
+        boolean ownsTaskQueue
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
         this.canonicalStatePromptBuilder = canonicalStatePromptBuilder;
     }
 
