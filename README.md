@@ -165,7 +165,8 @@ java -jar target/storyteller-1.1.0-all.jar
 
 The local default build version is `1.1.0`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.1.0` and then `v1.1.1`, `v1.1.2`, and so on.
-Each push to `main`, including merges from pull requests, automatically builds a release jar and publishes it to GitHub Releases.
+Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
+Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
 
 ### Native Build
 
