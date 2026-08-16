@@ -242,6 +242,7 @@ Important settings:
 - `recentSummary.batchMessages=6`
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=2`
+- `summary.maxTokens=16384`
 - `validation.enabled=true`
 - `resilience.chat.failureThreshold=3`
 - `resilience.chat.cooldownSeconds=20`
@@ -284,6 +285,7 @@ The same compatibility rule is also applied to the three background derived-memo
 - canonical state refresh
 
 Those background requests now also use one combined first `system` message followed by one `user` message.
+Their generated output is capped by `summary.maxTokens` (default `16384`), while normal story requests continue to use the backend's default output limit.
 
 ## Memory Layers
 
@@ -297,7 +299,7 @@ This keeps prompt size down while preserving continuity.
 Important runtime detail:
 - the foreground story turn stays synchronous for prompt assembly, model response, validation, and history append
 - the derived-memory refreshes for `summary.md`, `recent-summary.md`, and `canonical-state.yaml` are triggered asynchronously afterward
-- each derived-memory manager runs its own single-threaded background worker, so those LLM calls do not block the user from getting the current story response
+- all three refreshes share one single-threaded task queue, so their LLM calls run sequentially without blocking the user from getting the current story response
 
 ## Runtime Structure
 
@@ -331,12 +333,13 @@ LLM backend resilience is handled separately:
 - [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
 
 The three derived-memory updaters now share one common infrastructure layer:
-- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): worker lifecycle, concurrency guard, model-call flow, and safe write-back coordination
+- [`DerivedMemoryTaskQueue.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryTaskQueue.java): shared sequential execution and worker lifecycle
+- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): per-manager concurrency guard, model-call flow, and safe write-back coordination
 - [`SummaryManager.java`](src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
 
 Those background memory refreshes are asynchronous by design:
 - `StorySessionService` triggers them after the current turn has already been appended to history
-- each manager uses its own daemon-backed single-thread executor
+- all managers submit to one daemon-backed single-thread queue, preventing concurrent background calls to the LLM backend
 - if a background refresh fails, the current user-facing turn still completes normally
 
 ## Example usage
@@ -374,6 +377,11 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.0.10
+- Added configurable `summary.maxTokens` output limits for long-term summary, recent-summary, and canonical-state refreshes, defaulting to `16384` without changing normal story request defaults.
+- Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.
+- Added configuration and queue-ordering test coverage and updated the architecture documentation.
 
 ### 1.0.9
 - Added `Ctrl-U` / `Cmd-U` as an undo-and-retry control action that removes the last persisted turn, sends a transient reset request, and restores the previous user prompt into the input buffer for editing.
