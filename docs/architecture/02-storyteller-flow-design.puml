@@ -68,20 +68,21 @@ else (no)
 
       :Append turn to history;
       :Persist turn-state if active;
+
+      if (Cache-buster interval reached?) then (yes)
+        :Send silent reset-with-cache-buster request;
+      endif
+
       :Print final response;
 
-      fork
-        :Trigger canonical state refresh;
-      fork again
-        :Trigger recent summary refresh;
-      fork again
-        :Trigger long-term summary refresh;
-      end fork
+      :Queue canonical state refresh;
+      :Queue recent summary refresh;
+      :Queue long-term summary refresh;
 
       note right
-      Background updates run asynchronously
-      on separate worker threads and do not
-      block the foreground response.
+      Background updates run asynchronously on one
+      shared single-threaded queue. They execute
+      sequentially and do not block the foreground response.
       end note
 
     endif

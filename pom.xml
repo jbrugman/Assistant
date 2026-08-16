@@ -102,6 +102,7 @@
               <fallback>false</fallback>
               <buildArgs>
                 <buildArg>-H:IncludeResources=systemprompts/.*</buildArg>
+                <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
               </buildArgs>
             </configuration>
             <executions>

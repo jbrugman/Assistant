@@ -18,7 +18,35 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
         PromptTemplateService promptTemplateService,
         RecentSummaryPromptBuilder recentSummaryPromptBuilder
     ) {
-        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "recent-summary-worker");
+        this(
+            historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
+            new DerivedMemoryTaskQueue(), true
+        );
+    }
+
+    public RecentSummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        RecentSummaryPromptBuilder recentSummaryPromptBuilder,
+        DerivedMemoryTaskQueue taskQueue
+    ) {
+        this(historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder, taskQueue, false);
+    }
+
+    private RecentSummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        RecentSummaryPromptBuilder recentSummaryPromptBuilder,
+        DerivedMemoryTaskQueue taskQueue,
+        boolean ownsTaskQueue
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
         this.recentSummaryPromptBuilder = recentSummaryPromptBuilder;
     }
 

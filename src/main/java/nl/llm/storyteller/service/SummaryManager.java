@@ -19,7 +19,35 @@ public final class SummaryManager extends DerivedMemoryManager {
         PromptTemplateService promptTemplateService,
         SummaryPromptBuilder summaryPromptBuilder
     ) {
-        super(historyStore, client, config, promptResourceLoader, promptTemplateService, "summary-worker");
+        this(
+            historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
+            new DerivedMemoryTaskQueue(), true
+        );
+    }
+
+    public SummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        SummaryPromptBuilder summaryPromptBuilder,
+        DerivedMemoryTaskQueue taskQueue
+    ) {
+        this(historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder, taskQueue, false);
+    }
+
+    private SummaryManager(
+        HistoryStore historyStore,
+        ChatClient client,
+        AppConfig config,
+        PromptResourceLoader promptResourceLoader,
+        PromptTemplateService promptTemplateService,
+        SummaryPromptBuilder summaryPromptBuilder,
+        DerivedMemoryTaskQueue taskQueue,
+        boolean ownsTaskQueue
+    ) {
+        super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
         this.summaryPromptBuilder = summaryPromptBuilder;
     }
 

@@ -8,9 +8,6 @@ import nl.llm.storyteller.model.Message;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract class DerivedMemoryManager {
@@ -20,7 +17,8 @@ abstract class DerivedMemoryManager {
     protected final PromptResourceLoader promptResourceLoader;
     protected final PromptTemplateService promptTemplateService;
 
-    private final ExecutorService executor;
+    private final DerivedMemoryTaskQueue taskQueue;
+    private final boolean ownsTaskQueue;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final Object lock = new Object();
 
@@ -30,18 +28,22 @@ abstract class DerivedMemoryManager {
         AppConfig config,
         PromptResourceLoader promptResourceLoader,
         PromptTemplateService promptTemplateService,
-        String workerName
+        DerivedMemoryTaskQueue taskQueue,
+        boolean ownsTaskQueue
     ) {
         this.historyStore = historyStore;
         this.client = client;
         this.config = config;
         this.promptResourceLoader = promptResourceLoader;
         this.promptTemplateService = promptTemplateService;
-        this.executor = Executors.newSingleThreadExecutor(new DaemonThreadFactory(workerName));
+        this.taskQueue = taskQueue;
+        this.ownsTaskQueue = ownsTaskQueue;
     }
 
     public final void shutdown() {
-        executor.shutdownNow();
+        if (ownsTaskQueue) {
+            taskQueue.close();
+        }
     }
 
     protected final void triggerUpdateIfNeeded() {
@@ -60,7 +62,7 @@ abstract class DerivedMemoryManager {
             }
 
             running.set(true);
-            executor.submit(() -> runJob(job));
+            taskQueue.submit(() -> runJob(job));
         }
     }
 
@@ -128,13 +130,4 @@ abstract class DerivedMemoryManager {
     protected abstract void ignoreFailure();
 
     protected record DerivedMemoryJob(int cursor, int cutoffIndex, String existingContent, List<Message> pendingMessages) {}
-
-    private record DaemonThreadFactory(String workerName) implements ThreadFactory {
-        @Override
-        public Thread newThread(Runnable runnable) {
-            Thread thread = new Thread(runnable, workerName);
-            thread.setDaemon(true);
-            return thread;
-        }
-    }
 }

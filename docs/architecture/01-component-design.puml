@@ -50,10 +50,10 @@ package "State & Memory" #FCE7F3 {
   [HistoryStore]
   [TurnStateStore]
   [DerivedMemoryManager]
+  [DerivedMemoryTaskQueue]
   [SummaryManager]
   [RecentSummaryManager]
   [CanonicalStateManager]
-  [Background Worker Threads]
 }
 
 package "Validation & Backend" #DBEAFE {
@@ -96,9 +96,6 @@ together {
 [AssistantApp] --> [AppConfigLoader]
 [AssistantApp] --> [StorySessionService]
 [AssistantApp] --> [StoryExportService]
-[AssistantApp] ..> [SummaryManager] : shutdown
-[AssistantApp] ..> [RecentSummaryManager] : shutdown
-[AssistantApp] ..> [CanonicalStateManager] : shutdown
 
 [AppConfigLoader] --> [AppConfig]
 [AppConfigLoader] --> SystemPrompts : load defaults and overrides
@@ -110,7 +107,7 @@ together {
 [StorySessionService] --> [RecentSummaryManager]
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [ResilientChatClient]
-[StorySessionService] ..> [Background Worker Threads] : trigger async refreshes
+[StorySessionService] ..> [DerivedMemoryManager] : trigger async refreshes
 
 [PromptAssemblyService] --> [Prompt Builders]
 [PromptAssemblyService] --> [HistoryStore]
@@ -136,11 +133,10 @@ together {
 [SummaryManager] --|> [DerivedMemoryManager]
 [RecentSummaryManager] --|> [DerivedMemoryManager]
 [CanonicalStateManager] --|> [DerivedMemoryManager]
-[SummaryManager] --> [Background Worker Threads]
-[RecentSummaryManager] --> [Background Worker Threads]
-[CanonicalStateManager] --> [Background Worker Threads]
 [DerivedMemoryManager] --> [HistoryStore]
 [DerivedMemoryManager] --> [ResilientChatClient]
+[DerivedMemoryManager] --> [DerivedMemoryTaskQueue] : submit refresh
+[AssistantApp] --> [DerivedMemoryTaskQueue] : create / close
 
 [HistoryStore] --> MemoryFiles : history.json
 [TurnStateStore] --> MemoryFiles : turn-state.json
@@ -196,10 +192,11 @@ Optional engine-level game rule support:
 - injects penalty instructions for illegal extra moves
 end note
 
-note bottom of [Background Worker Threads]
+note bottom of [DerivedMemoryTaskQueue]
 Asynchronous after-turn processing:
-- one worker per derived-memory manager
+- one shared single-threaded worker
 - summary, recent summary, and canonical state updates
+- sequential LLM backend calls
 - off the foreground turn path
 end note
 

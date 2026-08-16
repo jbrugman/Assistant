@@ -1,6 +1,7 @@
 package nl.llm.storyteller;
 
 import nl.llm.storyteller.service.CanonicalStateManager;
+import nl.llm.storyteller.service.DerivedMemoryTaskQueue;
 import nl.llm.storyteller.service.HistoryStore;
 import nl.llm.storyteller.service.LMStudioClient;
 import nl.llm.storyteller.service.CanonicalStatePromptBuilder;
@@ -63,9 +64,7 @@ public final class AssistantApp {
             printBanner(terminal, output, context.config());
             runChatLoop(reader, terminal, output, context);
         } finally {
-            context.summaryManager().shutdown();
-            context.recentSummaryManager().shutdown();
-            context.canonicalStateManager().shutdown();
+            context.derivedMemoryTaskQueue().close();
         }
     }
 
@@ -116,11 +115,14 @@ public final class AssistantApp {
             chatDelegate,
             new LlmBackendGuard("Background memory backend", config.backgroundFailureThreshold(), config.backgroundCooldownSeconds())
         );
+        DerivedMemoryTaskQueue derivedMemoryTaskQueue = new DerivedMemoryTaskQueue();
         SummaryManager summaryManager = new SummaryManager(
-            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder
+            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
+            derivedMemoryTaskQueue
         );
         RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
-            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder
+            historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
+            derivedMemoryTaskQueue
         );
         CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
             historyStore,
@@ -128,7 +130,8 @@ public final class AssistantApp {
             config,
             promptResourceLoader,
             promptTemplateService,
-            canonicalStatePromptBuilder
+            canonicalStatePromptBuilder,
+            derivedMemoryTaskQueue
         );
         TurnManager turnManager = new TurnManager(
             config,
@@ -159,6 +162,7 @@ public final class AssistantApp {
         );
         return new AppContext(
             config,
+            derivedMemoryTaskQueue,
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
@@ -483,6 +487,7 @@ public final class AssistantApp {
 
     private record AppContext(
         AppConfig config,
+        DerivedMemoryTaskQueue derivedMemoryTaskQueue,
         SummaryManager summaryManager,
         RecentSummaryManager recentSummaryManager,
         CanonicalStateManager canonicalStateManager,

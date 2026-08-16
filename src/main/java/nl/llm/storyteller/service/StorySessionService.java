@@ -61,6 +61,7 @@ public final class StorySessionService {
         );
 
         historyStore.appendTurn(userInput, response);
+        runAutomaticCacheBusterIfDue();
         canonicalStateManager.startUpdateIfNeeded();
         recentSummaryManager.startUpdateIfNeeded();
         summaryManager.startUpdateSummaryIfNeeded();
@@ -100,6 +101,24 @@ public final class StorySessionService {
         );
     }
 
+    private void runAutomaticCacheBusterIfDue() {
+        int interval = config.cacheBusterInterval();
+        if (interval == 0 || historyStore.load().messages().size() / 2 % interval != 0) {
+            return;
+        }
+
+        try {
+            List<Message> messages = withTransientResetCacheBuster(
+                promptAssemblyService.buildResetMessages(config.resetStoryCommand())
+            );
+            chatClient.chat(messages, config.chatOptions(), config.requestTimeoutSeconds());
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        } catch (IOException | RuntimeException _) {
+            // A periodic cache-buster is best-effort and must not fail a completed story turn.
+        }
+    }
+
     private List<Message> withTransientResetCacheBuster(List<Message> messages) {
         if (messages.isEmpty() || !SYSTEM.equals(messages.getFirst().role())) {
             return messages;
@@ -108,7 +127,7 @@ public final class StorySessionService {
         List<Message> updatedMessages = new ArrayList<>(messages);
         Message firstMessage = updatedMessages.getFirst();
         String cacheBuster = promptResourceLoader.loadResetCacheBusterTemplate().formatted(UUID.randomUUID());
-        updatedMessages.set(0, new Message(firstMessage.role(), firstMessage.content() + "\n\n" + cacheBuster.trim()));
+        updatedMessages.set(0, new Message(firstMessage.role(), cacheBuster.trim() + "\n\n" + firstMessage.content()));
         return List.copyOf(updatedMessages);
     }
 
