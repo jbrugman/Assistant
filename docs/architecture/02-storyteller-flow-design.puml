@@ -3,7 +3,7 @@ title Storyteller Flow Design
 
 start
 
-:AssistantApp starts and builds runtime context;
+:CLI AssistantApp starts and creates the core runtime context;
 :Read user input;
 
 if (/exit or /quit?) then (yes)
