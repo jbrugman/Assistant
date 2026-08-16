@@ -6,13 +6,41 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 concurrency:
   group: release-main
   cancel-in-progress: false
 
 jobs:
+  release-eligibility:
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.eligibility.outputs.should-release }}
+
+    steps:
+      - name: Skip releases for Dependabot and norelease pull requests
+        id: eligibility
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.payload.after
+            });
+            const isDependabot = context.actor === 'dependabot[bot]'
+              || pullRequests.some((pullRequest) => pullRequest.user?.login === 'dependabot[bot]');
+            const hasNoReleaseBranch = pullRequests.some((pullRequest) =>
+              pullRequest.head.ref === 'norelease' || pullRequest.head.ref.startsWith('norelease/')
+            );
+            const shouldRelease = !isDependabot && !hasNoReleaseBranch;
+            core.setOutput('should-release', String(shouldRelease));
+            core.info(shouldRelease ? 'Release is eligible.' : 'Skipping non-release change.');
+
   release:
+    needs: release-eligibility
+    if: needs.release-eligibility.outputs.should-release == 'true'
     runs-on: ubuntu-latest
 
     steps:
