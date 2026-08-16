@@ -1,0 +1,85 @@
+@startuml
+title Storyteller Local API Design
+
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName Arial
+
+package "Clients" #E0F2FE {
+  [CLI Adapter\nnl.llm.storyteller.cli]
+  [Browser Frontend]
+}
+
+package "API Adapter\nnl.llm.storyteller.api" #DBEAFE {
+  [HTTP Server / Controllers]
+  [Request & Response DTOs]
+  [Cookie Session Resolver]
+  [Session Lifecycle Service]
+  [Filesystem Session Store]
+  [Story Export Adapter]
+}
+
+package "Storyteller Core\nnl.llm.storyteller.core, .core.service, .core.model" #DCFCE7 {
+  [StorySessionService]
+  [PromptAssemblyService]
+  [ResponseGuard]
+  [HistoryStore]
+  [SummaryManager]
+  [RecentSummaryManager]
+  [CanonicalStateManager]
+  [DerivedMemoryTaskQueue]
+  [StoryExportService]
+}
+
+package "Model Backend" #FEF3C7 {
+  [OpenAI-Compatible\nChat API]
+}
+
+database "Local session directories\nmemory/sessions/<session-id>/" as SessionFiles
+database "CLI local memory\nmemory/" as CliFiles
+
+[Browser Frontend] --> [HTTP Server / Controllers] : HTTP
+[HTTP Server / Controllers] --> [Request & Response DTOs]
+[HTTP Server / Controllers] --> [Cookie Session Resolver]
+[HTTP Server / Controllers] --> [Session Lifecycle Service]
+[HTTP Server / Controllers] --> [Story Export Adapter]
+[Cookie Session Resolver] --> [Session Lifecycle Service] : opaque cookie reference
+[Session Lifecycle Service] --> [Filesystem Session Store]
+[Filesystem Session Store] --> SessionFiles
+[Session Lifecycle Service] --> [StorySessionService] : turns / reset / undo / projections
+[Story Export Adapter] --> [StoryExportService]
+
+[CLI Adapter\nnl.llm.storyteller.cli] --> [StorySessionService]
+[CLI Adapter\nnl.llm.storyteller.cli] --> [StoryExportService]
+[HistoryStore] --> CliFiles
+
+[StorySessionService] --> [PromptAssemblyService]
+[StorySessionService] --> [ResponseGuard]
+[StorySessionService] --> [HistoryStore]
+[StorySessionService] --> [SummaryManager]
+[StorySessionService] --> [RecentSummaryManager]
+[StorySessionService] --> [CanonicalStateManager]
+[SummaryManager] --> [DerivedMemoryTaskQueue]
+[RecentSummaryManager] --> [DerivedMemoryTaskQueue]
+[CanonicalStateManager] --> [DerivedMemoryTaskQueue]
+[ResponseGuard] --> [OpenAI-Compatible\nChat API]
+[StorySessionService] --> [OpenAI-Compatible\nChat API]
+
+note bottom of [Cookie Session Resolver]
+Cookie contains only an opaque session reference.
+History, prompts, summaries, and state stay on disk.
+end note
+
+note bottom of [HTTP Server / Controllers]
+The API is an adapter around core behavior.
+It does not rebuild prompts, validation,
+undo, or derived-memory semantics.
+end note
+
+note bottom of [Filesystem Session Store]
+Local first: no database required.
+Expiry cleanup removes live session directories;
+downloaded bundles remain separate.
+end note
+@enduml

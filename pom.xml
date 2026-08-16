@@ -9,7 +9,7 @@
   <name>storyteller</name>
 
   <properties>
-    <revision>1.0.0</revision>
+    <revision>1.1.0</revision>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.22.0</jackson.version>
@@ -61,9 +61,33 @@
               <createDependencyReducedPom>false</createDependencyReducedPom>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>all</shadedClassifierName>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>module-info.class</exclude>
+                    <exclude>META-INF/versions/**/module-info.class</exclude>
+                    <exclude>META-INF/MANIFEST.MF</exclude>
+                  </excludes>
+                </filter>
+                <filter>
+                  <artifact>com.fasterxml.jackson.core:jackson-annotations</artifact>
+                  <excludes>
+                    <exclude>META-INF/LICENSE</exclude>
+                    <exclude>META-INF/NOTICE</exclude>
+                  </excludes>
+                </filter>
+                <filter>
+                  <artifact>com.fasterxml.jackson.core:jackson-databind</artifact>
+                  <excludes>
+                    <exclude>META-INF/LICENSE</exclude>
+                    <exclude>META-INF/NOTICE</exclude>
+                  </excludes>
+                </filter>
+              </filters>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>nl.llm.storyteller.AssistantApp</mainClass>
+                  <mainClass>nl.llm.storyteller.cli.AssistantApp</mainClass>
                 </transformer>
               </transformers>
             </configuration>
@@ -75,7 +99,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.5.0</version>
         <configuration>
-          <mainClass>nl.llm.storyteller.AssistantApp</mainClass>
+          <mainClass>nl.llm.storyteller.cli.AssistantApp</mainClass>
         </configuration>
       </plugin>
     </plugins>
@@ -97,7 +121,7 @@
             <version>0.10.3</version>
             <extensions>true</extensions>
             <configuration>
-              <mainClass>nl.llm.storyteller.AssistantApp</mainClass>
+              <mainClass>nl.llm.storyteller.cli.AssistantApp</mainClass>
               <imageName>storyteller</imageName>
               <fallback>false</fallback>
               <buildArgs>

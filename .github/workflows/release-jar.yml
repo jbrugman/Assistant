@@ -31,14 +31,15 @@ jobs:
       - name: Determine next release version
         id: version
         run: |
-          last_tag="$(git tag -l 'v1.0.*' --sort=-version:refname | head -n 1)"
+          release_minor="1.1"
+          last_tag="$(git tag -l "v${release_minor}.*" --sort=-version:refname | head -n 1)"
           if [ -z "$last_tag" ]; then
-            next_patch=1
+            next_patch=0
           else
-            current_patch="${last_tag#v1.0.}"
+            current_patch="${last_tag#v${release_minor}.}"
             next_patch=$((current_patch + 1))
           fi
-          version="1.0.${next_patch}"
+          version="${release_minor}.${next_patch}"
           tag="v${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"

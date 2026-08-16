@@ -39,13 +39,13 @@ This table is a practical fit guide for local storyteller use with quantized mod
 The context ranges in the hardware columns refer to the model context window size used for this app (recommended values).
 It is meant as a quick "is this worth trying on my machine?" reference, not as a benchmark table or a hard compatibility guarantee.
 
-| Model | Parameters | RTX 3080 Ti 12 GB (`16K`) | RTX 4090 24 GB (`16K` to `32K`) | Mac 32 GB unified (`16K` to `32K`) | Mac 64 GB unified (`32K` to `48K`) | Practical take |
-|---|---:|---|---------------------------------|---|---|---|
-| `Qwen3-8B` | 8.2B | Yes | Yes                             | Yes | Yes | Good entry-level choice |
-| `Llama-3.1-8B-Instruct` | 8B | Yes | Yes                             | Yes | Yes | Safe and practical |
-| `Granite-3.1-8B-Instruct` | 8B | Yes | Yes                             | Yes | Yes | Good compact alternative |
-| `Gemma-4-12B-QAT` | 12B | Maybe | Yes                             | Yes | Yes | Strong option, but `12 GB` VRAM is tight |
-| `Gemma-4-26B-A4B` | 26B A4B | No | Maybe                           | Maybe | Yes | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
+| Model                     | Parameters | RTX 3080 Ti 12 GB (`16K`) | RTX 4090 24 GB (`16K` to `32K`) | Mac 32 GB unified (`16K` to `32K`) | Mac 64 GB unified (`32K` to `48K`) | Practical take                                                                          |
+|---------------------------|-----------:|---------------------------|---------------------------------|------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------|
+| `Qwen3-8B`                |       8.2B | Yes                       | Yes                             | Yes                                | Yes                                | Good entry-level choice                                                                 |
+| `Llama-3.1-8B-Instruct`   |         8B | Yes                       | Yes                             | Yes                                | Yes                                | Safe and practical                                                                      |
+| `Granite-3.1-8B-Instruct` |         8B | Yes                       | Yes                             | Yes                                | Yes                                | Good compact alternative                                                                |
+| `Gemma-4-12B-QAT`         |        12B | Maybe                     | Yes                             | Yes                                | Yes                                | Strong option, but `12 GB` VRAM is tight                                                |
+| `Gemma-4-26B-A4B`         |    26B A4B | No                        | Maybe                           | Maybe                              | Yes                                | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
 
 Interpretation:
 - `Yes` means the setup is generally workable for this app at the recommended context range for that machine.
@@ -93,13 +93,13 @@ This is not a documented KV-cache flush and does not guarantee that a backend di
 
 Use LM Studio's memory estimator before loading a model and verify the actual configuration after loading. The values below are starting points, not guarantees or application requirements. LM Studio supports configuring context length, evaluation batch size, Flash Attention, GPU offload, and model parallelism at load time; support varies by engine and model format.
 
-| Setting | Suggested starting point | Why |
-|---|---|---|
-| Context length | Start at `32K`; raise incrementally after testing | Context length is a primary driver of KV-cache memory use. |
-| GPU offload | `max` when the estimator shows sufficient headroom | Maximizes accelerator use; leave room for macOS and other applications. |
-| Flash Attention | Enabled when supported | Can reduce attention memory use and improve speed on llama.cpp-based models. |
-| Evaluation batch size | `512`, then tune | Smaller values reduce prompt-ingestion peaks at the cost of throughput. |
-| Parallel predictions | `1` or `2` for tight memory budgets | The Java queue serializes derived-memory work, but backend parallelism can still increase resource use. |
+| Setting               | Suggested starting point                              | Why                                                                                                       |
+|-----------------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Context length        | Start at `32K`; raise incrementally after testing     | Context length is a primary driver of KV-cache memory use.                                                |
+| GPU offload           | `max` when the estimator shows sufficient headroom    | Maximizes accelerator use; leave room for macOS and other applications.                                   |
+| Flash Attention       | Enabled when supported                                | Can reduce attention memory use and improve speed on llama.cpp-based models.                              |
+| Evaluation batch size | `512`, then tune                                      | Smaller values reduce prompt-ingestion peaks at the cost of throughput.                                   |
+| Parallel predictions  | `1` or `2` for tight memory budgets                   | The Java queue serializes derived-memory work, but backend parallelism can still increase resource use.   |
 | KV-cache quantization | Test the available option for the loaded engine/model | It can substantially change memory use and quality; do not assume one quantization is optimal everywhere. |
 
 CPU-thread, physical-batch, and KV-cache settings differ across LM Studio engines and model formats. Prefer LM Studio's current model-specific controls and estimator over fixed thread counts or OS-level memory-limit overrides. See the [LM Studio model-loading documentation](https://lmstudio.ai/docs/developer/rest/load) and [CLI resource estimator](https://lmstudio.ai/docs/cli/local-models/load).
@@ -160,11 +160,11 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.0.0-all.jar
+java -jar target/storyteller-1.1.0-all.jar
 ```
 
-The local default build version is `1.0.0`.
-GitHub releases use automatic patch versioning on every push to `main`, producing tags and release jars such as `v1.0.1`, `v1.0.2`, `v1.0.3`, and so on.
+The local default build version is `1.1.0`.
+GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.1.0` and then `v1.1.1`, `v1.1.2`, and so on.
 Each push to `main`, including merges from pull requests, automatically builds a release jar and publishes it to GitHub Releases.
 
 ### Native Build
@@ -194,7 +194,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q compile dependency:copy-dependencies
-java -cp "target/classes:target/dependency/*" nl.llm.storyteller.AssistantApp
+java -cp "target/classes:target/dependency/*" nl.llm.storyteller.cli.AssistantApp
 ```
 
 ## Terminal Shortcuts
@@ -283,9 +283,9 @@ All default configuration values now come from bundled `application.config`, not
 By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
 
 Configuration is now split into:
-- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
-- [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/AppConfigSource.java): typed access to merged raw properties
-- [`AppConfig.java`](src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime view used by the app
+- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
+- [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/AppConfigSource.java): typed access to merged raw properties
+- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/AppConfig.java): validated runtime view used by the app
 
 Important settings:
 - `chat.maxRecentTurns=2`
@@ -353,42 +353,48 @@ Important runtime detail:
 
 ## Runtime Structure
 
+This remains one Maven project and one distributable jar. Within it, the terminal adapter is deliberately separated from the reusable core:
+- `nl.llm.storyteller.cli`: JLine, terminal input, shortcuts, and terminal rendering
+- `nl.llm.storyteller.core`, `.core.service`, and `.core.model`: configuration, story behavior, persistence, prompting, and backend integration
+
+This is an intentional modular-monolith choice: deployment, configuration, and operational complexity stay small today, while one-way package dependencies keep the CLI and future HTTP adapter outside the core. If independent deployment becomes useful later, those adapters can move into separate modules or services without moving storyteller behavior out of the core first.
+
 The runtime responsibilities are now split more explicitly:
-- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/AssistantApp.java): minimal application entrypoint and resource lifecycle
-- [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/ApplicationFactory.java): assembles the application dependency graph
-- [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
-- [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
-- [`StorySessionService.java`](src/main/java/nl/llm/storyteller/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
-- [`PromptAssemblyService.java`](src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
+- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
+- [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
+- [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
+- [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/cli/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
+- [`StorySessionService.java`](src/main/java/nl/llm/storyteller/core/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
+- [`PromptAssemblyService.java`](src/main/java/nl/llm/storyteller/core/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
 
 Prompt responsibilities are now split more explicitly:
-- [`PromptResourceLoader.java`](src/main/java/nl/llm/storyteller/service/PromptResourceLoader.java): loads raw prompt resources
-- [`PromptTemplateService.java`](src/main/java/nl/llm/storyteller/service/PromptTemplateService.java): formats reusable prompt fragments
-- [`StoryChatPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
-- [`ValidationPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/ValidationPromptBuilder.java): builds validator system and user payloads
-- [`SummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](src/main/java/nl/llm/storyteller/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
+- [`PromptResourceLoader.java`](src/main/java/nl/llm/storyteller/core/service/PromptResourceLoader.java): loads raw prompt resources
+- [`PromptTemplateService.java`](src/main/java/nl/llm/storyteller/core/service/PromptTemplateService.java): formats reusable prompt fragments
+- [`StoryChatPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
+- [`ValidationPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/ValidationPromptBuilder.java): builds validator system and user payloads
+- [`SummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
 
-Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/model`](src/main/java/nl/llm/storyteller/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
+Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/core/model`](src/main/java/nl/llm/storyteller/core/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
 
 Configuration follows the same separation:
-- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/AppConfigSource.java): loading, merging, and path resolution
-- [`AppConfig.java`](src/main/java/nl/llm/storyteller/AppConfig.java): validated runtime settings only
+- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/AppConfigSource.java): loading, merging, and path resolution
+- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/AppConfig.java): validated runtime settings only
 
 Validation is also split into focused parts:
-- [`ValidationClient.java`](src/main/java/nl/llm/storyteller/service/ValidationClient.java): sends the validator prompt to the configured model
-- [`ValidationDecisionParser.java`](src/main/java/nl/llm/storyteller/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
-- [`ValidationOutcome.java`](src/main/java/nl/llm/storyteller/model/ValidationOutcome.java): compact validation decision model with small decision helpers
-- [`ResponseSanitizer.java`](src/main/java/nl/llm/storyteller/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
-- [`ResponseGuard.java`](src/main/java/nl/llm/storyteller/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
+- [`ValidationClient.java`](src/main/java/nl/llm/storyteller/core/service/ValidationClient.java): sends the validator prompt to the configured model
+- [`ValidationDecisionParser.java`](src/main/java/nl/llm/storyteller/core/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
+- [`ValidationOutcome.java`](src/main/java/nl/llm/storyteller/core/model/ValidationOutcome.java): compact validation decision model with small decision helpers
+- [`ResponseSanitizer.java`](src/main/java/nl/llm/storyteller/core/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
+- [`ResponseGuard.java`](src/main/java/nl/llm/storyteller/core/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
 
 LLM backend resilience is handled separately:
-- [`ResilientChatClient.java`](src/main/java/nl/llm/storyteller/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
-- [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
+- [`ResilientChatClient.java`](src/main/java/nl/llm/storyteller/core/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
+- [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/core/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
 
 The three derived-memory updaters now share one common infrastructure layer:
-- [`DerivedMemoryTaskQueue.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryTaskQueue.java): shared sequential execution and worker lifecycle
-- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/service/DerivedMemoryManager.java): per-manager concurrency guard, model-call flow, and safe write-back coordination
-- [`SummaryManager.java`](src/main/java/nl/llm/storyteller/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
+- [`DerivedMemoryTaskQueue.java`](src/main/java/nl/llm/storyteller/core/service/DerivedMemoryTaskQueue.java): shared sequential execution and worker lifecycle
+- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/core/service/DerivedMemoryManager.java): per-manager concurrency guard, model-call flow, and safe write-back coordination
+- [`SummaryManager.java`](src/main/java/nl/llm/storyteller/core/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/core/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/core/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
 
 Those background memory refreshes are asynchronous by design:
 - `StorySessionService` triggers them after the current turn has already been appended to history
@@ -430,6 +436,12 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.1.0
+- Reorganized the single deployable application into explicit `nl.llm.storyteller.core` and `nl.llm.storyteller.cli` packages, retaining one Maven project, one runnable shaded jar, and the existing CLI behavior.
+- Documented the local browser API boundary and session lifecycle design, including the accompanying API architecture diagram, while keeping HTTP implementation outside the core for now.
+- Refactored validator decision parsing into focused JSON, structured-node, and tolerant-text helpers; explicit structured decisions now take precedence over incidental decision words in response text.
+- Removed Maven Shade warnings by retaining one Jackson license/notice pair and filtering duplicate manifests, module descriptors, and identical license resources from the shaded jar.
 
 ### 1.0.11
 - Split the terminal application into dedicated composition, terminal-controller, and renderer classes so display formatting can be unit-tested without JLine.

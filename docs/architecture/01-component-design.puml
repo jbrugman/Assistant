@@ -26,16 +26,19 @@ skinparam database {
   BackgroundColor #FFFFFF
 }
 
-package "Entry Points" #E0F2FE {
+package "CLI Adapter\nnl.llm.storyteller.cli" #E0F2FE {
   [AssistantApp]
-  [ApplicationFactory]
   [TerminalStoryteller]
   [TerminalRenderer]
+}
+
+package "Storyteller Core\nnl.llm.storyteller.core" #DCFCE7 {
+  [ApplicationFactory]
   [AppConfigLoader]
   [AppConfig]
 }
 
-package "Story Orchestration" #DCFCE7 {
+package "Story Orchestration\nnl.llm.storyteller.core.service" #DCFCE7 {
   [StorySessionService]
   [PromptAssemblyService]
   [StoryExportService]
@@ -147,7 +150,8 @@ together {
 [DerivedMemoryManager] --> [HistoryStore]
 [DerivedMemoryManager] --> [ResilientChatClient]
 [DerivedMemoryManager] --> [DerivedMemoryTaskQueue] : submit refresh
-[AssistantApp] --> [DerivedMemoryTaskQueue] : create / close
+[ApplicationFactory] --> [DerivedMemoryTaskQueue] : create
+[AssistantApp] ..> [DerivedMemoryTaskQueue] : close via context
 
 [HistoryStore] --> MemoryFiles : history.json
 [TurnStateStore] --> MemoryFiles : turn-state.json

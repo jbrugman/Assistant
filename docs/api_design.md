@@ -5,6 +5,8 @@
 This document captures the current API design decisions for turning the Storyteller CLI into a local or remote API-backed application.
 It is intentionally written before the OpenAPI or Swagger specification so the design decisions stay readable and easy to revise.
 
+The accompanying component view is available in [`docs/architecture/03-storyteller-api-design.puml`](architecture/03-storyteller-api-design.puml).
+
 The main goals are:
 
 - keep the existing CLI viable
@@ -35,7 +37,7 @@ Out of scope for the initial design:
 - shared concurrent editing
 - model download or model management
 - model hosting or inference runtime implementation
-- a database dependency
+- a database dependency for the local API deployment
 - a full Swagger or OpenAPI contract in this phase
 
 ## Backend Assumption
@@ -50,6 +52,52 @@ It should continue to work with:
 - Ollama through a compatible API layer
 - hosted OpenAI-compatible APIs
 - other local or remote compatible backends
+
+## Modular Monolith Today, Split-Friendly Tomorrow
+
+The application is intentionally a single deployable Maven project and jar for now. 
+The local storyteller benefits from a simple startup, one configuration surface, and no network boundary between its adapters and story behavior.
+
+It is nevertheless organized as a modular monolith: `core` owns storyteller behavior, while `cli` and the future `api` are adapters with one-way dependencies toward that core. 
+No core class may depend on HTTP, cookie, terminal, or DTO types. 
+If separate deployment becomes justified later, the adapters and their dependencies can be extracted into separate modules or services without first untangling domain behavior.
+
+## Package Boundary And Core Preservation
+
+The future frontend API must live in a dedicated package so the current CLI and storyteller core remain usable without an HTTP server.
+
+Recommended package layout:
+
+```text
+nl.llm.storyteller
+  core/                     reusable storyteller configuration and composition root
+    service/                storyteller core and orchestration
+    model/                  core records and value types
+  cli/                      terminal adapter
+  api/
+    http/                   HTTP server bootstrap, routing, controllers, error mapping
+    dto/                    request and response DTOs only
+    session/                API session lifecycle, cookie handling, and disk-session storage
+    bundle/                 import and download bundle handling
+```
+
+Dependency direction:
+
+```text
+CLI (TerminalStoryteller) ─┐
+                           ├─> storyteller core (`core` / `core.service` / `core.model`)
+HTTP API (`api`) ──────────┘
+```
+
+Rules for the API package:
+
+- `api` may depend on the existing `core` packages, but core packages must not depend on `api` classes, HTTP types, cookies, or DTOs.
+- Controllers translate HTTP requests into core calls and translate core results into DTOs; they must not rebuild prompts, validation, history mutation, derived-memory updates, or undo logic.
+- API session storage adapts the existing file-based core state to per-session directories; it must not replace the current CLI memory location or alter CLI behavior.
+- Browser-cookie handling stays in `api.session`; the cookie only identifies a server-owned session and never contains story content.
+- Reusable session-facing operations should be extracted from existing services only when both the CLI and API need them. The extraction must preserve existing CLI behavior and test coverage.
+
+This lets the current CLI continue to construct and use its local core exactly as it does now, while the API becomes an additional entry point rather than a framework requirement.
 
 ## Session Model
 
@@ -70,22 +118,42 @@ The session should be identified by a server-generated `sessionId`.
 The client should not be allowed to choose or reuse a live session identifier directly.
 If an old session bundle is imported, the server should create a new live session from it.
 
-## Session Lifetime
+### Browser Session Cookie
 
-Sessions should be ephemeral by default.
+For a browser frontend, the server should also set an opaque session cookie that points to the active `sessionId`.
+This is a convenience mechanism for restoring the active story after a browser refresh; it is not a container for story state.
 
-Recommended behavior:
+Recommended cookie behavior:
+
+- cookie name: `storyteller_session`
+- cookie value: a random, opaque session reference or signed session reference
+- local default: host-only cookie for `localhost`, `Path=/`, `HttpOnly`, `SameSite=Lax`, and no `Secure` flag because the local API uses HTTP
+- expiry: sliding `Max-Age` aligned with the configured session inactivity timeout; renew it after a valid session access
+- server-side data: history, summaries, canonical state, prompt overrides, and metadata remain in the session directory on disk
+- browser behavior: a frontend can call a current-session endpoint without persisting a session id in JavaScript storage
+- expired session: `GET /v1/session` returns `410` and clears the cookie; a missing cookie returns `404`
+- deletion: clear the cookie when it points to the deleted session
+
+For a future Docker or remote deployment, TLS should terminate at a reverse proxy. That deployment configures the API to emit the `Secure` cookie flag. The API should not infer that policy from arbitrary forwarded headers; only an explicitly trusted proxy integration may supply the external HTTPS state.
+
+This remains compatible with non-browser API clients: they can keep using explicit `{sessionId}` paths and do not need a cookie.
+
+## Confirmed Session Lifecycle
+
+The first API deployment is a local, filesystem-backed system and does not require a database.
+Sessions are ephemeral by default and remain available while they are actively used.
+
+Confirmed behavior:
 
 - each session has `createdAt`, `updatedAt`, `lastAccessedAt`, and `expiresAt`
 - inactivity extends or refreshes `expiresAt`
-- expired sessions are cleaned up by a background job or startup cleanup step
+- the default inactivity expiry is `60` minutes and should be configurable by the local operator
+- expired sessions are cleaned up by a background job and again during application startup
 - cleanup removes the on-disk session directory
+- explicit session deletion removes the same directory immediately
+- separately downloaded session bundles are not affected by session cleanup
 
-Recommended first default:
-
-- expire after `30` to `60` minutes of inactivity
-
-This protects disk space while still allowing refreshes, reopen actions, and short interruptions.
+This protects disk space while keeping a local browser frontend usable through refreshes and short interruptions.
 
 ## Storage Strategy
 
@@ -99,7 +167,7 @@ Recommended layout:
   history.md
   summary.md
   recent-summary.md
-  canonical-state.yml
+  canonical-state.yaml
   session-config.json
   session-metadata.json
   prompt-overrides/
@@ -129,7 +197,7 @@ Likely reasons to move there later:
 - pagination over large histories
 - deployment on a shared server
 
-But the first API version does not need that complexity if session state is already server-owned and persisted on disk.
+But the first local API version does not need that complexity because session state is server-owned and persisted on disk.
 
 ## Session Bundle Import And Download
 
@@ -148,7 +216,7 @@ Recommended contents:
 - `history.json`
 - `summary.md`
 - `recent-summary.md`
-- `canonical-state.yml`
+- `canonical-state.yaml`
 - `session-config.json`
 - prompt override snapshots when present
 - effective rules snapshot when present
@@ -160,7 +228,7 @@ Recommended behavior:
 - cleanup can remove the live session later
 - import bundle creates a new live session with a new `sessionId`
 
-## Configuration Model
+## Confirmed Configuration Model
 
 The API should not accept unrestricted raw application configuration input.
 
@@ -171,6 +239,7 @@ Likely first allowed overrides:
 - `temperature`
 - `topP`
 - `validationEnabled`
+- `cacheBusterInterval`
 - `systemPrompt`
 - `rules`
 - `fixedProtagonists`
@@ -242,6 +311,25 @@ Typical response:
 - `sessionId`
 - effective config snapshot safe for UI display
 - expiration metadata
+- `Set-Cookie` for browser clients, pointing to the new active session
+
+### `GET /v1/session`
+
+Returns the current live session resolved from the browser session cookie.
+
+Why it is needed:
+
+- frontend startup and browser refresh do not need a session id stored in JavaScript
+- the frontend can distinguish an active session, an expired session, and no session
+
+Typical response:
+
+- the same metadata and effective config view as `GET /v1/sessions/{sessionId}`
+
+Recommended failure behavior:
+
+- `404` when no session cookie is present
+- `410` when the cookie refers to an expired or deleted session, while also clearing the cookie
 
 ### `GET /v1/sessions/{sessionId}`
 
@@ -293,8 +381,14 @@ Why it is needed:
 
 Typical response:
 
-- confirmation
-- optional resulting assistant acknowledgement if the reset is modeled as a generated turn
+- `accepted: true`
+- `cacheBusterApplied: true`
+
+Required behavior:
+
+- send the transient reset-with-cache-buster request
+- do not append the reset request or generated response to story history
+- do not return a generated assistant acknowledgement as a conversation message
 
 ### `GET /v1/sessions/{sessionId}/history`
 
@@ -340,7 +434,31 @@ Typical allowed fields:
 - `temperature`
 - `topP`
 - `validationEnabled`
+- `cacheBusterInterval` (`0` disables periodic cache-buster requests)
 - prompt override fields if session mutation is allowed
+
+### `POST /v1/sessions/{sessionId}/undo`
+
+Removes the latest persisted user+assistant turn and returns the removed user input for editing and retrying.
+
+Why it is needed:
+
+- the CLI already exposes this as its undo-and-retry action
+- the server must clamp derived-memory cursors after the history changes
+- the frontend needs the original input without rebuilding undo semantics client-side
+
+Required behavior:
+
+- remove the latest persisted user+assistant turn
+- clamp summary, recent-summary, and canonical-state cursors to the shortened history
+- execute the same transient reset-with-cache-buster request used by the CLI, regardless of `cacheBusterInterval`
+- do not persist the reset request or its generated response as a story turn
+
+Typical response:
+
+- `restoredUserInput`
+- `undone: true` or `false` when no persisted turn exists
+- lightweight state freshness metadata
 
 ### `POST /v1/sessions/{sessionId}/exports/story`
 
@@ -390,6 +508,7 @@ Typical response:
 - new `sessionId`
 - imported metadata summary
 - effective config summary
+- `Set-Cookie` for browser clients, pointing to the imported live session
 
 ### `DELETE /v1/sessions/{sessionId}`
 
@@ -404,6 +523,7 @@ Recommended behavior:
 
 - delete live session data
 - leave separately downloaded bundles untouched
+- clear the browser session cookie when it points to the deleted session
 
 ## Optional Endpoints Later
 
@@ -448,18 +568,35 @@ Preferred long-term direction:
 
 This avoids duplicating orchestration logic across interfaces.
 
-## Recommended Next Steps
+### CLI And Frontend Behavioral Parity
 
-Before writing the OpenAPI spec:
+The frontend must preserve the same storyteller and session behavior as the CLI. The presentation may differ, but the API must delegate to the same core operations and must not reimplement their semantics in JavaScript or controllers.
 
-1. confirm the session lifecycle rules
-2. confirm the whitelist of allowed config overrides
-3. confirm the on-disk session directory layout
-4. confirm whether reset is modeled as a command or a synthetic turn
-5. confirm whether exports return raw content or downloadable file handles
-6. confirm whether history should be paged from the first version onward
+| CLI behavior                          | Frontend/API equivalent                                                | Required parity                                                                                               |
+|---------------------------------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| Send story input or `Ctrl-G` continue | `POST /v1/sessions/{sessionId}/turns`                                  | Same prompt assembly, validation, persistence, derived-memory scheduling, and periodic cache-buster behavior. |
+| `Ctrl-W` reset                        | `POST /v1/sessions/{sessionId}/reset`                                  | Same transient reset-with-cache-buster; no story-history mutation and no assistant conversation message.      |
+| `Ctrl-U` undo-and-retry               | `POST /v1/sessions/{sessionId}/undo`                                   | Same turn removal, cursor clamping, mandatory cache-buster reset, and restored user input.                    |
+| `Ctrl-L` last turn                    | `GET /v1/sessions/{sessionId}/history` or a later last-turn projection | Same latest persisted user+assistant pair, without model invocation.                                          |
+| `/export` variants                    | `POST /v1/sessions/{sessionId}/exports/story`                          | Same export modes and generated content.                                                                      |
+| Local configuration                   | session create/config endpoints                                        | Same validated, whitelisted effective configuration.                                                          |
 
-After those points are stable, this design should be converted into:
+Any future CLI behavior that changes history, model state, memory state, or configuration must receive an API equivalent in the same change, unless it is deliberately marked CLI-only in the design document.
+
+## Minimal First API Slice
+
+The first local API should stay small and use the decisions already made in this document:
+
+- use the documented filesystem session directory layout
+- create and restore the active session with the browser cookie
+- support turns, reset, undo, history, state, and the whitelisted session configuration
+- return the complete history for the first version; add paging only when a real session size requires it
+- return story exports as direct Markdown responses; add downloadable file handles only when needed
+- treat the documented undo result and derived-memory freshness metadata as the initial contract
+
+Session-bundle import/export, session listing, model inspection, health endpoints, and pagination remain later additions. They are not prerequisites for the initial local frontend.
+
+The next implementation step is to convert this minimal slice into:
 
 - an OpenAPI or Swagger contract
 - request and response DTOs
