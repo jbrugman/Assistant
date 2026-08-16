@@ -354,7 +354,10 @@ Important runtime detail:
 ## Runtime Structure
 
 The runtime responsibilities are now split more explicitly:
-- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/AssistantApp.java): terminal bootstrap, shortcut registration, input loop, and formatted output
+- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/AssistantApp.java): minimal application entrypoint and resource lifecycle
+- [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/ApplicationFactory.java): assembles the application dependency graph
+- [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
+- [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
 - [`StorySessionService.java`](src/main/java/nl/llm/storyteller/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
 - [`PromptAssemblyService.java`](src/main/java/nl/llm/storyteller/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
 
@@ -427,6 +430,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.0.11
+- Split the terminal application into dedicated composition, terminal-controller, and renderer classes so display formatting can be unit-tested without JLine.
+- Added renderer tests for word wrapping and fenced code blocks, and aligned the derived-memory queue and cache-buster tests with the Given/When/Then display-name convention.
 
 ### 1.0.10
 - Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.

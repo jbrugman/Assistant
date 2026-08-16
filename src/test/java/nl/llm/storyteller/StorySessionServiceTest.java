@@ -34,7 +34,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StorySessionServiceTest {
     @Test
-    @DisplayName("A periodic cache buster should be silent and run after a completed story turn")
+    @DisplayName("""
+        Given a completed story turn at the configured cache-buster interval,
+        When the story session persists that turn,
+        Then it should send one silent cache-buster reset request afterward
+        """)
     void shouldRunSilentPeriodicCacheBusterAfterConfiguredTurnInterval() throws Exception {
         Path baseDirectory = Files.createTempDirectory("storyteller-periodic-cache-buster");
         writeOverride(baseDirectory, "systemprompts/application.config", """
