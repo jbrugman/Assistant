@@ -71,6 +71,55 @@ On the reference machine above, a larger local model such as Gemma 4 26B 6-bit t
 
 These numbers are practical estimates, not hard guarantees. Actual memory use depends on the exact quantization, runtime, backend, and context length.
 
+## Performance & Memory Architecture (Apple Silicon / LM Studio)
+
+Long-context local models, especially larger Mixture-of-Experts models such as Gemma 4 26B-A4B or Qwen 3 Coder 30B, trade context depth against memory pressure and desktop responsiveness. A 64 GB Apple Silicon machine can be a strong long-context setup, but there is no universal safe `65K` configuration: model format, quantization, runtime, vision support, and the loaded context length all materially affect memory use.
+
+### Sequential derived-memory queue
+
+A completed story turn can schedule three derived-memory refreshes: long-term summary, recent summary, and canonical state. These jobs are deliberately submitted to one daemon-backed `DerivedMemoryTaskQueue` and run sequentially.
+
+- This keeps derived-memory requests off the foreground story path.
+- It avoids the application itself starting three simultaneous background inference calls.
+- It reduces peak pressure on the backend, but does not override the backend's own parallelism or resource settings.
+
+### Periodic cache busting and drift
+
+Long prompts can make a model less attentive to older instructions or world constraints. The app offers a portable best-effort mitigation: every `cacheBuster.interval` persisted story turns (default `5`), it sends an internal reset request with a unique token prepended to the system prompt. The response is discarded; no extra message is shown to the user. `Ctrl-U` undo always sends the same reset-with-cache-buster request after removing the last turn.
+
+This is not a documented KV-cache flush and does not guarantee that a backend discards a cache. It deliberately changes the prompt prefix so cache-sensitive OpenAI-compatible backends are less likely to reuse an exact stale prefix. Set `cacheBuster.interval=0` to disable periodic requests.
+
+### LM Studio starting points for a 64 GB Mac
+
+Use LM Studio's memory estimator before loading a model and verify the actual configuration after loading. The values below are starting points, not guarantees or application requirements. LM Studio supports configuring context length, evaluation batch size, Flash Attention, GPU offload, and model parallelism at load time; support varies by engine and model format.
+
+| Setting | Suggested starting point | Why |
+|---|---|---|
+| Context length | Start at `32K`; raise incrementally after testing | Context length is a primary driver of KV-cache memory use. |
+| GPU offload | `max` when the estimator shows sufficient headroom | Maximizes accelerator use; leave room for macOS and other applications. |
+| Flash Attention | Enabled when supported | Can reduce attention memory use and improve speed on llama.cpp-based models. |
+| Evaluation batch size | `512`, then tune | Smaller values reduce prompt-ingestion peaks at the cost of throughput. |
+| Parallel predictions | `1` or `2` for tight memory budgets | The Java queue serializes derived-memory work, but backend parallelism can still increase resource use. |
+| KV-cache quantization | Test the available option for the loaded engine/model | It can substantially change memory use and quality; do not assume one quantization is optimal everywhere. |
+
+CPU-thread, physical-batch, and KV-cache settings differ across LM Studio engines and model formats. Prefer LM Studio's current model-specific controls and estimator over fixed thread counts or OS-level memory-limit overrides. See the [LM Studio model-loading documentation](https://lmstudio.ai/docs/developer/rest/load) and [CLI resource estimator](https://lmstudio.ai/docs/cli/local-models/load).
+
+### KV-cache quantization
+
+For long contexts, KV-cache quantization is often one of the most effective memory-saving controls because KV-cache use grows with context length. It is distinct from the quantization of the model weights themselves.
+
+- Start with `q8_0` for the K and V caches when it is available: it is usually the more conservative memory-versus-quality trade-off.
+- Try `q4_0` for both caches when memory pressure or swapping remains a problem. It can reduce KV-cache memory substantially, but may affect output quality, especially for a particular model or very long context.
+- Keep Flash Attention enabled when the selected engine requires it for quantized K/V caches, and test a representative long story prompt after changing the setting.
+
+These are backend load settings, not OpenAI-compatible request parameters, so Storyteller does not set them automatically. Jan's llama.cpp engine exposes `q8_0` and `q4_0` K/V-cache options for memory-constrained setups; LM Studio availability depends on the active engine and model format. See the [Jan llama.cpp engine guide](https://jan.ai/docs/llama-cpp) and [LM Studio load configuration reference](https://beta.lmstudio.ai/docs/typescript/api-reference/llm-load-model-config).
+
+### Thread allocation detail (Apple Silicon)
+
+On an M1 Max, the CPU has eight performance cores and two efficiency cores. If LM Studio exposes a CPU-thread control for the active runtime, `8` is a sensible throughput-oriented starting point because it can keep the performance cores busy. `6` is a sensible responsiveness-oriented starting point when IntelliJ, a browser, or compilation should retain more CPU headroom.
+
+Do not assume that `7` is universally the default or that powers of two are inherently optimal: the best value depends on the LM Studio engine, model format, GPU offload level, and what else the machine is doing. Measure generation speed and UI responsiveness with the target model, then keep the lowest value that gives the desired experience.
+
 ## Used Tools / Hardware
 
 - [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring using a local llm-server
@@ -382,6 +431,7 @@ Not yet.
 ### 1.0.10
 - Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.
 - Added configurable periodic cache-buster requests after persisted story turns (`cacheBuster.interval=5`, `0` to disable), while undo always retains its cache-buster reset.
+- Added Apple Silicon / LM Studio performance guidance with conservative long-context and memory-tuning starting points.
 - Added configuration and queue-ordering test coverage and updated the architecture documentation.
 
 ### 1.0.9
