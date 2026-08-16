@@ -5,8 +5,9 @@ import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
 import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
-import nl.llm.storyteller.core.service.LMStudioClient;
+import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
+import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
@@ -22,6 +23,9 @@ import nl.llm.storyteller.core.service.SummaryPromptBuilder;
 import nl.llm.storyteller.core.service.TurnManager;
 import nl.llm.storyteller.core.service.TurnStateStore;
 import nl.llm.storyteller.core.service.ValidationPromptBuilder;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
 
 public final class ApplicationFactory {
   private ApplicationFactory() {
@@ -47,11 +51,15 @@ public final class ApplicationFactory {
     CanonicalStatePromptBuilder canonicalStatePromptBuilder = new CanonicalStatePromptBuilder(
       promptResourceLoader, promptTemplateService
     );
-    LMStudioClient chatDelegate = new LMStudioClient(
-      config.lmStudioUrl(), config.chatModel(), config.hideReasoningBlocks()
+    ManagedLlamaServer managedLlamaServer = startManagedLlamaServerIfConfigured(config);
+    String backendUrl = managedLlamaServer == null
+      ? config.openAiCompatibleUrl()
+      : managedLlamaServer.chatCompletionsUrl();
+    OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
+      backendUrl, config.chatModel(), config.hideReasoningBlocks()
     );
-    LMStudioClient validatorDelegate = new LMStudioClient(
-      config.lmStudioUrl(), config.validatorModel(), config.hideReasoningBlocks()
+    OpenAiCompatibleHttpClient validatorDelegate = new OpenAiCompatibleHttpClient(
+      backendUrl, config.validatorModel(), config.hideReasoningBlocks()
     );
     ResilientChatClient chatClient = new ResilientChatClient(
       chatDelegate,
@@ -109,7 +117,22 @@ public final class ApplicationFactory {
       config,
       derivedMemoryTaskQueue,
       storySessionService,
-      new StoryExportService(historyStore, config.baseDir())
+      new StoryExportService(historyStore, config.baseDir()),
+      managedLlamaServer
     );
+  }
+
+  private static ManagedLlamaServer startManagedLlamaServerIfConfigured(AppConfig config) {
+    if (!config.usesManagedLlamaServer()) {
+      return null;
+    }
+    try {
+      return ManagedLlamaServer.start(config.llamaServerConfig());
+    } catch (IOException ex) {
+      throw new UncheckedIOException("Could not start managed llama-server", ex);
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Interrupted while starting managed llama-server", ex);
+    }
   }
 }

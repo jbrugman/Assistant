@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LMStudioClientTest {
+class OpenAiCompatibleHttpClientTest {
     @Test
     @DisplayName("""
         Given a configured chat model name,
@@ -19,7 +19,9 @@ class LMStudioClientTest {
         Then the payload should contain that explicit model value
         """)
     void shouldIncludeConfiguredModelInPayload() {
-        LMStudioClient client = new LMStudioClient("http://localhost:1234/v1/chat/completions", "test-model", true);
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "test-model", true
+        );
 
         Map<String, Object> payload = client.buildPayload(List.of(new Message("user", "hello")), Map.of("temperature", 0.6));
 
@@ -33,7 +35,9 @@ class LMStudioClientTest {
         Then the model field should be omitted so the backend can choose the active default model
         """)
     void shouldOmitModelFromPayloadWhenConfigurationIsBlank() {
-        LMStudioClient client = new LMStudioClient("http://localhost:1234/v1/chat/completions", "", true);
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "", true
+        );
 
         Map<String, Object> payload = client.buildPayload(List.of(new Message("user", "hello")), Map.of("temperature", 0.6));
 

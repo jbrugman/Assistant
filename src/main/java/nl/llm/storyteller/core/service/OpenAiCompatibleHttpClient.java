@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-public final class LMStudioClient implements ChatClient {
+public final class OpenAiCompatibleHttpClient implements ChatClient {
   private static final Pattern REASONING_PATTERN = Pattern.compile(
     "<(?:think|thinking|reasoning)>.*?</(?:think|thinking|reasoning)>",
     Pattern.CASE_INSENSITIVE | Pattern.DOTALL
@@ -30,7 +30,7 @@ public final class LMStudioClient implements ChatClient {
   private final boolean hideReasoningBlocks;
   private final HttpClient httpClient;
 
-  public LMStudioClient(String url, String model, boolean hideReasoningBlocks) {
+  public OpenAiCompatibleHttpClient(String url, String model, boolean hideReasoningBlocks) {
     this.url = Objects.requireNonNull(url);
     this.model = Objects.requireNonNull(model);
     this.hideReasoningBlocks = hideReasoningBlocks;
@@ -59,7 +59,14 @@ public final class LMStudioClient implements ChatClient {
     }
 
     if (statusCode < 200 || statusCode >= 300) {
-      throw new IOException("HTTP " + statusCode + " van LM Studio: " + responseBody);
+      if (payload.containsKey("response_format")
+        && (statusCode == 400 || statusCode == 404 || statusCode == 422)) {
+        throw new StructuredOutputNotSupportedException(
+          "OpenAI-compatible backend does not accept the requested structured output format: HTTP "
+            + statusCode + ": " + responseBody
+        );
+      }
+      throw new IOException("OpenAI-compatible backend returned HTTP " + statusCode + ": " + responseBody);
     }
 
     JsonNode data;
@@ -68,14 +75,14 @@ public final class LMStudioClient implements ChatClient {
     } catch (JsonProcessingException ex) {
       String snippet = responseBody.substring(0, Math.min(responseBody.length(), 500)).replace("\n", "\\n");
       throw new IllegalArgumentException(
-        "LM Studio gaf geen geldige JSON terug: " + ex.getOriginalMessage() + ". Response begon met: " + snippet,
+        "OpenAI-compatible backend returned invalid JSON: " + ex.getOriginalMessage() + ". Response started with: " + snippet,
         ex
       );
     }
 
     JsonNode contentNode = data.path("choices").path(0).path("message").path("content");
     if (contentNode.isMissingNode()) {
-      throw new IllegalArgumentException("LM Studio response bevat geen choices[0].message.content.");
+      throw new IllegalArgumentException("OpenAI-compatible response does not contain choices[0].message.content.");
     }
 
     return stripReasoningBlocks(contentNode.asText());

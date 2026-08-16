@@ -176,11 +176,11 @@ final class TerminalStoryteller {
       renderer.printMessage(context.storySessionService().handleUserTurn(userInput));
       return true;
     } catch (InterruptedException ex) {
-      renderer.printError(context.config().lmStudioRequestErrorText(), ex.getMessage());
+            renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
       Thread.currentThread().interrupt();
       return false;
     } catch (IOException ex) {
-      renderer.printError(context.config().lmStudioRequestErrorText(), ex.getMessage());
+            renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
       return true;
     } catch (RuntimeException ex) {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
@@ -192,10 +192,10 @@ final class TerminalStoryteller {
     try {
       action.run();
     } catch (InterruptedException ex) {
-      renderer.printError(context.config().lmStudioRequestErrorText(), ex.getMessage());
+            renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
       Thread.currentThread().interrupt();
     } catch (IOException ex) {
-      renderer.printError(context.config().lmStudioRequestErrorText(), ex.getMessage());
+            renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
     } catch (RuntimeException ex) {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
     }

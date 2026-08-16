@@ -15,9 +15,9 @@ Ignore:
 
 A violation exists only when the candidate reply explicitly breaks a supplied rule.
 
-Return exactly one of:
+Return exactly one JSON object, with no markdown or explanation:
 
-ALLOW
+{"decision":"ALLOW","response":""}
 
 or:
 
