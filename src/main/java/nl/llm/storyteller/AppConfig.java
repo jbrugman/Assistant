@@ -10,7 +10,6 @@ public final class AppConfig {
     private static final String OPTION_TOP_P = "top_p";
     private static final String OPTION_MIN_P = "min_p";
     private static final String OPTION_REPEAT_PENALTY = "repeat_penalty";
-    private static final String OPTION_MAX_TOKENS = "max_tokens";
 
     private final Path baseDir;
     private final ModelAccessConfig modelAccess;
@@ -51,9 +50,6 @@ public final class AppConfig {
         }
         if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1) {
             throw new IllegalArgumentException("Batch sizes must all be at least 1.");
-        }
-        if ((int) summaryOptions().get(OPTION_MAX_TOKENS) < 1) {
-            throw new IllegalArgumentException("summary.maxTokens must be at least 1.");
         }
         if (turnPenaltySingleLowHp() < 1 || turnPenaltySingleHighHp() < turnPenaltySingleLowHp()) {
             throw new IllegalArgumentException("Turn penalties must be positive, and the high value must be >= the low value.");
@@ -423,8 +419,7 @@ public final class AppConfig {
                 ),
                 linkedMapOf(
                     OPTION_TEMPERATURE, source.requiredDouble("summary.temperature"),
-                    OPTION_TOP_P, source.requiredDouble("summary.topP"),
-                    OPTION_MAX_TOKENS, source.requiredInt("summary.maxTokens")
+                    OPTION_TOP_P, source.requiredDouble("summary.topP")
                 ),
                 linkedMapOf(
                     OPTION_TEMPERATURE, source.requiredDouble("validation.temperature"),

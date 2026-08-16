@@ -24,7 +24,6 @@ class AppConfigLoaderTest {
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
-        assertEquals(16384, config.summaryOptions().get("max_tokens"));
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),
             config.systemPromptFile()
@@ -50,7 +49,6 @@ class AppConfigLoaderTest {
             model.chat=test-chat-model
             file.systemPrompt=overrides/story.md
             chat.maxRecentTurns=3
-            summary.maxTokens=8192
             """);
 
         AppConfig config = AppConfigLoader.load(baseDirectory, null);
@@ -58,7 +56,6 @@ class AppConfigLoaderTest {
         assertEquals("http://localhost:9999/v1/chat/completions", config.lmStudioUrl());
         assertEquals("test-chat-model", config.chatModel());
         assertEquals(3, config.maxRecentTurns());
-        assertEquals(8192, config.summaryOptions().get("max_tokens"));
         assertEquals(
             baseDirectory.resolve("overrides/story.md").normalize(),
             config.systemPromptFile()

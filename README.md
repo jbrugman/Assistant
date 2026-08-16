@@ -242,7 +242,6 @@ Important settings:
 - `recentSummary.batchMessages=6`
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=2`
-- `summary.maxTokens=16384`
 - `validation.enabled=true`
 - `resilience.chat.failureThreshold=3`
 - `resilience.chat.cooldownSeconds=20`
@@ -285,7 +284,6 @@ The same compatibility rule is also applied to the three background derived-memo
 - canonical state refresh
 
 Those background requests now also use one combined first `system` message followed by one `user` message.
-Their generated output is capped by `summary.maxTokens` (default `16384`), while normal story requests continue to use the backend's default output limit.
 
 ## Memory Layers
 
@@ -379,7 +377,6 @@ Not yet.
 ## Changelog
 
 ### 1.0.10
-- Added configurable `summary.maxTokens` output limits for long-term summary, recent-summary, and canonical-state refreshes, defaulting to `16384` without changing normal story request defaults.
 - Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.
 - Added configuration and queue-ordering test coverage and updated the architecture documentation.
 
