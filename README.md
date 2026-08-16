@@ -160,10 +160,10 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.1.0-all.jar
+java -jar target/storyteller-1.1.1-all.jar
 ```
 
-The local default build version is `1.1.0`.
+The local default build version is `1.1.1`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.1.0` and then `v1.1.1`, `v1.1.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -180,6 +180,8 @@ The native binary is normally written to:
 ```text
 target/storyteller
 ```
+
+The native build enables GraalVM shared-arena support for JLine's Java FFM terminal provider.
 
 Run it from the project root:
 
@@ -437,6 +439,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.1.1
+- Enabled GraalVM shared-arena support for the JLine 4 terminal provider in native builds.
 
 ### 1.1.0
 - Reorganized the single deployable application into explicit `nl.llm.storyteller.core` and `nl.llm.storyteller.cli` packages, retaining one Maven project, one runnable shaded jar, and the existing CLI behavior.

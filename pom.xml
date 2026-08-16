@@ -9,7 +9,7 @@
   <name>storyteller</name>
 
   <properties>
-    <revision>1.1.0</revision>
+    <revision>1.1.1</revision>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.22.1</jackson.version>
@@ -127,6 +127,7 @@
               <buildArgs>
                 <buildArg>-H:IncludeResources=systemprompts/.*</buildArg>
                 <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
+                <buildArg>-H:+SharedArenaSupport</buildArg>
               </buildArgs>
             </configuration>
             <executions>
