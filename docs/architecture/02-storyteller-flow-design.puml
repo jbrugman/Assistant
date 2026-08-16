@@ -68,6 +68,11 @@ else (no)
 
       :Append turn to history;
       :Persist turn-state if active;
+
+      if (Cache-buster interval reached?) then (yes)
+        :Send silent reset-with-cache-buster request;
+      endif
+
       :Print final response;
 
       :Queue canonical state refresh;

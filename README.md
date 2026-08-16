@@ -164,10 +164,12 @@ The `Ctrl-W` / reset turn is treated as a control action rather than as a normal
 
 This is not a documented LM Studio KV-cache flush. It is a portable best-effort prefix break for OpenAI-compatible backends that may reuse internal prompt state when the leading prompt prefix matches exactly.
 
+After every `cacheBuster.interval` persisted story turns, the app also sends this reset-with-cache-buster request internally. Its response is discarded and any failure is ignored, so it never adds a second user-visible message or turns a completed story response into an error. It can add latency. Set the interval to `0` to disable these periodic calls.
+
 The `Ctrl-U` / undo-and-retry action builds on that reset flow:
 - it removes the last user+assistant turn from `history.json`
 - it clamps the summary, recent-summary, and canonical-state cursors to the shortened history
-- it sends the same transient reset request
+- it always sends the same transient reset-with-cache-buster request after the removal
 - it restores your previous user prompt in the terminal input buffer so you can revise it before sending it again
 
 The `Ctrl-L` action is read-only:
@@ -242,6 +244,7 @@ Important settings:
 - `recentSummary.batchMessages=6`
 - `summary.batchMessages=10`
 - `canonicalState.batchMessages=2`
+- `cacheBuster.interval=5` (`0` disables periodic cache busters)
 - `validation.enabled=true`
 - `resilience.chat.failureThreshold=3`
 - `resilience.chat.cooldownSeconds=20`
@@ -378,6 +381,7 @@ Not yet.
 
 ### 1.0.10
 - Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.
+- Added configurable periodic cache-buster requests after persisted story turns (`cacheBuster.interval=5`, `0` to disable), while undo always retains its cache-buster reset.
 - Added configuration and queue-ordering test coverage and updated the architecture documentation.
 
 ### 1.0.9

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +33,71 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StorySessionServiceTest {
+    @Test
+    @DisplayName("A periodic cache buster should be silent and run after a completed story turn")
+    void shouldRunSilentPeriodicCacheBusterAfterConfiguredTurnInterval() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-periodic-cache-buster");
+        writeOverride(baseDirectory, "systemprompts/application.config", """
+            validation.enabled=false
+            cacheBuster.interval=1
+            """);
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
+        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
+        SummaryManager summaryManager = new SummaryManager(
+            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
+            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
+            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
+            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
+            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
+            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
+        );
+        RecordingChatClient recordingChatClient = new RecordingChatClient("Story response");
+        StorySessionService storySessionService = new StorySessionService(
+            config,
+            historyStore,
+            recordingChatClient,
+            new ResponseGuard(new NoOpChatClient(), config),
+            summaryManager,
+            recentSummaryManager,
+            canonicalStateManager,
+            new PromptAssemblyService(
+                historyStore,
+                summaryManager,
+                recentSummaryManager,
+                canonicalStateManager,
+                new TurnManager(
+                    config,
+                    promptResourceLoader,
+                    promptTemplateService,
+                    new GameModeDefinitionParser(),
+                    new TurnStateStore(config.turnStateFile())
+                ),
+                new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService),
+                new ValidationPromptBuilder(promptResourceLoader, promptTemplateService)
+            ),
+            promptResourceLoader
+        );
+
+        try {
+            assertEquals("Story response", storySessionService.handleUserTurn("Continue the story."));
+            assertEquals(2, recordingChatClient.requestCount());
+            List<Message> cacheBusterRequest = recordingChatClient.requests().getLast();
+            assertTrue(cacheBusterRequest.getFirst().content().startsWith("Opaque reset cache-buster token:"));
+            assertEquals(config.resetStoryCommand(), cacheBusterRequest.getLast().content());
+        } finally {
+            summaryManager.shutdown();
+            recentSummaryManager.shutdown();
+            canonicalStateManager.shutdown();
+        }
+    }
+
     @Test
     @DisplayName("""
         Given a reset-only turn that is meant to wake the model up,
@@ -233,6 +299,7 @@ class StorySessionServiceTest {
     private static final class RecordingChatClient implements ChatClient {
         private final String response;
         private List<Message> messages = List.of();
+        private final List<List<Message>> requests = new ArrayList<>();
 
         private RecordingChatClient(String response) {
             this.response = response;
@@ -241,11 +308,20 @@ class StorySessionServiceTest {
         @Override
         public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds) {
             this.messages = List.copyOf(messages);
+            this.requests.add(this.messages);
             return response;
         }
 
         List<Message> messages() {
             return messages;
+        }
+
+        int requestCount() {
+            return requests.size();
+        }
+
+        List<List<Message>> requests() {
+            return List.copyOf(requests);
         }
     }
 }

@@ -51,6 +51,9 @@ public final class AppConfig {
         if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1) {
             throw new IllegalArgumentException("Batch sizes must all be at least 1.");
         }
+        if (cacheBusterInterval() < 0) {
+            throw new IllegalArgumentException("cacheBuster.interval must be 0 or greater.");
+        }
         if (turnPenaltySingleLowHp() < 1 || turnPenaltySingleHighHp() < turnPenaltySingleLowHp()) {
             throw new IllegalArgumentException("Turn penalties must be positive, and the high value must be >= the low value.");
         }
@@ -181,6 +184,10 @@ public final class AppConfig {
 
     public int canonicalStateBatchMessages() {
         return conversation.canonicalStateBatchMessages();
+    }
+
+    public int cacheBusterInterval() {
+        return conversation.cacheBusterInterval();
     }
 
     public boolean turnBasedModeEnabled() {
@@ -368,6 +375,7 @@ public final class AppConfig {
                 source.requiredInt("summary.batchMessages"),
                 source.requiredInt("recentSummary.batchMessages"),
                 source.requiredInt("canonicalState.batchMessages"),
+                source.requiredInt("cacheBuster.interval"),
                 source.requiredBoolean("game.turnBasedModeEnabled"),
                 source.requiredInt("game.turnPenaltySingleLowHp"),
                 source.requiredInt("game.turnPenaltySingleHighHp")
@@ -465,6 +473,7 @@ public final class AppConfig {
         int summaryBatchMessages,
         int recentSummaryBatchMessages,
         int canonicalStateBatchMessages,
+        int cacheBusterInterval,
         boolean turnBasedModeEnabled,
         int turnPenaltySingleLowHp,
         int turnPenaltySingleHighHp

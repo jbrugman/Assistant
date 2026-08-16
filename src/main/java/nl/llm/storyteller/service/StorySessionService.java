@@ -61,6 +61,7 @@ public final class StorySessionService {
         );
 
         historyStore.appendTurn(userInput, response);
+        runAutomaticCacheBusterIfDue();
         canonicalStateManager.startUpdateIfNeeded();
         recentSummaryManager.startUpdateIfNeeded();
         summaryManager.startUpdateSummaryIfNeeded();
@@ -98,6 +99,24 @@ public final class StorySessionService {
             promptAssemblyService.buildValidationRequest(userInput, draftResponse),
             draftResponse
         );
+    }
+
+    private void runAutomaticCacheBusterIfDue() {
+        int interval = config.cacheBusterInterval();
+        if (interval == 0 || historyStore.load().messages().size() / 2 % interval != 0) {
+            return;
+        }
+
+        try {
+            List<Message> messages = withTransientResetCacheBuster(
+                promptAssemblyService.buildResetMessages(config.resetStoryCommand())
+            );
+            chatClient.chat(messages, config.chatOptions(), config.requestTimeoutSeconds());
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        } catch (IOException | RuntimeException _) {
+            // A periodic cache-buster is best-effort and must not fail a completed story turn.
+        }
     }
 
     private List<Message> withTransientResetCacheBuster(List<Message> messages) {

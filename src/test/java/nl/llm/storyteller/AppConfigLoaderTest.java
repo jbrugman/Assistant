@@ -24,6 +24,7 @@ class AppConfigLoaderTest {
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
+        assertEquals(5, config.cacheBusterInterval());
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),
             config.systemPromptFile()
@@ -49,6 +50,7 @@ class AppConfigLoaderTest {
             model.chat=test-chat-model
             file.systemPrompt=overrides/story.md
             chat.maxRecentTurns=3
+            cacheBuster.interval=0
             """);
 
         AppConfig config = AppConfigLoader.load(baseDirectory, null);
@@ -56,6 +58,7 @@ class AppConfigLoaderTest {
         assertEquals("http://localhost:9999/v1/chat/completions", config.lmStudioUrl());
         assertEquals("test-chat-model", config.chatModel());
         assertEquals(3, config.maxRecentTurns());
+        assertEquals(0, config.cacheBusterInterval());
         assertEquals(
             baseDirectory.resolve("overrides/story.md").normalize(),
             config.systemPromptFile()
