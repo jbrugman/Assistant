@@ -74,11 +74,14 @@ final class AppConfigLoader {
     for (String name : source.stringPropertyNames()) {
       target.setProperty(name, source.getProperty(name));
     }
+    if (source.containsKey("lmstudio.url") && !source.containsKey("backend.http.url")) {
+      target.setProperty("backend.http.url", source.getProperty("lmstudio.url"));
+    }
   }
 
   private static void absolutizeFileProperties(Properties properties, Path relativeBaseDir) {
     for (String name : properties.stringPropertyNames()) {
-      if (name.startsWith("file.")) {
+      if (name.startsWith("file.") || "backend.llama.modelPath".equals(name)) {
         Path path = Path.of(properties.getProperty(name).trim());
         if (!path.isAbsolute()) {
           properties.setProperty(name, relativeBaseDir.resolve(path).normalize().toString());

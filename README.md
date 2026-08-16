@@ -160,10 +160,10 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.1.1-all.jar
+java -jar target/storyteller-1.1.2-all.jar
 ```
 
-The local default build version is `1.1.1`.
+The local default build version is `1.1.2`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.1.0` and then `v1.1.1`, `v1.1.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -285,6 +285,21 @@ All default configuration values now come from bundled `application.config`, not
 
 By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
 
+`backend.type=openai-compatible` is the default and sends requests to `backend.http.url`; it works with LM Studio, Jan, Ollama, OpenAI-compatible hosted APIs, and an externally started `llama-server`. Set `backend.type=managed-llama-server` to start a local `llama-server` process before the session starts. In that mode, configure `backend.llama.command`, a readable GGUF `backend.llama.modelPath`, and optional port, startup timeout, and arguments. The managed server binds only to `127.0.0.1` and is stopped when the application closes.
+
+For example:
+
+```properties
+backend.type=managed-llama-server
+backend.llama.command=/opt/llama.cpp/llama-server
+backend.llama.modelPath=/Users/me/Models/story-model.gguf
+backend.llama.arguments=--ctx-size 32768 --ctx-checkpoints 32 --parallel 1 --threads 6 --threads-batch 6 --batch-size 1024 --ubatch-size 512 --kv-offload --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --reasoning off
+```
+
+The bundled managed-server defaults use a `32768` context, `32` context checkpoints, one server slot so the full context is available to each request, six generation and prompt-processing threads, logical/physical batches of `1024`/`512`, KV-cache offload, `q8_0` K/V cache quantization, Flash Attention, and disabled reasoning. They do not force a GPU-layer count: llama.cpp's `auto` setting can fit the loaded GGUF to the available device memory. An MoE model's active expert count is encoded by the model itself; `--n-cpu-moe` means something different and would keep MoE layers on the CPU.
+
+Legacy local overrides using `lmstudio.url` remain accepted and map to `backend.http.url`.
+
 Configuration is now split into:
 - [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
 - [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/AppConfigSource.java): typed access to merged raw properties
@@ -298,6 +313,7 @@ Important settings:
 - `canonicalState.batchMessages=2`
 - `cacheBuster.interval=5` (`0` disables periodic cache busters)
 - `validation.enabled=true`
+- `validation.outputMode=auto` requests JSON Schema constrained validation when supported and retries as text when the endpoint rejects it; the rejection is remembered for the active session
 - `resilience.chat.failureThreshold=3`
 - `resilience.chat.cooldownSeconds=20`
 - `resilience.validation.failureThreshold=2`
@@ -312,7 +328,7 @@ validation.enabled=false
 ```
 
 When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
-When validation is enabled, the validator now either returns `ALLOW` or returns corrected replacement text that becomes the final response.
+When validation is enabled, the validator returns an `ALLOW` or `REPLACE` decision. By default its request includes an OpenAI-compatible JSON Schema response format so supporting backends constrain that decision during generation. The schema is deliberately used only for validation; story responses remain free text. Older compatible endpoints automatically use the existing tolerant text path when they reject structured output. Set `validation.outputMode=text` for a legacy endpoint, or `json-schema` to require constrained validator output.
 
 The app also uses a small built-in resilience layer around LLM calls:
 - foreground chat calls use a short cooldown-based fail-fast guard
@@ -365,6 +381,8 @@ This is an intentional modular-monolith choice: deployment, configuration, and o
 The runtime responsibilities are now split more explicitly:
 - [`AssistantApp.java`](src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
 - [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
+- [`OpenAiCompatibleHttpClient.java`](src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, and llama-server
+- [`ManagedLlamaServer.java`](src/main/java/nl/llm/storyteller/core/service/ManagedLlamaServer.java): optional local llama-server process lifecycle and readiness handling
 - [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
 - [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/cli/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
 - [`StorySessionService.java`](src/main/java/nl/llm/storyteller/core/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
@@ -439,6 +457,11 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.1.2
+- Added OpenAI-compatible JSON Schema structured output for validator decisions, with `auto`, `text`, and required `json-schema` output modes.
+- In automatic mode, validation falls back once to the existing tolerant plain-text parser when a backend rejects `response_format`; that capability result is cached for the remaining application session.
+- Added llama.cpp managed-server defaults for a 32K context, 32 context checkpoints, one server slot, CPU/batch sizing, GPU KV-cache offload, Q8_0 K/V cache, Flash Attention, and disabled reasoning.
 
 ### 1.1.1
 - Enabled GraalVM shared-arena support for the JLine 4 terminal provider in native builds.

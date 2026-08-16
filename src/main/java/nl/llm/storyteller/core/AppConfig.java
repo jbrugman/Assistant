@@ -42,6 +42,21 @@ public final class AppConfig {
   }
 
   private AppConfig validate() {
+    if (!"openai-compatible".equalsIgnoreCase(backendType()) && !usesManagedLlamaServer()) {
+      throw new IllegalArgumentException("backend.type must be openai-compatible or managed-llama-server.");
+    }
+    if (usesManagedLlamaServer()) {
+      LlamaServerConfig llamaServer = llamaServerConfig();
+      if (llamaServer.command().isBlank() || llamaServer.modelPath() == null) {
+        throw new IllegalArgumentException("Managed llama-server requires backend.llama.command and backend.llama.modelPath.");
+      }
+      if (llamaServer.port() < 0 || llamaServer.port() > 65_535) {
+        throw new IllegalArgumentException("backend.llama.port must be between 0 and 65535.");
+      }
+      if (llamaServer.startupTimeoutSeconds() < 1) {
+        throw new IllegalArgumentException("backend.llama.startupTimeoutSeconds must be at least 1.");
+      }
+    }
     if (maxRecentTurns() < 1) {
       throw new IllegalArgumentException("chat.maxRecentTurns must be at least 1.");
     }
@@ -53,6 +68,11 @@ public final class AppConfig {
     }
     if (cacheBusterInterval() < 0) {
       throw new IllegalArgumentException("cacheBuster.interval must be 0 or greater.");
+    }
+    if (!"auto".equalsIgnoreCase(validationOutputMode())
+      && !"text".equalsIgnoreCase(validationOutputMode())
+      && !"json-schema".equalsIgnoreCase(validationOutputMode())) {
+      throw new IllegalArgumentException("validation.outputMode must be auto, text, or json-schema.");
     }
     if (turnPenaltySingleLowHp() < 1 || turnPenaltySingleHighHp() < turnPenaltySingleLowHp()) {
       throw new IllegalArgumentException("Turn penalties must be positive, and the high value must be >= the low value.");
@@ -66,8 +86,26 @@ public final class AppConfig {
     return this;
   }
 
-  public String lmStudioUrl() {
-    return modelAccess.lmStudioUrl();
+  public String backendType() {
+    return modelAccess.backendType();
+  }
+
+  public String openAiCompatibleUrl() {
+    return modelAccess.openAiCompatibleUrl();
+  }
+
+  public boolean usesManagedLlamaServer() {
+    return "managed-llama-server".equalsIgnoreCase(backendType());
+  }
+
+  public LlamaServerConfig llamaServerConfig() {
+    return new LlamaServerConfig(
+      modelAccess.llamaServerCommand(),
+      modelAccess.llamaServerModelPath(),
+      modelAccess.llamaServerPort(),
+      modelAccess.llamaServerStartupTimeoutSeconds(),
+      modelAccess.llamaServerArguments()
+    );
   }
 
   public Path baseDir() {
@@ -246,6 +284,10 @@ public final class AppConfig {
     return runtimeText.validationEnabled();
   }
 
+  public String validationOutputMode() {
+    return runtimeText.validationOutputMode();
+  }
+
   public String validationFailClosedMessage() {
     return runtimeText.validationFailClosedMessage();
   }
@@ -314,8 +356,8 @@ public final class AppConfig {
     return runtimeText.lastTurnTemplate();
   }
 
-  public String lmStudioRequestErrorText() {
-    return runtimeText.lmStudioRequestErrorText();
+  public String backendRequestErrorText() {
+    return runtimeText.backendRequestErrorText();
   }
 
   public String processHistoryErrorText() {
@@ -342,9 +384,15 @@ public final class AppConfig {
     return new AppConfig(
       source.baseDir(),
       new ModelAccessConfig(
-        source.requiredString("lmstudio.url"),
+        source.requiredString("backend.type"),
+        source.requiredString("backend.http.url"),
         source.optionalTrimmedString("model.chat"),
-        source.optionalTrimmedString("model.validator")
+        source.optionalTrimmedString("model.validator"),
+        source.optionalTrimmedString("backend.llama.command"),
+        source.optionalPath(),
+        source.requiredInt("backend.llama.port"),
+        source.requiredInt("backend.llama.startupTimeoutSeconds"),
+        source.optionalTrimmedString("backend.llama.arguments")
       ),
       new FilesConfig(
         source.requiredPath("file.systemPrompt"),
@@ -397,6 +445,7 @@ public final class AppConfig {
       ),
       new RuntimeTextConfig(
         source.requiredBoolean("validation.enabled"),
+        source.requiredString("validation.outputMode"),
         source.requiredBoolean("response.hideReasoningBlocks"),
         source.requiredString("response.validationFailClosedMessage"),
         source.requiredString("command.continueStory"),
@@ -413,7 +462,7 @@ public final class AppConfig {
         source.requiredString("ui.undoRestored"),
         source.requiredString("ui.noLastTurn"),
         source.requiredString("ui.lastTurnTemplate"),
-        source.requiredString("ui.errorLmStudioRequest"),
+        source.requiredString("ui.errorBackendRequest"),
         source.requiredString("ui.errorProcessHistory"),
         source.requiredString("ui.macHint")
       ),
@@ -438,9 +487,15 @@ public final class AppConfig {
   }
 
   private record ModelAccessConfig(
-    String lmStudioUrl,
+    String backendType,
+    String openAiCompatibleUrl,
     String chatModel,
-    String validatorModel
+    String validatorModel,
+    String llamaServerCommand,
+    Path llamaServerModelPath,
+    int llamaServerPort,
+    int llamaServerStartupTimeoutSeconds,
+    String llamaServerArguments
   ) {
   }
 
@@ -507,6 +562,7 @@ public final class AppConfig {
 
   private record RuntimeTextConfig(
     boolean validationEnabled,
+    String validationOutputMode,
     boolean hideReasoningBlocks,
     String validationFailClosedMessage,
     String continueStoryCommand,
@@ -523,7 +579,7 @@ public final class AppConfig {
     String undoRestoredText,
     String noLastTurnText,
     String lastTurnTemplate,
-    String lmStudioRequestErrorText,
+    String backendRequestErrorText,
     String processHistoryErrorText,
     String macHint) {
   }

@@ -25,6 +25,7 @@ class AppConfigLoaderTest {
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
         assertEquals(5, config.cacheBusterInterval());
+        assertEquals("auto", config.validationOutputMode());
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),
             config.systemPromptFile()
@@ -55,7 +56,7 @@ class AppConfigLoaderTest {
 
         AppConfig config = AppConfigLoader.load(baseDirectory, null);
 
-        assertEquals("http://localhost:9999/v1/chat/completions", config.lmStudioUrl());
+        assertEquals("http://localhost:9999/v1/chat/completions", config.openAiCompatibleUrl());
         assertEquals("test-chat-model", config.chatModel());
         assertEquals(3, config.maxRecentTurns());
         assertEquals(0, config.cacheBusterInterval());
@@ -108,5 +109,33 @@ class AppConfigLoaderTest {
 
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
+    }
+
+    @Test
+    @DisplayName("""
+        Given a managed llama-server configuration with a relative model path,
+        When the application config is loaded,
+        Then it should select the managed backend and resolve the model path from the base directory
+        """)
+    void shouldLoadManagedLlamaServerConfiguration() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-llama-server");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+            backend.type=managed-llama-server
+            backend.llama.command=/opt/llama.cpp/llama-server
+            backend.llama.modelPath=models/story.gguf
+            backend.llama.port=8080
+            backend.llama.startupTimeoutSeconds=90
+            backend.llama.arguments=--ctx-size 32768
+            """);
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+
+        assertTrue(config.usesManagedLlamaServer());
+        assertEquals("/opt/llama.cpp/llama-server", config.llamaServerConfig().command());
+        assertEquals(baseDirectory.resolve("models/story.gguf").normalize(), config.llamaServerConfig().modelPath());
+        assertEquals(8080, config.llamaServerConfig().port());
+        assertEquals(90, config.llamaServerConfig().startupTimeoutSeconds());
     }
 }

@@ -52,4 +52,13 @@ final class AppConfigSource {
     }
     return baseDir.resolve(path).normalize();
   }
+
+  Path optionalPath() {
+    String value = optionalTrimmedString("backend.llama.modelPath");
+    if (value.isBlank()) {
+      return null;
+    }
+    Path path = Path.of(value);
+    return path.isAbsolute() ? path : baseDir.resolve(path).normalize();
+  }
 }
