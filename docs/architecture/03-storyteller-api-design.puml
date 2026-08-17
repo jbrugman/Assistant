@@ -35,11 +35,13 @@ package "Storyteller Core\nnl.llm.storyteller.core, .core.service, .core.model" 
 package "Model Backend" #FEF3C7 {
   [OpenAI-Compatible\nChat API]
   [Managed llama-server]
+  [Managed mlx-vlm server]
 }
 
 database "Local session directories\nmemory/sessions/<session-id>/" as SessionFiles
 database "CLI local memory\nmemory/" as CliFiles
 database "Local GGUF model" as GgufModel
+database "Local MLX model" as MlxModel
 
 [Browser Frontend] --> [HTTP Server / Controllers] : HTTP
 [HTTP Server / Controllers] --> [Request & Response DTOs]
@@ -69,6 +71,8 @@ database "Local GGUF model" as GgufModel
 [StorySessionService] --> [OpenAI-Compatible\nChat API]
 [Managed llama-server] --> [OpenAI-Compatible\nChat API] : loopback endpoint
 [Managed llama-server] --> GgufModel : load
+[Managed mlx-vlm server] --> [OpenAI-Compatible\nChat API] : loopback endpoint
+[Managed mlx-vlm server] --> MlxModel : load
 
 note bottom of [Cookie Session Resolver]
 Cookie contains only an opaque session reference.
@@ -82,6 +86,11 @@ undo, or derived-memory semantics.
 end note
 
 note bottom of [Managed llama-server]
+Optional local process lifecycle managed by core.
+The same HTTP adapter remains in use.
+end note
+
+note bottom of [Managed mlx-vlm server]
 Optional local process lifecycle managed by core.
 The same HTTP adapter remains in use.
 end note

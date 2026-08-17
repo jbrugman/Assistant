@@ -54,7 +54,11 @@ final class AppConfigSource {
   }
 
   Path optionalPath() {
-    String value = optionalTrimmedString("backend.llama.modelPath");
+    return optionalPath("backend.llama.modelPath");
+  }
+
+  Path optionalPath(String key) {
+    String value = optionalTrimmedString(key);
     if (value.isBlank()) {
       return null;
     }

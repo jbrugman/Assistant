@@ -138,4 +138,32 @@ class AppConfigLoaderTest {
         assertEquals(8080, config.llamaServerConfig().port());
         assertEquals(90, config.llamaServerConfig().startupTimeoutSeconds());
     }
+
+    @Test
+    @DisplayName("""
+        Given a managed MLX server configuration with a relative model path,
+        When the application config is loaded,
+        Then it should select the managed backend and resolve the model path from the base directory
+        """)
+    void shouldLoadManagedMlxServerConfiguration() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-mlx-server");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+            backend.type=managed-mlx-server
+            backend.mlx.command=/opt/mlx/bin/mlx_vlm.server
+            backend.mlx.modelPath=models/story-mlx
+            backend.mlx.port=8080
+            backend.mlx.startupTimeoutSeconds=180
+            backend.mlx.arguments=-m mlx_vlm.server --max-kv-size 32768 --max-tokens 32768
+            """);
+
+        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+
+        assertTrue(config.usesManagedMlxServer());
+        assertEquals("/opt/mlx/bin/mlx_vlm.server", config.mlxServerConfig().command());
+        assertEquals(baseDirectory.resolve("models/story-mlx").normalize(), config.mlxServerConfig().modelPath());
+        assertEquals(8080, config.mlxServerConfig().port());
+        assertEquals(180, config.mlxServerConfig().startupTimeoutSeconds());
+    }
 }

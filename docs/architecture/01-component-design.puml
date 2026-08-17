@@ -70,6 +70,7 @@ package "Validation & Backend" #DBEAFE {
   [LlmBackendGuard]
   [OpenAiCompatibleHttpClient]
   [ManagedLlamaServer]
+  [ManagedMlxServer]
 }
 
 package "Model Records" #F3F4F6 {
@@ -82,6 +83,7 @@ package "Model Records" #F3F4F6 {
 database "systemprompts/" as SystemPrompts
 database "memory/" as MemoryFiles
 database "GGUF model" as GgufModel
+database "MLX model" as MlxModel
 
 together {
   [AssistantApp]
@@ -110,6 +112,7 @@ together {
 [ApplicationFactory] --> [StorySessionService]
 [ApplicationFactory] --> [StoryExportService]
 [ApplicationFactory] --> [ManagedLlamaServer] : optional start / close
+[ApplicationFactory] --> [ManagedMlxServer] : optional start / close
 [TerminalStoryteller] --> [StorySessionService]
 [TerminalStoryteller] --> [StoryExportService]
 [TerminalStoryteller] --> [TerminalRenderer]
@@ -172,6 +175,8 @@ together {
 [ResilientChatClient] --> [OpenAiCompatibleHttpClient]
 [ManagedLlamaServer] --> [OpenAiCompatibleHttpClient] : loopback HTTP
 [ManagedLlamaServer] --> GgufModel : load
+[ManagedMlxServer] --> [OpenAiCompatibleHttpClient] : loopback HTTP
+[ManagedMlxServer] --> MlxModel : load
 
 [HistoryStore] --> [Message / HistoryState]
 [ValidationClient] --> [Message / HistoryState]

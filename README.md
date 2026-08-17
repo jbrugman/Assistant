@@ -128,6 +128,8 @@ Do not assume that `7` is universally the default or that powers of two are inhe
 - [ChatGPT](https://chatgpt.com/) for discussing design decisions and improving system prompts
 - [mlx-community/gemma-4-26B-A4B-it-qat-6bit](https://huggingface.co/mlx-community/gemma-4-26B-A4B-it-qat-6bit) for local story-model testing
 - [Qwen/Qwen3-Coder-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct) as a local coding model during development
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) for running GGUF models through the managed local llama-server backend
+- [mlx-vlm](https://github.com/Blaizzy/mlx-vlm) for running MLX models through the managed local `mlx_vlm.server` backend
 - MacBook Pro with M1 Max and 64 GB unified memory
 
 ## Packaging Behavior
@@ -285,18 +287,33 @@ All default configuration values now come from bundled `application.config`, not
 
 By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
 
-`backend.type=openai-compatible` is the default and sends requests to `backend.http.url`; it works with LM Studio, Jan, Ollama, OpenAI-compatible hosted APIs, and an externally started `llama-server`. Set `backend.type=managed-llama-server` to start a local `llama-server` process before the session starts. In that mode, configure `backend.llama.command`, a readable GGUF `backend.llama.modelPath`, and optional port, startup timeout, and arguments. The managed server binds only to `127.0.0.1` and is stopped when the application closes.
+`backend.type=openai-compatible` is the default and sends requests to `backend.http.url`; it works with LM Studio, Jan, Ollama, OpenAI-compatible hosted APIs, and externally started model servers. Set `backend.type=managed-llama-server` to start a local `llama-server` process for GGUF, or `backend.type=managed-mlx-server` to start `mlx_vlm.server` for a local MLX model. Both managed servers bind only to `127.0.0.1` and stop when the application closes.
 
 For example:
 
 ```properties
 backend.type=managed-llama-server
-backend.llama.command=/opt/llama.cpp/llama-server
-backend.llama.modelPath=/Users/me/Models/story-model.gguf
-backend.llama.arguments=--ctx-size 32768 --ctx-checkpoints 32 --parallel 1 --threads 6 --threads-batch 6 --batch-size 1024 --ubatch-size 512 --kv-offload --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --reasoning off
+backend.llama.command=llama-server
+backend.llama.modelPath=./models/Gemma4-26B-A4B-QAT.gguf
+backend.llama.port=0
+backend.llama.startupTimeoutSeconds=120
+backend.llama.arguments=--ctx-size 32768 --ctx-checkpoints 32 --parallel 3 --threads 6 --threads-batch 6 --batch-size 1024 --ubatch-size 512 --kv-offload --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --reasoning off
 ```
 
-The bundled managed-server defaults use a `32768` context, `32` context checkpoints, one server slot so the full context is available to each request, six generation and prompt-processing threads, logical/physical batches of `1024`/`512`, KV-cache offload, `q8_0` K/V cache quantization, Flash Attention, and disabled reasoning. They do not force a GPU-layer count: llama.cpp's `auto` setting can fit the loaded GGUF to the available device memory. An MoE model's active expert count is encoded by the model itself; `--n-cpu-moe` means something different and would keep MoE layers on the CPU.
+For a local MLX model on Apple Silicon:
+
+```properties
+backend.type=managed-mlx-server
+backend.mlx.command=python3
+backend.mlx.modelPath=./model/gemma-4-26b-a4b-it-4bit
+backend.mlx.port=0
+backend.mlx.startupTimeoutSeconds=180
+backend.mlx.arguments=-m mlx_vlm.server --max-kv-size 32768 --max-tokens 32768
+```
+
+Install `mlx-vlm` for the configured Python interpreter and ensure `python3` is available on `PATH`. The managed MLX server is intended for local use and uses its OpenAI-compatible `/v1/chat/completions` endpoint.
+
+The bundled defaults do not select a managed-server command, model, or model-specific arguments. Configure those values in a local `application.config` or start from the examples in `systemprompts.example/llama_server` and `systemprompts.example/mlx_server`. An MoE model's active expert count is encoded by the model itself; `--n-cpu-moe` means something different and would keep MoE layers on the CPU.
 
 Legacy local overrides using `lmstudio.url` remain accepted and map to `backend.http.url`.
 
@@ -381,8 +398,9 @@ This is an intentional modular-monolith choice: deployment, configuration, and o
 The runtime responsibilities are now split more explicitly:
 - [`AssistantApp.java`](src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
 - [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
-- [`OpenAiCompatibleHttpClient.java`](src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, and llama-server
+- [`OpenAiCompatibleHttpClient.java`](src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, llama-server, and mlx-vlm
 - [`ManagedLlamaServer.java`](src/main/java/nl/llm/storyteller/core/service/ManagedLlamaServer.java): optional local llama-server process lifecycle and readiness handling
+- [`ManagedMlxServer.java`](src/main/java/nl/llm/storyteller/core/service/ManagedMlxServer.java): optional local mlx-vlm process lifecycle and readiness handling
 - [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
 - [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/cli/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
 - [`StorySessionService.java`](src/main/java/nl/llm/storyteller/core/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
@@ -458,10 +476,14 @@ Not yet.
 
 ## Changelog
 
+### 1.1.3
+- Added an optional managed `mlx_vlm.server` backend for local MLX models, including process startup, dynamic loopback ports, readiness checks, and lifecycle shutdown.
+- Added a mlx-vlm example configuration and documented the managed MLX backend in the README and PlantUML architecture diagrams.
+
 ### 1.1.2
 - Added OpenAI-compatible JSON Schema structured output for validator decisions, with `auto`, `text`, and required `json-schema` output modes.
 - In automatic mode, validation falls back once to the existing tolerant plain-text parser when a backend rejects `response_format`; that capability result is cached for the remaining application session.
-- Added llama.cpp managed-server defaults for a 32K context, 32 context checkpoints, one server slot, CPU/batch sizing, GPU KV-cache offload, Q8_0 K/V cache, Flash Attention, and disabled reasoning.
+- Added llama.cpp managed-server examples for a 32K context, 32 context checkpoints, one server slot, CPU/batch sizing, GPU KV-cache offload, Q8_0 K/V cache, Flash Attention, and disabled reasoning.
 
 ### 1.1.1
 - Enabled GraalVM shared-arena support for the JLine 4 terminal provider in native builds.

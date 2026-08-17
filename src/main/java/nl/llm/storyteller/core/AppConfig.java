@@ -42,8 +42,24 @@ public final class AppConfig {
   }
 
   private AppConfig validate() {
-    if (!"openai-compatible".equalsIgnoreCase(backendType()) && !usesManagedLlamaServer()) {
-      throw new IllegalArgumentException("backend.type must be openai-compatible or managed-llama-server.");
+    if (!"openai-compatible".equalsIgnoreCase(backendType())
+      && !usesManagedLlamaServer()
+      && !usesManagedMlxServer()) {
+      throw new IllegalArgumentException(
+        "backend.type must be openai-compatible, managed-llama-server, or managed-mlx-server."
+      );
+    }
+    if (usesManagedMlxServer()) {
+      MlxServerConfig mlxServer = mlxServerConfig();
+      if (mlxServer.command().isBlank() || mlxServer.modelPath() == null) {
+        throw new IllegalArgumentException("Managed MLX server requires backend.mlx.command and backend.mlx.modelPath.");
+      }
+      if (mlxServer.port() < 0 || mlxServer.port() > 65_535) {
+        throw new IllegalArgumentException("backend.mlx.port must be between 0 and 65535.");
+      }
+      if (mlxServer.startupTimeoutSeconds() < 1) {
+        throw new IllegalArgumentException("backend.mlx.startupTimeoutSeconds must be at least 1.");
+      }
     }
     if (usesManagedLlamaServer()) {
       LlamaServerConfig llamaServer = llamaServerConfig();
@@ -98,6 +114,10 @@ public final class AppConfig {
     return "managed-llama-server".equalsIgnoreCase(backendType());
   }
 
+  public boolean usesManagedMlxServer() {
+    return "managed-mlx-server".equalsIgnoreCase(backendType());
+  }
+
   public LlamaServerConfig llamaServerConfig() {
     return new LlamaServerConfig(
       modelAccess.llamaServerCommand(),
@@ -105,6 +125,16 @@ public final class AppConfig {
       modelAccess.llamaServerPort(),
       modelAccess.llamaServerStartupTimeoutSeconds(),
       modelAccess.llamaServerArguments()
+    );
+  }
+
+  public MlxServerConfig mlxServerConfig() {
+    return new MlxServerConfig(
+      modelAccess.mlxServerCommand(),
+      modelAccess.mlxServerModelPath(),
+      modelAccess.mlxServerPort(),
+      modelAccess.mlxServerStartupTimeoutSeconds(),
+      modelAccess.mlxServerArguments()
     );
   }
 
@@ -392,7 +422,12 @@ public final class AppConfig {
         source.optionalPath(),
         source.requiredInt("backend.llama.port"),
         source.requiredInt("backend.llama.startupTimeoutSeconds"),
-        source.optionalTrimmedString("backend.llama.arguments")
+        source.optionalTrimmedString("backend.llama.arguments"),
+        source.optionalTrimmedString("backend.mlx.command"),
+        source.optionalPath("backend.mlx.modelPath"),
+        source.requiredInt("backend.mlx.port"),
+        source.requiredInt("backend.mlx.startupTimeoutSeconds"),
+        source.optionalTrimmedString("backend.mlx.arguments")
       ),
       new FilesConfig(
         source.requiredPath("file.systemPrompt"),
@@ -495,7 +530,12 @@ public final class AppConfig {
     Path llamaServerModelPath,
     int llamaServerPort,
     int llamaServerStartupTimeoutSeconds,
-    String llamaServerArguments
+    String llamaServerArguments,
+    String mlxServerCommand,
+    Path mlxServerModelPath,
+    int mlxServerPort,
+    int mlxServerStartupTimeoutSeconds,
+    String mlxServerArguments
   ) {
   }
 
