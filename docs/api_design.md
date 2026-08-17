@@ -42,7 +42,7 @@ Out of scope for the initial design:
 
 ## Backend Assumption
 
-The storyteller backend remains an OpenAI-compatible HTTP client. It can target an externally managed endpoint or an optional local `llama-server` process started by the application; both use the same chat-completions adapter.
+The storyteller backend remains an OpenAI-compatible HTTP client. It can target an externally managed endpoint, an optional local `llama-server` process, or an optional local `mlx_vlm.server` process started by the application; all use the same chat-completions adapter.
 
 The API server is not responsible for running models directly.
 It should continue to work with:

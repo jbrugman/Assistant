@@ -8,6 +8,7 @@ import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
+import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
@@ -52,9 +53,10 @@ public final class ApplicationFactory {
       promptResourceLoader, promptTemplateService
     );
     ManagedLlamaServer managedLlamaServer = startManagedLlamaServerIfConfigured(config);
-    String backendUrl = managedLlamaServer == null
-      ? config.openAiCompatibleUrl()
-      : managedLlamaServer.chatCompletionsUrl();
+    ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
+    String backendUrl = managedLlamaServer != null
+      ? managedLlamaServer.chatCompletionsUrl()
+      : managedMlxServer != null ? managedMlxServer.chatCompletionsUrl() : config.openAiCompatibleUrl();
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
       backendUrl, config.chatModel(), config.hideReasoningBlocks()
     );
@@ -118,7 +120,8 @@ public final class ApplicationFactory {
       derivedMemoryTaskQueue,
       storySessionService,
       new StoryExportService(historyStore, config.baseDir()),
-      managedLlamaServer
+      managedLlamaServer,
+      managedMlxServer
     );
   }
 
@@ -133,6 +136,20 @@ public final class ApplicationFactory {
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
       throw new IllegalStateException("Interrupted while starting managed llama-server", ex);
+    }
+  }
+
+  private static ManagedMlxServer startManagedMlxServerIfConfigured(AppConfig config) {
+    if (!config.usesManagedMlxServer()) {
+      return null;
+    }
+    try {
+      return ManagedMlxServer.start(config.mlxServerConfig());
+    } catch (IOException ex) {
+      throw new UncheckedIOException("Could not start managed MLX server", ex);
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException("Interrupted while starting managed MLX server", ex);
     }
   }
 }

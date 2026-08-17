@@ -4,6 +4,19 @@ title Storyteller Flow Design
 start
 
 :CLI AssistantApp starts and creates the core runtime context;
+
+if (managed llama-server selected?) then (yes)
+  :Start llama-server with the configured GGUF model;
+  :Wait for its loopback health endpoint;
+else (no)
+  if (managed mlx-vlm server selected?) then (yes)
+    :Start mlx_vlm.server with the configured MLX model;
+    :Wait for its loopback health endpoint;
+  else (no)
+    :Use the configured OpenAI-compatible endpoint;
+  endif
+endif
+
 :Read user input;
 
 if (/exit or /quit?) then (yes)
@@ -50,7 +63,8 @@ else (no)
       - optional turn-rule instruction
       end note
 
-      :Send chat request through resilience guard;
+      :Send chat request through resilience guard
+      and shared OpenAI-compatible client;
       :Receive draft response;
 
       if (validation enabled?) then (yes)

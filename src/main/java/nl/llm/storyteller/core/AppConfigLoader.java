@@ -81,7 +81,9 @@ final class AppConfigLoader {
 
   private static void absolutizeFileProperties(Properties properties, Path relativeBaseDir) {
     for (String name : properties.stringPropertyNames()) {
-      if (name.startsWith("file.") || "backend.llama.modelPath".equals(name)) {
+      if (name.startsWith("file.")
+        || "backend.llama.modelPath".equals(name)
+        || "backend.mlx.modelPath".equals(name)) {
         Path path = Path.of(properties.getProperty(name).trim());
         if (!path.isAbsolute()) {
           properties.setProperty(name, relativeBaseDir.resolve(path).normalize().toString());
