@@ -19,6 +19,7 @@ final class TerminalStoryteller {
   private static final String EXIT_COMMAND = "/exit";
   private static final String QUIT_COMMAND = "/quit";
   private static final String EXPORT_COMMAND = "/export";
+  private static final String IMAGE_COMMAND = "/image";
   private static final String EXPORT_ALL_OPTION = "-all";
   private static final String EXPORT_INTRO_OPTION = "-intro";
   private static final String EXPORT_CLEAN_OPTION = "-clean";
@@ -30,11 +31,17 @@ final class TerminalStoryteller {
   private final ApplicationContext context;
   private final TerminalRenderer renderer;
   private final LineReader reader;
+  private final ClipboardImageReader clipboardImageReader;
 
   TerminalStoryteller(Terminal terminal, ApplicationContext context) {
+    this(terminal, context, new ClipboardImageReader());
+  }
+
+  TerminalStoryteller(Terminal terminal, ApplicationContext context, ClipboardImageReader clipboardImageReader) {
     this.context = context;
     this.renderer = new TerminalRenderer(terminal);
     this.reader = LineReaderBuilder.builder().terminal(terminal).appName(APP_NAME).build();
+    this.clipboardImageReader = clipboardImageReader;
     registerShortcuts();
   }
 
@@ -140,6 +147,10 @@ final class TerminalStoryteller {
   }
 
   private boolean handleCommand(String userInput) {
+    if (IMAGE_COMMAND.equalsIgnoreCase(userInput) || userInput.regionMatches(true, 0, IMAGE_COMMAND + " ", 0, IMAGE_COMMAND.length() + 1)) {
+      handleImageCommand(userInput);
+      return true;
+    }
     if (!userInput.startsWith(EXPORT_COMMAND)) {
       return false;
     }
@@ -155,6 +166,26 @@ final class TerminalStoryteller {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
     }
     return true;
+  }
+
+  private void handleImageCommand(String userInput) {
+    String instruction = userInput.substring(IMAGE_COMMAND.length()).trim();
+    if (instruction.isBlank()) {
+      renderer.printError("Image command error", "Use /image <instruction> after copying an image to the clipboard.");
+      return;
+    }
+
+    try {
+      String imageDataUrl = clipboardImageReader.readPngDataUrl();
+      renderer.printMessage(context.storySessionService().handleImageTurn(instruction, imageDataUrl));
+    } catch (InterruptedException ex) {
+      renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
+      Thread.currentThread().interrupt();
+    } catch (IOException ex) {
+      renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
+    } catch (RuntimeException ex) {
+      renderer.printError("Image command error", ex.getMessage());
+    }
   }
 
   private StoryExportService.ExportMode parseExportMode(String userInput) {

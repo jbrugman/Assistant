@@ -15,10 +15,31 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryStoreTest {
+    @Test
+    @DisplayName("Given a transient image message, history should persist text only")
+    void shouldNeverPersistTransientImageData() throws Exception {
+        Path directory = Files.createTempDirectory("storyteller-image-history");
+        Path historyFile = directory.resolve("history.json");
+        HistoryStore historyStore = new HistoryStore(historyFile, directory.resolve("legacy-history.txt"));
+
+        historyStore.save(new HistoryState(
+            List.of(Message.withImage("user", "Describe the island.", "data:image/png;base64,SECRET")),
+            0,
+            0,
+            0
+        ));
+
+        String persisted = Files.readString(historyFile);
+        assertTrue(persisted.contains("Describe the island."));
+        assertFalse(persisted.contains("data:image"));
+        assertFalse(persisted.contains("SECRET"));
+    }
+
     @ParameterizedTest
     @MethodSource("recentTurnCases")
     @DisplayName("""

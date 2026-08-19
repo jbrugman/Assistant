@@ -44,4 +44,27 @@ class OpenAiCompatibleHttpClientTest {
         assertFalse(payload.containsKey("model"));
         assertTrue(payload.containsKey("messages"));
     }
+
+    @Test
+    @DisplayName("Given a transient image, the request should contain OpenAI-compatible content parts")
+    void shouldBuildMultimodalMessageContent() {
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "vision-model", true
+        );
+
+        Map<String, Object> payload = client.buildPayload(
+            List.of(Message.withImage("user", "Describe the island.", "data:image/png;base64,AAAA")),
+            Map.of()
+        );
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> messages = (List<Map<String, Object>>) payload.get("messages");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> content = (List<Map<String, Object>>) messages.getFirst().get("content");
+        assertEquals(Map.of("type", "text", "text", "Describe the island."), content.getFirst());
+        assertEquals(
+            Map.of("type", "image_url", "image_url", Map.of("url", "data:image/png;base64,AAAA")),
+            content.getLast()
+        );
+    }
 }

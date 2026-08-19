@@ -33,7 +33,7 @@ package "Storyteller Core\nnl.llm.storyteller.core, .core.service, .core.model" 
 }
 
 package "Model Backend" #FEF3C7 {
-  [OpenAI-Compatible\nChat API]
+  [OpenAI-Compatible\nChat API\n(text + transient images)]
   [Managed llama-server]
   [Managed mlx-vlm server]
 }
@@ -67,11 +67,11 @@ database "Local MLX model" as MlxModel
 [SummaryManager] --> [DerivedMemoryTaskQueue]
 [RecentSummaryManager] --> [DerivedMemoryTaskQueue]
 [CanonicalStateManager] --> [DerivedMemoryTaskQueue]
-[ResponseGuard] --> [OpenAI-Compatible\nChat API]
-[StorySessionService] --> [OpenAI-Compatible\nChat API]
-[Managed llama-server] --> [OpenAI-Compatible\nChat API] : loopback endpoint
+[ResponseGuard] --> [OpenAI-Compatible\nChat API\n(text + transient images)]
+[StorySessionService] --> [OpenAI-Compatible\nChat API\n(text + transient images)]
+[Managed llama-server] --> [OpenAI-Compatible\nChat API\n(text + transient images)] : loopback endpoint
 [Managed llama-server] --> GgufModel : load
-[Managed mlx-vlm server] --> [OpenAI-Compatible\nChat API] : loopback endpoint
+[Managed mlx-vlm server] --> [OpenAI-Compatible\nChat API\n(text + transient images)] : loopback endpoint
 [Managed mlx-vlm server] --> MlxModel : load
 
 note bottom of [Cookie Session Resolver]

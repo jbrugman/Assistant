@@ -57,7 +57,9 @@ public final class HistoryStore {
 
   public synchronized void save(HistoryState state) {
     Map<String, Object> data = new LinkedHashMap<>();
-    List<Map<String, String>> messages = state.messages().stream().map(Message::toMap).toList();
+    List<Map<String, String>> messages = state.messages().stream()
+      .map(message -> Map.of("role", message.role(), "content", message.content()))
+      .toList();
     data.put("messages", messages);
     data.put("summary_cursor", state.summaryCursor());
     data.put("recent_summary_cursor", state.recentSummaryCursor());

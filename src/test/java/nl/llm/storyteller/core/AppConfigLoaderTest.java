@@ -24,6 +24,7 @@ class AppConfigLoaderTest {
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
+        assertTrue(config.commandHelpText().contains("/image <instruction>"));
         assertEquals(5, config.cacheBusterInterval());
         assertEquals("auto", config.validationOutputMode());
         assertEquals(
