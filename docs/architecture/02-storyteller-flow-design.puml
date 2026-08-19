@@ -31,6 +31,19 @@ else (no)
     stop
   else (no)
 
+    if (/image with instruction?) then (yes)
+      :Read image from desktop clipboard;
+      :Encode image as a transient PNG data URL;
+      :Build multimodal user message with text and image;
+      :Send request through resilience guard
+      and shared OpenAI-compatible client;
+      :Validate response using text only;
+      :Persist only instruction and response text;
+      :Queue derived-memory refreshes using text history only;
+      :Print final response;
+      stop
+    else (no)
+
     if (/export?) then (yes)
       :Load history;
       :Create Markdown export;
@@ -99,6 +112,7 @@ else (no)
       sequentially and do not block the foreground response.
       end note
 
+    endif
     endif
   endif
 endif

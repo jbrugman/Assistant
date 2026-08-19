@@ -30,6 +30,7 @@ package "CLI Adapter\nnl.llm.storyteller.cli" #E0F2FE {
   [AssistantApp]
   [TerminalStoryteller]
   [TerminalRenderer]
+  [ClipboardImageReader]
 }
 
 package "Storyteller Core\nnl.llm.storyteller.core" #DCFCE7 {
@@ -116,6 +117,7 @@ together {
 [TerminalStoryteller] --> [StorySessionService]
 [TerminalStoryteller] --> [StoryExportService]
 [TerminalStoryteller] --> [TerminalRenderer]
+[TerminalStoryteller] --> [ClipboardImageReader] : /image
 
 [AppConfigLoader] --> [AppConfig]
 [AppConfigLoader] --> SystemPrompts : load defaults and overrides
@@ -173,6 +175,7 @@ together {
 
 [ResilientChatClient] --> [LlmBackendGuard]
 [ResilientChatClient] --> [OpenAiCompatibleHttpClient]
+[ClipboardImageReader] ..> [OpenAiCompatibleHttpClient] : transient base64 image\nvia story request
 [ManagedLlamaServer] --> [OpenAiCompatibleHttpClient] : loopback HTTP
 [ManagedLlamaServer] --> GgufModel : load
 [ManagedMlxServer] --> [OpenAiCompatibleHttpClient] : loopback HTTP
@@ -208,6 +211,12 @@ Foreground prompt stack:
 - summaries
 - recent history
 - optional turn-rule instruction
+end note
+
+note bottom of [ClipboardImageReader]
+Reads a copied image from the desktop clipboard.
+The base64 data URL exists only in the current request;
+history persists only instruction and response text.
 end note
 
 note bottom of [TurnManager]

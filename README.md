@@ -234,6 +234,7 @@ The `Ctrl-L` action is read-only:
 ## Commands
 
 - `/exit` or `/quit`: leave the application
+- `/image <instruction>`: read a copied image from the macOS or Windows desktop clipboard and send it once with the instruction to a vision-capable backend; image data is not stored in `history.json`
 - `/export`: export the story as Markdown with user prompts in italic
 - `/export -intro`: same as `/export`, with user prompts in italic between story sections
 - `/export -clean`: export only assistant story output
@@ -475,6 +476,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.1.4
+- Added `/image <instruction>` for sending an image copied to the macOS or Windows desktop clipboard as a transient base64 vision input.
+- Kept clipboard image data out of history, validation, derived-memory updates, and story exports; only instruction and response text are persisted.
 
 ### 1.1.3
 - Added an optional managed `mlx_vlm.server` backend for local MLX models, including process startup, dynamic loopback ports, readiness checks, and lifecycle shutdown.

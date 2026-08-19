@@ -48,7 +48,17 @@ public final class StorySessionService {
       return handleControlTurn(userInput);
     }
 
-    List<Message> messages = promptAssemblyService.buildChatMessages(userInput);
+    return handleStoryTurn(userInput, promptAssemblyService.buildChatMessages(userInput));
+  }
+
+  public String handleImageTurn(String userInput, String imageDataUrl) throws IOException, InterruptedException {
+    List<Message> messages = new ArrayList<>(promptAssemblyService.buildChatMessages(userInput));
+    Message userMessage = messages.getLast();
+    messages.set(messages.size() - 1, Message.withImage(userMessage.role(), userMessage.content(), imageDataUrl));
+    return handleStoryTurn(userInput, messages);
+  }
+
+  private String handleStoryTurn(String userInput, List<Message> messages) throws IOException, InterruptedException {
     String draftResponse = chatClient.chat(
       messages,
       config.chatOptions(),
