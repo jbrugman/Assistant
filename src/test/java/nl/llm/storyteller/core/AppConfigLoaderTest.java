@@ -164,6 +164,8 @@ class AppConfigLoaderTest {
         assertTrue(config.usesManagedMlxServer());
         assertEquals("/opt/mlx/bin/mlx_vlm.server", config.mlxServerConfig().command());
         assertEquals(baseDirectory.resolve("models/story-mlx").normalize(), config.mlxServerConfig().modelPath());
+        assertEquals(baseDirectory.resolve("models/story-mlx").normalize().toString(), config.chatModel());
+        assertEquals(baseDirectory.resolve("models/story-mlx").normalize().toString(), config.validatorModel());
         assertEquals(8080, config.mlxServerConfig().port());
         assertEquals(180, config.mlxServerConfig().startupTimeoutSeconds());
     }

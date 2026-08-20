@@ -143,11 +143,18 @@ public final class AppConfig {
   }
 
   public String chatModel() {
-    return modelAccess.chatModel();
+    return effectiveRequestModel(modelAccess.chatModel());
   }
 
   public String validatorModel() {
-    return modelAccess.validatorModel();
+    return effectiveRequestModel(modelAccess.validatorModel());
+  }
+
+  private String effectiveRequestModel(String configuredModel) {
+    if (!configuredModel.isBlank() || !usesManagedMlxServer()) {
+      return configuredModel;
+    }
+    return mlxServerConfig().modelPath().toString();
   }
 
   public Path systemPromptFile() {
