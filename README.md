@@ -286,7 +286,7 @@ These files and their parent `memory/` directory may start out missing. The app 
 
 All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
 
-By default, `model.chat` and `model.validator` are left blank. In that case the app does not send a `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically.
+By default, `model.chat` and `model.validator` are left blank. For an OpenAI-compatible backend the app then omits the `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically. A managed MLX server instead uses `backend.mlx.modelPath` as the request model automatically.
 
 `backend.type=openai-compatible` is the default and sends requests to `backend.http.url`; it works with LM Studio, Jan, Ollama, OpenAI-compatible hosted APIs, and externally started model servers. Set `backend.type=managed-llama-server` to start a local `llama-server` process for GGUF, or `backend.type=managed-mlx-server` to start `mlx_vlm.server` for a local MLX model. Both managed servers bind only to `127.0.0.1` and stop when the application closes.
 
@@ -476,6 +476,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.1.5
+- Fixed managed MLX requests so `model.chat` and `model.validator` no longer need to duplicate `backend.mlx.modelPath`; when left blank, the managed model path is now sent automatically.
 
 ### 1.1.4
 - Added `/image <instruction>` for sending an image copied to the macOS or Windows desktop clipboard as a transient base64 vision input.
