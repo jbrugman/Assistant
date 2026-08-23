@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Skip releases for Dependabot and norelease pull requests
         id: eligibility
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const { data: pullRequests } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
