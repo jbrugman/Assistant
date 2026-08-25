@@ -1,5 +1,6 @@
 package nl.llm.storyteller.core.service;
 
+import nl.llm.storyteller.core.graph.KnowledgeGraphService;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.StoryChatPromptInput;
 import nl.llm.storyteller.core.model.TurnRuleDecision;
@@ -15,6 +16,7 @@ public final class PromptAssemblyService {
   private final TurnManager turnManager;
   private final StoryChatPromptBuilder storyChatPromptBuilder;
   private final ValidationPromptBuilder validationPromptBuilder;
+  private final KnowledgeGraphService knowledgeGraphService;
 
   public PromptAssemblyService(
     HistoryStore historyStore,
@@ -25,6 +27,20 @@ public final class PromptAssemblyService {
     StoryChatPromptBuilder storyChatPromptBuilder,
     ValidationPromptBuilder validationPromptBuilder
   ) {
+    this(historyStore, summaryManager, recentSummaryManager, canonicalStateManager, turnManager,
+      storyChatPromptBuilder, validationPromptBuilder, null);
+  }
+
+  public PromptAssemblyService(
+    HistoryStore historyStore,
+    SummaryManager summaryManager,
+    RecentSummaryManager recentSummaryManager,
+    CanonicalStateManager canonicalStateManager,
+    TurnManager turnManager,
+    StoryChatPromptBuilder storyChatPromptBuilder,
+    ValidationPromptBuilder validationPromptBuilder,
+    KnowledgeGraphService knowledgeGraphService
+  ) {
     this.historyStore = historyStore;
     this.summaryManager = summaryManager;
     this.recentSummaryManager = recentSummaryManager;
@@ -32,6 +48,7 @@ public final class PromptAssemblyService {
     this.turnManager = turnManager;
     this.storyChatPromptBuilder = storyChatPromptBuilder;
     this.validationPromptBuilder = validationPromptBuilder;
+    this.knowledgeGraphService = knowledgeGraphService;
   }
 
   public List<Message> buildChatMessages(String userInput) {
@@ -50,6 +67,7 @@ public final class PromptAssemblyService {
         canonicalStateManager.loadCanonicalState(),
         summaryManager.loadSummary(),
         recentSummaryManager.loadRecentSummary(),
+        relevantFacts(userInput),
         recentMessages,
         extraSystemInstruction
       )
@@ -61,6 +79,12 @@ public final class PromptAssemblyService {
   }
 
   public String buildValidationRequest(String userInput, String draftResponse) {
-    return validationPromptBuilder.buildRequest(new ValidationPromptInput(userInput, draftResponse));
+    return validationPromptBuilder.buildRequest(new ValidationPromptInput(
+      userInput, draftResponse, relevantFacts(userInput + "\n" + draftResponse)
+    ));
+  }
+
+  private String relevantFacts(String text) {
+    return knowledgeGraphService == null ? "" : knowledgeGraphService.relevantFacts(text);
   }
 }

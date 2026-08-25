@@ -6,7 +6,7 @@ public final class TestAppConfigFactory {
     private TestAppConfigFactory() {
     }
 
-    public static AppConfig load(Path baseDir) {
-        return AppConfigLoader.load(baseDir, null);
+    public static nl.llm.storyteller.core.config.AppConfig load(Path baseDir) {
+        return nl.llm.storyteller.core.config.AppConfigLoader.load(baseDir, null);
     }
 }

@@ -5,6 +5,13 @@ start
 
 :CLI AssistantApp starts and creates the core runtime context;
 
+note right
+Version 1.2.0 includes the active core.graph runtime slice:
+validated JSON persistence, immutable snapshots,
+automatic loading, graph CLI control commands,
+and bounded prompt grounding.
+end note
+
 if (managed llama-server selected?) then (yes)
   :Start llama-server with the configured GGUF model;
   :Wait for its loopback health endpoint;
@@ -16,6 +23,9 @@ else (no)
     :Use the configured OpenAI-compatible endpoint;
   endif
 endif
+
+:Load and validate knowledge-graph.json when present;
+:Publish immutable graph snapshot;
 
 :Read user input;
 
@@ -30,6 +40,31 @@ else (no)
     :Restore last user prompt in input buffer;
     stop
   else (no)
+
+    if (graph control command?) then (yes)
+      if (/graph?) then (yes)
+        :Display current graph locally;
+      else (no)
+        if (/graph -generate?) then (yes)
+          :Create minimal empty graph document locally;
+          :Validate and atomically persist graph;
+          :Publish empty immutable snapshot;
+        else (/graph -fill)
+          :Load only fixed_protagonists.yml;
+          :Ask model for closed-ontology graph JSON;
+          :Normalize schema, revision, provenance,
+          status, and hardness in Java;
+          if (candidate graph valid?) then (yes)
+            :Atomically persist graph;
+            :Publish new immutable snapshot;
+          else (no)
+            :Retain persisted graph and active snapshot;
+            :Print graph fill error;
+          endif
+        endif
+      endif
+      stop
+    else (no)
 
     if (/image with instruction?) then (yes)
       :Read image from desktop clipboard;
@@ -64,6 +99,9 @@ else (no)
         endif
       endif
 
+      :Automatically reload graph file when available;
+      :Resolve entities mentioned by name or alias;
+      :Select bounded active hard facts;
       :Assemble prompt stack;
       note right
       Prompt stack contains:
@@ -72,6 +110,7 @@ else (no)
         fixed protagonists
         canonical state
         summaries
+        relevant graph facts
       - recent history
       - optional turn-rule instruction
       end note
@@ -81,7 +120,9 @@ else (no)
       :Receive draft response;
 
       if (validation enabled?) then (yes)
-        :Build validation request;
+        :Resolve relevant active hard facts
+        from user input and draft;
+        :Build validation request with graph facts;
         :Send validator request through validation guard;
 
         if (validator returns ALLOW?) then (yes)
@@ -112,6 +153,7 @@ else (no)
       sequentially and do not block the foreground response.
       end note
 
+    endif
     endif
     endif
   endif

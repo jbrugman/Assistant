@@ -19,11 +19,15 @@ public final class ValidationPromptBuilder {
   }
 
   public String buildRequest(ValidationPromptInput input) {
-    return promptTemplateService.buildValidationRequest(
+    String request = promptTemplateService.buildValidationRequest(
       promptResourceLoader.loadRulesPrompt(),
       promptTemplateService.buildFixedProtagonistsContext(),
       input.userInput(),
       input.draftResponse()
     );
+    if (input.knowledgeGraphFacts().isBlank()) {
+      return request;
+    }
+    return input.knowledgeGraphFacts() + "\n\n" + request;
   }
 }

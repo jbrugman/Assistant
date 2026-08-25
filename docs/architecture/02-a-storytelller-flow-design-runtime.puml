@@ -1,0 +1,44 @@
+@startuml
+title Storyteller Runtime Flow
+
+start
+:AssistantApp creates ApplicationContext;
+
+if (managed llama-server?) then (yes)
+  :Start llama-server;
+  :Wait for health endpoint;
+else (no)
+  if (managed MLX server?) then (yes)
+    :Start mlx_vlm.server;
+    :Wait for health endpoint;
+  else (no)
+    :Use configured OpenAI-compatible endpoint;
+  endif
+endif
+
+:Load history and derived memory;
+:Load and validate graph when present;
+:Publish immutable graph snapshot;
+
+repeat
+  :Read terminal input;
+  if (exit or quit?) then (yes)
+    break
+  else (no)
+    if (local control command?) then (yes)
+      :Handle undo, last-turn, export,
+      or graph command locally;
+    else (no)
+      if (image command?) then (yes)
+        :Run image flow;
+      else (story turn)
+        :Run StorySessionService flow;
+      endif
+    endif
+  endif
+repeat while (continue?) is (yes)
+
+:Close derived-memory queue
+and managed backend;
+stop
+@enduml

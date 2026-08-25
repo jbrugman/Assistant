@@ -1,5 +1,11 @@
 package nl.llm.storyteller.core;
 
+import nl.llm.storyteller.core.graph.ReadOnlyKnowledgeGraphService;
+import nl.llm.storyteller.core.graph.KnowledgeGraphInitializer;
+import nl.llm.storyteller.core.graph.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
+import nl.llm.storyteller.core.graph.PredicateCatalog;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
@@ -7,6 +13,7 @@ import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
+import nl.llm.storyteller.core.service.KnowledgeGraphFillService;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
@@ -33,7 +40,7 @@ public final class ApplicationFactory {
   }
 
   public static ApplicationContext create() {
-    AppConfig config = AppConfig.load();
+    nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfig.load();
     HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
     PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
     PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
@@ -54,9 +61,7 @@ public final class ApplicationFactory {
     );
     ManagedLlamaServer managedLlamaServer = startManagedLlamaServerIfConfigured(config);
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
-    String backendUrl = managedLlamaServer != null
-      ? managedLlamaServer.chatCompletionsUrl()
-      : managedMlxServer != null ? managedMlxServer.chatCompletionsUrl() : config.openAiCompatibleUrl();
+    String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
       backendUrl, config.chatModel(), config.hideReasoningBlocks()
     );
@@ -95,6 +100,13 @@ public final class ApplicationFactory {
       new GameModeDefinitionParser(),
       new TurnStateStore(config.turnStateFile())
     );
+    PredicateCatalog predicateCatalog = PredicateCatalog.load(config.baseDir());
+    KnowledgeGraphStore knowledgeGraphStore = new KnowledgeGraphStore(
+      config.knowledgeGraphFile(), new KnowledgeGraphValidator(predicateCatalog)
+    );
+    ReadOnlyKnowledgeGraphService knowledgeGraphService = new ReadOnlyKnowledgeGraphService(
+      knowledgeGraphStore, predicateCatalog
+    );
     PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
       historyStore,
       summaryManager,
@@ -102,7 +114,8 @@ public final class ApplicationFactory {
       canonicalStateManager,
       turnManager,
       storyChatPromptBuilder,
-      validationPromptBuilder
+      validationPromptBuilder,
+      knowledgeGraphService
     );
     StorySessionService storySessionService = new StorySessionService(
       config,
@@ -120,12 +133,39 @@ public final class ApplicationFactory {
       derivedMemoryTaskQueue,
       storySessionService,
       new StoryExportService(historyStore, config.baseDir()),
+      knowledgeGraphService,
+      new KnowledgeGraphInitializer(knowledgeGraphStore, knowledgeGraphService),
+      new KnowledgeGraphFillService(
+        promptResourceLoader,
+        new KnowledgeGraphGenerator(
+          backgroundClient,
+          knowledgeGraphStore,
+          knowledgeGraphService,
+          config.summaryOptions(),
+          config.summaryRequestTimeoutSeconds(),
+          predicateCatalog
+        )
+      ),
       managedLlamaServer,
       managedMlxServer
     );
   }
 
-  private static ManagedLlamaServer startManagedLlamaServerIfConfigured(AppConfig config) {
+  private static String resolveBackendUrl(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ManagedLlamaServer managedLlamaServer,
+    ManagedMlxServer managedMlxServer
+  ) {
+    if (managedLlamaServer != null) {
+      return managedLlamaServer.chatCompletionsUrl();
+    }
+    if (managedMlxServer != null) {
+      return managedMlxServer.chatCompletionsUrl();
+    }
+    return config.openAiCompatibleUrl();
+  }
+
+  private static ManagedLlamaServer startManagedLlamaServerIfConfigured(nl.llm.storyteller.core.config.AppConfig config) {
     if (!config.usesManagedLlamaServer()) {
       return null;
     }
@@ -139,7 +179,7 @@ public final class ApplicationFactory {
     }
   }
 
-  private static ManagedMlxServer startManagedMlxServerIfConfigured(AppConfig config) {
+  private static ManagedMlxServer startManagedMlxServerIfConfigured(nl.llm.storyteller.core.config.AppConfig config) {
     if (!config.usesManagedMlxServer()) {
       return null;
     }

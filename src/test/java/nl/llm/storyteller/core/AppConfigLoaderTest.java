@@ -19,7 +19,7 @@ class AppConfigLoaderTest {
     void shouldResolveBundledFileDefaultsRelativeToBaseDirectory() throws Exception {
         Path baseDirectory = Files.createTempDirectory("storyteller-config-base");
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
         assertTrue(config.chatModel().isBlank());
@@ -55,7 +55,7 @@ class AppConfigLoaderTest {
             cacheBuster.interval=0
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertEquals("http://localhost:9999/v1/chat/completions", config.openAiCompatibleUrl());
         assertEquals("test-chat-model", config.chatModel());
@@ -82,7 +82,7 @@ class AppConfigLoaderTest {
             file.rules=runtime/rules.md
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, runtimeOverride);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, runtimeOverride);
 
         assertEquals("test-validator-model", config.validatorModel());
         assertEquals(
@@ -106,7 +106,7 @@ class AppConfigLoaderTest {
             model.validator=
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
@@ -131,7 +131,7 @@ class AppConfigLoaderTest {
             backend.llama.arguments=--ctx-size 32768
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertTrue(config.usesManagedLlamaServer());
         assertEquals("/opt/llama.cpp/llama-server", config.llamaServerConfig().command());
@@ -159,7 +159,7 @@ class AppConfigLoaderTest {
             backend.mlx.arguments=-m mlx_vlm.server --max-kv-size 32768 --max-tokens 32768
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertTrue(config.usesManagedMlxServer());
         assertEquals("/opt/mlx/bin/mlx_vlm.server", config.mlxServerConfig().command());

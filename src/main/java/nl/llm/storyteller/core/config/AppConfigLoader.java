@@ -1,4 +1,4 @@
-package nl.llm.storyteller.core;
+package nl.llm.storyteller.core.config;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,7 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 
-final class AppConfigLoader {
+public final class AppConfigLoader {
   private static final Path DEFAULT_BASE_DIR = Path.of(System.getProperty("user.dir")).toAbsolutePath();
   private static final String CONFIG_RESOURCE = "/systemprompts/application.config";
   private static final String NATIVE_IMAGE_KIND_PROPERTY = "org.graalvm.nativeimage.kind";
@@ -18,11 +18,11 @@ final class AppConfigLoader {
   private AppConfigLoader() {
   }
 
-  static AppConfig load() {
+  public static AppConfig load() {
     return load(DEFAULT_BASE_DIR, findRuntimeOverrideFile());
   }
 
-  static AppConfig load(Path baseDir, Path runtimeOverrideFile) {
+  public static AppConfig load(Path baseDir, Path runtimeOverrideFile) {
     Path normalizedBaseDir = baseDir.toAbsolutePath().normalize();
     Properties mergedProperties = loadRequiredConfigProperties();
     mergeProperties(

@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 abstract class DerivedMemoryManager {
   protected final HistoryStore historyStore;
   protected final ChatClient client;
-  protected final AppConfig config;
+  protected final nl.llm.storyteller.core.config.AppConfig config;
   protected final PromptResourceLoader promptResourceLoader;
   protected final PromptTemplateService promptTemplateService;
 
@@ -25,7 +25,7 @@ abstract class DerivedMemoryManager {
   DerivedMemoryManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     DerivedMemoryTaskQueue taskQueue,

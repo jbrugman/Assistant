@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.LlamaServerConfig;
+import nl.llm.storyteller.core.config.LlamaServerConfig;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -34,7 +34,7 @@ public final class ManagedLlamaServer implements AutoCloseable {
     this.outputDrainer = Thread.ofVirtual().name("llama-server-output").start(this::drainOutput);
   }
 
-  public static ManagedLlamaServer start(LlamaServerConfig config) throws IOException, InterruptedException {
+  public static ManagedLlamaServer start(nl.llm.storyteller.core.config.LlamaServerConfig config) throws IOException, InterruptedException {
     if (!Files.isRegularFile(config.modelPath())) {
       throw new IOException("llama-server model file does not exist: " + config.modelPath());
     }
@@ -53,7 +53,7 @@ public final class ManagedLlamaServer implements AutoCloseable {
     }
   }
 
-  static List<String> buildCommand(LlamaServerConfig config, int port) {
+  static List<String> buildCommand(nl.llm.storyteller.core.config.LlamaServerConfig config, int port) {
     List<String> command = new ArrayList<>();
     command.add(config.command());
     if (!config.arguments().isBlank()) {

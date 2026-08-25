@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.CanonicalStatePromptInput;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
@@ -14,7 +14,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   public CanonicalStateManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder
@@ -28,7 +28,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   public CanonicalStateManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
@@ -40,7 +40,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   private CanonicalStateManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
