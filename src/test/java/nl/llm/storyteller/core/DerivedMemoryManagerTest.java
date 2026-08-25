@@ -184,7 +184,7 @@ class DerivedMemoryManagerTest {
         writeOverride(baseDirectory, "systemprompts/recentsummarysystemprompt.md", "RECENT SYSTEM");
         writeOverride(baseDirectory, "systemprompts/canonicalstatesystemprompt.md", "CANONICAL SYSTEM");
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
 
@@ -211,7 +211,7 @@ class DerivedMemoryManagerTest {
         Files.createDirectories(configFile.getParent());
         Files.writeString(configFile, overrides);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
@@ -298,7 +298,7 @@ class DerivedMemoryManagerTest {
     }
 
     private record TestContext(
-        AppConfig config,
+        nl.llm.storyteller.core.config.AppConfig config,
         HistoryStore historyStore,
         PromptResourceLoader promptResourceLoader,
         PromptTemplateService promptTemplateService

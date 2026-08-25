@@ -162,11 +162,11 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.1.2-all.jar
+java -jar target/storyteller-1.2.0-all.jar
 ```
 
-The local default build version is `1.1.2`.
-GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.1.0` and then `v1.1.1`, `v1.1.2`, and so on.
+The local default build version is `1.2.0`.
+GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.2.0` and then `v1.2.1`, `v1.2.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
 
@@ -279,8 +279,36 @@ The app reads and writes story memory in `memory/`:
 - `summary.md`
 - `recent-summary.md`
 - `canonical-state.yaml`
+- `knowledge-graph.json`
 
 These files and their parent `memory/` directory may start out missing. The app creates and updates them as needed.
+
+### Knowledge graph MVP
+
+Version 1.2.0 introduces a small knowledge graph for mitigation of entity contagion and feature bleeding.
+Storyteller loads and validates `memory/knowledge-graph.json` automatically when it exists (configurable through `file.knowledgeGraph`). Changes made while Storyteller is running are picked up automatically before graph facts are used; an invalid intermediate edit never replaces the last valid in-memory snapshot.
+When the current user input or candidate response mentions an entity name or alias, its active hard facts are injected into both the story and validation prompts.
+Missing files and turns without matching entities preserve the existing behavior.
+
+The initial closed ontology supports:
+
+- entity types `CHARACTER`, `ITEM`, and `SKILL`;
+- predicates `POSSESSES` (`CHARACTER` to `ITEM`), `CAN_PERFORM` (`CHARACTER` to `SKILL`), and directional `LOVES` (`CHARACTER` to `CHARACTER`);
+- positive and negative active facts, with absent facts resolving to `UNKNOWN`;
+- fixed fact sources, statuses, aliases, revision and schema metadata;
+- strict entity-reference, predicate-type, duplicate, and contradiction validation;
+- immutable in-memory indexes for entity, alias, subject, object, and truth lookup;
+- validated, atomically replaced JSON persistence through `KnowledgeGraphStore`;
+- reflection-free graph JSON encoding and decoding for GraalVM native images;
+- bounded name/alias retrieval and prompt grounding for active hard facts.
+
+The CLI provides three graph management commands. They are local control commands and are never recorded as story turns:
+
+- `/graph` displays the current graph and configured JSON path without calling the model;
+- `/graph -generate` creates and immediately publishes a minimal empty graph document without calling the model;
+- `/graph -fill` sends only the complete configured `fixed_protagonists.yml` content to the model, validates and normalizes the returned closed-ontology graph in Java, atomically replaces the graph file, and immediately publishes the new snapshot.
+
+`/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted facts to `ACTIVE`, `FIXED_PROTAGONIST`, and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Normal story turns remain read-only with respect to graph persistence; automatic per-turn mutation remains a later phase documented in [`graph_feature_bleeding_mitigation.md`](docs/architecture/graph_feature_bleeding_mitigation.md).
 
 ## Configuration
 
@@ -476,6 +504,19 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.2.0
+- Added the bounded `nl.llm.storyteller.core.graph` capability for graph-based mitigation of entity contagion and feature bleeding.
+- Added a deliberately closed first ontology containing `CHARACTER`, `ITEM`, `SKILL`, `POSSESSES`, and `CAN_PERFORM`.
+- Added directional positive and negative `LOVES` facts to prevent romantic relationships from bleeding between characters.
+- Added strict graph document validation, immutable lookup snapshots, explicit `TRUE`/`FALSE`/`UNKNOWN` truth semantics, and atomically replaced JSON persistence.
+- Added automatic graph loading at startup and before runtime fact retrieval, while retaining the last valid snapshot during incomplete or invalid file edits.
+- Added bounded active-hard-fact injection into both story generation and validation prompts.
+- Added local `/graph` inspection and `/graph -generate` empty-document creation without model calls.
+- Added `/graph -fill` for model-assisted extraction from only the configured fixed-protagonist document, followed by deterministic Java normalization, validation, atomic persistence, and snapshot publication.
+- Added reflection-free graph JSON encoding and decoding so graph loading, generation, filling, and persistence work in GraalVM native executables.
+- Added focused tests for graph loading, round-trip persistence, entity references, predicate constraints, aliases, contradictions, immutability, unknown facts, automatic runtime loading, empty initialization, fixed-protagonist-only fill input, model-result normalization, and failure preservation.
+- Added the mitigation design and updated the README, component design, and flow design for the active graph runtime slice and remaining future phases.
 
 ### 1.1.5
 - Fixed managed MLX requests so `model.chat` and `model.validator` no longer need to duplicate `backend.mlx.modelPath`; when left blank, the managed model path is now sent automatically.

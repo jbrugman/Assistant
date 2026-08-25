@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.MlxServerConfig;
+import nl.llm.storyteller.core.config.MlxServerConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +17,7 @@ class ManagedMlxServerTest {
     Then it should bind only to loopback and include the configured model, port, and arguments
     """)
   void shouldBuildLoopbackMlxServerCommand() {
-    MlxServerConfig config = new MlxServerConfig(
+    nl.llm.storyteller.core.config.MlxServerConfig config = new nl.llm.storyteller.core.config.MlxServerConfig(
       "python3", Path.of("/models/story-mlx"), 0, 180,
       "-m mlx_vlm.server --max-kv-size 32768 --max-tokens 32768"
     );

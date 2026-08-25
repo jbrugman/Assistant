@@ -1,0 +1,45 @@
+@startuml
+title Storyteller Knowledge Graph Flow
+
+start
+:Load knowledge-graph.json when present;
+:Validate document;
+:Publish immutable snapshot;
+
+if (graph command?) then (yes)
+  if (/graph?) then (yes)
+    :Display current snapshot and file path locally;
+  else (no)
+    if (/graph -generate?) then (yes)
+      :Create minimal empty graph;
+      :Validate and atomically persist;
+      :Publish empty snapshot;
+    else (/graph -fill)
+      :Load only fixed_protagonists.yml;
+      :Request closed-ontology JSON from model;
+      :Normalize schema, revision, source,
+      status and hardness in Java;
+      if (valid candidate?) then (yes)
+        :Atomically replace graph file;
+        :Publish new snapshot;
+      else (no)
+        :Keep persisted graph and active snapshot;
+        :Report fill error;
+      endif
+    endif
+  endif
+else (story or validation prompt)
+  :Automatically load current graph file;
+  if (file valid?) then (yes)
+    :Publish current snapshot;
+  else (no)
+    :Keep last valid snapshot;
+  endif
+  :Resolve mentioned names and aliases;
+  :Select bounded ACTIVE hard facts;
+  :Inject facts into generation
+  or validation prompt;
+endif
+
+stop
+@enduml

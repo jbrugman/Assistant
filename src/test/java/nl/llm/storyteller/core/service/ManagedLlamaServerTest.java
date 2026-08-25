@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.LlamaServerConfig;
+import nl.llm.storyteller.core.config.LlamaServerConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +17,7 @@ class ManagedLlamaServerTest {
     Then it should bind only to loopback and include the configured model, port, and arguments
     """)
   void shouldBuildLoopbackLlamaServerCommand() {
-    LlamaServerConfig config = new LlamaServerConfig(
+    nl.llm.storyteller.core.config.LlamaServerConfig config = new nl.llm.storyteller.core.config.LlamaServerConfig(
       "llama-server", Path.of("/models/story.gguf"), 0, 120, "--ctx-size 32768 --n-gpu-layers 99"
     );
 

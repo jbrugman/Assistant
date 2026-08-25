@@ -1,6 +1,5 @@
 package nl.llm.storyteller.cli;
 
-import nl.llm.storyteller.core.AppConfig;
 import nl.llm.storyteller.core.service.HistoryStore;
 import org.jline.terminal.Terminal;
 
@@ -21,7 +20,7 @@ final class TerminalRenderer {
     this.output = terminal.writer();
   }
 
-  void printBanner(AppConfig config) {
+  void printBanner(nl.llm.storyteller.core.config.AppConfig config) {
     output.println(formatForDisplay(
       """
         %s
@@ -45,7 +44,7 @@ final class TerminalRenderer {
     output.flush();
   }
 
-  void printLastPersistedTurn(AppConfig config, HistoryStore.LastTurn lastTurn) {
+  void printLastPersistedTurn(nl.llm.storyteller.core.config.AppConfig config, HistoryStore.LastTurn lastTurn) {
     if (!lastTurn.isPresent()) {
       printMessage(config.noLastTurnText());
       return;
@@ -90,7 +89,8 @@ final class TerminalRenderer {
   }
 
   private int resolveContentWidth() {
-    int terminalWidth = terminal.getWidth() > 0 ? terminal.getWidth() : 80;
+    int reportedWidth = terminal.getColumns();
+    int terminalWidth = reportedWidth > 0 ? reportedWidth : 80;
     return Math.max(MIN_CONTENT_WIDTH, terminalWidth - (DISPLAY_MARGIN * 2));
   }
 

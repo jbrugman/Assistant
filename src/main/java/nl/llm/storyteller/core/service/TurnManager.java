@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.GameModeDefinition;
 import nl.llm.storyteller.core.model.TurnRuleDecision;
 import nl.llm.storyteller.core.model.TurnState;
@@ -15,14 +15,14 @@ public final class TurnManager {
   private static final String PARTY = "Party";
   private static final Pattern ACTOR_PREFIX_PATTERN = Pattern.compile("^\\(([^)]+)\\)");
 
-  private final AppConfig config;
+  private final nl.llm.storyteller.core.config.AppConfig config;
   private final PromptResourceLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
   private final GameModeDefinitionParser gameModeDefinitionParser;
   private final TurnStateStore turnStateStore;
 
   public TurnManager(
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     GameModeDefinitionParser gameModeDefinitionParser,

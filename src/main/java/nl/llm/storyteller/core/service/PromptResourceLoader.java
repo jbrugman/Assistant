@@ -1,12 +1,12 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.FileSupport;
 
 public final class PromptResourceLoader {
-  private final AppConfig config;
+  private final nl.llm.storyteller.core.config.AppConfig config;
 
-  public PromptResourceLoader(AppConfig config) {
+  public PromptResourceLoader(nl.llm.storyteller.core.config.AppConfig config) {
     this.config = config;
   }
 
