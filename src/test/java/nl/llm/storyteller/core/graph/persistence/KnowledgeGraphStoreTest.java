@@ -10,7 +10,7 @@ import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
-import nl.llm.storyteller.core.graph.model.Predicate;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.model.TruthValue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,7 +49,7 @@ class KnowledgeGraphStoreTest {
       TruthValue.FALSE,
       store.loadSnapshot().truthValue(new FactKey(
         new EntityId("character.mike"),
-        Predicate.CAN_PERFORM,
+        new PredicateId("CAN_PERFORM"),
         new EntityId("skill.guitar")
       ))
     );
@@ -93,7 +93,7 @@ class KnowledgeGraphStoreTest {
       List.of(new Fact(
         "fact.mike_guitar",
         new EntityId("character.mike"),
-        Predicate.CAN_PERFORM,
+        new PredicateId("CAN_PERFORM"),
         new EntityId("skill.guitar"),
         Polarity.NEGATIVE,
         FactStatus.ACTIVE,

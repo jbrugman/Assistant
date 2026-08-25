@@ -8,7 +8,8 @@ import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
-import nl.llm.storyteller.core.graph.model.Predicate;
+import nl.llm.storyteller.core.graph.model.PredicateId;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -33,7 +34,7 @@ class KnowledgeGraphValidatorTest {
         valerie.value(), new Entity(EntityType.CHARACTER, "Valerie", List.of()),
         mike.value(), new Entity(EntityType.CHARACTER, "Mike", List.of())
       ),
-      List.of(new Fact("valerie-loves-mike", valerie, Predicate.LOVES, mike, Polarity.POSITIVE,
+      List.of(new Fact("valerie-loves-mike", valerie, new PredicateId("LOVES"), mike, Polarity.POSITIVE,
         FactStatus.ACTIVE, FactSource.MANUAL, null, true))
     );
 
@@ -55,8 +56,8 @@ class KnowledgeGraphValidatorTest {
         "skill.singing", new Entity(EntityType.SKILL, "Singing", List.of())
       ),
       List.of(
-        fact("fact.wrong_type", Predicate.POSSESSES, "character.valerie", "skill.singing", Polarity.POSITIVE),
-        fact("fact.unknown", Predicate.CAN_PERFORM, "character.missing", "skill.singing", Polarity.POSITIVE)
+        fact("fact.wrong_type", new PredicateId("POSSESSES"), "character.valerie", "skill.singing", Polarity.POSITIVE),
+        fact("fact.unknown", new PredicateId("CAN_PERFORM"), "character.missing", "skill.singing", Polarity.POSITIVE)
       )
     );
 
@@ -75,7 +76,7 @@ class KnowledgeGraphValidatorTest {
     List<Fact> facts = new ArrayList<>(valid.facts());
     facts.add(fact(
       "fact.valerie_microphone_negative",
-      Predicate.POSSESSES,
+      new PredicateId("POSSESSES"),
       "character.valerie",
       "item.microphone",
       Polarity.NEGATIVE
@@ -118,7 +119,7 @@ class KnowledgeGraphValidatorTest {
       ),
       List.of(fact(
         "fact.valerie_microphone",
-        Predicate.POSSESSES,
+        new PredicateId("POSSESSES"),
         "character.valerie",
         "item.microphone",
         Polarity.POSITIVE
@@ -126,7 +127,7 @@ class KnowledgeGraphValidatorTest {
     );
   }
 
-  private Fact fact(String id, Predicate predicate, String subject, String object, Polarity polarity) {
+  private Fact fact(String id, PredicateId predicate, String subject, String object, Polarity polarity) {
     return new Fact(
       id,
       new EntityId(subject),

@@ -9,7 +9,7 @@ import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
-import nl.llm.storyteller.core.graph.model.Predicate;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.model.TruthValue;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +33,7 @@ class KnowledgeGraphSnapshotTest {
     assertEquals(1, snapshot.factsByObject(microphone).size());
     assertEquals(
       TruthValue.TRUE,
-      snapshot.truthValue(new FactKey(valerie, Predicate.POSSESSES, microphone))
+      snapshot.truthValue(new FactKey(valerie, new PredicateId("POSSESSES"), microphone))
     );
   }
 
@@ -43,7 +43,7 @@ class KnowledgeGraphSnapshotTest {
 
     TruthValue value = snapshot.truthValue(new FactKey(
       new EntityId("character.valerie"),
-      Predicate.POSSESSES,
+      new PredicateId("POSSESSES"),
       new EntityId("item.keyboard")
     ));
 
@@ -76,7 +76,7 @@ class KnowledgeGraphSnapshotTest {
       List.of(new Fact(
         "fact.valerie_microphone",
         new EntityId("character.valerie"),
-        Predicate.POSSESSES,
+        new PredicateId("POSSESSES"),
         new EntityId("item.microphone"),
         Polarity.POSITIVE,
         FactStatus.ACTIVE,

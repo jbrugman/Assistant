@@ -13,7 +13,7 @@ import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
-import nl.llm.storyteller.core.graph.model.Predicate;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -36,7 +36,7 @@ public final class KnowledgeGraphJsonCodec {
     root.path("facts").forEach(node -> facts.add(new Fact(
       node.path("id").asText(),
       entityId(node, "subject"),
-      enumValue(Predicate.class, node, "predicate"),
+      predicateId(node, "predicate"),
       entityId(node, "object"),
       enumValue(Polarity.class, node, "polarity"),
       enumValue(FactStatus.class, node, "status"),
@@ -64,7 +64,7 @@ public final class KnowledgeGraphJsonCodec {
       ObjectNode node = facts.addObject();
       node.put("id", fact.id());
       putEntityId(node, "subject", fact.subject());
-      putEnum(node, "predicate", fact.predicate());
+      if (fact.predicate() == null) node.putNull("predicate"); else node.put("predicate", fact.predicate().value());
       putEntityId(node, "object", fact.object());
       putEnum(node, "polarity", fact.polarity());
       putEnum(node, "status", fact.status());
@@ -78,6 +78,11 @@ public final class KnowledgeGraphJsonCodec {
   private EntityId entityId(JsonNode node, String field) {
     JsonNode value = node.path(field);
     return value.isTextual() ? new EntityId(value.asText()) : null;
+  }
+
+  private PredicateId predicateId(JsonNode node, String field) {
+    JsonNode value = node.path(field);
+    return value.isTextual() ? new PredicateId(value.asText()) : null;
   }
 
   private <E extends Enum<E>> E enumValue(Class<E> type, JsonNode node, String field) {

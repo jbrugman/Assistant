@@ -14,6 +14,9 @@ import nl.llm.storyteller.core.service.ChatClient;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import nl.llm.storyteller.core.graph.model.EntityType;
 
 /** Prepared for a future model-assisted graph generation iteration; not wired into the current runtime. */
 public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
@@ -23,6 +26,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
   private final Map<String, Object> options;
   private final int timeoutSeconds;
   private final KnowledgeGraphJsonCodec codec = new KnowledgeGraphJsonCodec();
+  private final PredicateCatalog predicates;
 
   public KnowledgeGraphGenerator(
     ChatClient chatClient,
@@ -31,17 +35,30 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
     Map<String, Object> options,
     int timeoutSeconds
   ) {
+    this(chatClient, store, graphService, options, timeoutSeconds,
+      PredicateCatalog.load(java.nio.file.Path.of(System.getProperty("user.dir")).toAbsolutePath()));
+  }
+
+  public KnowledgeGraphGenerator(
+    ChatClient chatClient,
+    KnowledgeGraphStore store,
+    ReadOnlyKnowledgeGraphService graphService,
+    Map<String, Object> options,
+    int timeoutSeconds,
+    PredicateCatalog predicates
+  ) {
     this.chatClient = chatClient;
     this.store = store;
     this.graphService = graphService;
     this.options = options;
     this.timeoutSeconds = timeoutSeconds;
+    this.predicates = predicates;
   }
 
   @Override
   public GenerationResult generate(String storyContext) throws IOException, InterruptedException {
     String response = chatClient.chat(List.of(
-      new Message("system", SYSTEM_PROMPT),
+      new Message("system", systemPrompt()),
       new Message("user", storyContext)
     ), options, timeoutSeconds);
     KnowledgeGraphDocument document = normalize(parse(response));
@@ -90,15 +107,19 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
 
   public record GenerationResult(int entities, int facts, long revision) { }
 
-  private static final String SYSTEM_PROMPT = """
+  private String systemPrompt() {
+    return """
     Extract a knowledge graph from the supplied story context. Return JSON only, without commentary.
     The root fields are schemaVersion, revision, entities, and facts.
-    Entities is an object keyed by stable lowercase IDs. Each entity has type CHARACTER, ITEM, or SKILL,
-    a name, and aliases. Facts may only use POSSESSES (CHARACTER to ITEM), CAN_PERFORM
-    (CHARACTER to SKILL), or LOVES (CHARACTER to CHARACTER). LOVES is directional; include explicit
-    negative LOVES facts only when the source explicitly rules out that romantic relation.
+    Entities is an object keyed by stable lowercase IDs. Each entity has one of these types: %s.
+    a name, and aliases. Facts may only use these configured predicates: %s.
+    Predicates are directional. Include explicit negative facts only when the source explicitly rules them out.
     Each fact needs a unique id, subject, predicate, object, polarity
     (POSITIVE or NEGATIVE), status ACTIVE, source FIXED_PROTAGONIST, sourceTurn null, and hard true.
     Include only facts explicitly supported by the context. Do not guess. Do not emit contradictory facts.
-    """;
+    """.formatted(
+      Arrays.stream(EntityType.values()).map(Enum::name).collect(Collectors.joining(", ")),
+      predicates.modelInstructions()
+    );
+  }
 }

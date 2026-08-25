@@ -15,11 +15,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.nio.file.Path;
 
 public final class KnowledgeGraphValidator {
   private static final String ENTITY_PREFIX = "entity '";
   private static final String FACT_PREFIX = "fact '";
   private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-z][a-z0-9]*+(?:[._-][a-z0-9]++)*+");
+  private final PredicateCatalog predicates;
+
+  public KnowledgeGraphValidator() {
+    this(PredicateCatalog.load(Path.of(System.getProperty("user.dir")).toAbsolutePath()));
+  }
+
+  public KnowledgeGraphValidator(PredicateCatalog predicates) {
+    this.predicates = predicates;
+  }
 
   public void validate(KnowledgeGraphDocument document) {
     List<String> violations = violations(document);
@@ -126,6 +136,8 @@ public final class KnowledgeGraphValidator {
     }
     if (fact.predicate() == null) {
       violations.add(FACT_PREFIX + fact.id() + "' has no predicate");
+    } else if (predicates.find(fact.predicate()).isEmpty()) {
+      violations.add(FACT_PREFIX + fact.id() + "' uses unknown predicate '" + fact.predicate() + "'");
     }
     if (fact.object() == null || fact.object().value().isBlank()) {
       violations.add(FACT_PREFIX + fact.id() + "' has no object");
@@ -150,15 +162,16 @@ public final class KnowledgeGraphValidator {
     Entity object,
     List<String> violations
   ) {
-    if (fact.predicate() == null || subject == null || object == null
+    PredicateDefinition definition = predicates.find(fact.predicate()).orElse(null);
+    if (definition == null || subject == null || object == null
       || subject.type() == null || object.type() == null) {
       return;
     }
-    if (subject.type() != fact.predicate().subjectType() || object.type() != fact.predicate().objectType()) {
+    if (subject.type() != definition.subjectType() || object.type() != definition.objectType()) {
       violations.add(
         FACT_PREFIX + fact.id() + "' uses " + fact.predicate() + " with "
           + subject.type() + " -> " + object.type() + ", expected "
-          + fact.predicate().subjectType() + " -> " + fact.predicate().objectType()
+          + definition.subjectType() + " -> " + definition.objectType()
       );
     }
   }

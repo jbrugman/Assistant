@@ -11,19 +11,31 @@ import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** Minimal read-only runtime facade for deterministic prompt grounding. */
 public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphService {
   private volatile KnowledgeGraphSnapshot snapshot;
   private final KnowledgeGraphStore store;
+  private final PredicateCatalog predicates;
 
   public ReadOnlyKnowledgeGraphService(KnowledgeGraphStore store) {
+    this(store, PredicateCatalog.load(java.nio.file.Path.of(System.getProperty("user.dir")).toAbsolutePath()));
+  }
+
+  public ReadOnlyKnowledgeGraphService(KnowledgeGraphStore store, PredicateCatalog predicates) {
     this.store = store;
+    this.predicates = predicates;
     this.snapshot = store.loadSnapshot();
   }
 
   public ReadOnlyKnowledgeGraphService(KnowledgeGraphSnapshot snapshot) {
+    this(snapshot, PredicateCatalog.load(java.nio.file.Path.of(System.getProperty("user.dir")).toAbsolutePath()));
+  }
+
+  public ReadOnlyKnowledgeGraphService(KnowledgeGraphSnapshot snapshot, PredicateCatalog predicates) {
     this.store = null;
+    this.predicates = predicates;
     this.snapshot = snapshot;
   }
 
@@ -62,7 +74,7 @@ public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphServic
     }
 
     return "Knowledge graph facts (authoritative; do not transfer traits between characters):\n"
-      + relevant.stream().map(this::format).collect(java.util.stream.Collectors.joining("\n"));
+      + relevant.stream().map(this::format).collect(Collectors.joining("\n"));
   }
 
   private void refreshIfAvailable() {
@@ -104,11 +116,10 @@ public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphServic
   private String format(Fact fact) {
     String subject = snapshot.entity(fact.subject()).orElseThrow().name();
     String object = snapshot.entity(fact.object()).orElseThrow().name();
-    String relation = switch (fact.predicate()) {
-      case POSSESSES -> fact.polarity() == Polarity.NEGATIVE ? "does not possess" : "possesses";
-      case CAN_PERFORM -> fact.polarity() == Polarity.NEGATIVE ? "cannot perform" : "can perform";
-      case LOVES -> fact.polarity() == Polarity.NEGATIVE ? "does not love" : "loves";
-    };
+    PredicateDefinition definition = predicates.require(fact.predicate());
+    String relation = fact.polarity() == Polarity.NEGATIVE
+      ? definition.negativeText()
+      : definition.positiveText();
     return "- " + subject + " " + relation + " " + object + ".";
   }
 }
