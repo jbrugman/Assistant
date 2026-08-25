@@ -40,7 +40,7 @@ class ResponseGuardTest {
   void shouldReturnExpectedValidatedResponse(String validatorPayload, String candidateResponse, String expectedResponse) throws Exception {
     ResponseGuard responseGuard = new ResponseGuard(
       new FakeChatClient(validatorPayload),
-      AppConfig.load()
+      nl.llm.storyteller.core.config.AppConfig.load()
     );
 
     String validatedResponse = responseGuard.validate(
@@ -66,7 +66,7 @@ class ResponseGuardTest {
 
     ResponseGuard responseGuard = new ResponseGuard(
       new ThrowingChatClient(),
-      AppConfigLoader.load(baseDirectory, null)
+      nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null)
     );
 
     String validatedResponse = responseGuard.validate(

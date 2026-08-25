@@ -1,4 +1,4 @@
-package nl.llm.storyteller.core;
+package nl.llm.storyteller.core.config;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -37,11 +37,22 @@ public final class AppConfig {
     this.options = options;
   }
 
-  static AppConfig load() {
+  public static AppConfig load() {
     return AppConfigLoader.load();
   }
 
   private AppConfig validate() {
+    validateBackendType();
+    validateManagedMlxServer();
+    validateManagedLlamaServer();
+    validateConversation();
+    validateValidationOutputMode();
+    validateTurnPenalties();
+    validateResilience();
+    return this;
+  }
+
+  private void validateBackendType() {
     if (!"openai-compatible".equalsIgnoreCase(backendType())
       && !usesManagedLlamaServer()
       && !usesManagedMlxServer()) {
@@ -49,30 +60,43 @@ public final class AppConfig {
         "backend.type must be openai-compatible, managed-llama-server, or managed-mlx-server."
       );
     }
-    if (usesManagedMlxServer()) {
-      MlxServerConfig mlxServer = mlxServerConfig();
-      if (mlxServer.command().isBlank() || mlxServer.modelPath() == null) {
-        throw new IllegalArgumentException("Managed MLX server requires backend.mlx.command and backend.mlx.modelPath.");
-      }
-      if (mlxServer.port() < 0 || mlxServer.port() > 65_535) {
-        throw new IllegalArgumentException("backend.mlx.port must be between 0 and 65535.");
-      }
-      if (mlxServer.startupTimeoutSeconds() < 1) {
-        throw new IllegalArgumentException("backend.mlx.startupTimeoutSeconds must be at least 1.");
-      }
+  }
+
+  private void validateManagedMlxServer() {
+    if (!usesManagedMlxServer()) {
+      return;
     }
-    if (usesManagedLlamaServer()) {
-      LlamaServerConfig llamaServer = llamaServerConfig();
-      if (llamaServer.command().isBlank() || llamaServer.modelPath() == null) {
-        throw new IllegalArgumentException("Managed llama-server requires backend.llama.command and backend.llama.modelPath.");
-      }
-      if (llamaServer.port() < 0 || llamaServer.port() > 65_535) {
-        throw new IllegalArgumentException("backend.llama.port must be between 0 and 65535.");
-      }
-      if (llamaServer.startupTimeoutSeconds() < 1) {
-        throw new IllegalArgumentException("backend.llama.startupTimeoutSeconds must be at least 1.");
-      }
+
+    MlxServerConfig server = mlxServerConfig();
+    if (server.command().isBlank() || server.modelPath() == null) {
+      throw new IllegalArgumentException("Managed MLX server requires backend.mlx.command and backend.mlx.modelPath.");
     }
+    if (server.port() < 0 || server.port() > 65_535) {
+      throw new IllegalArgumentException("backend.mlx.port must be between 0 and 65535.");
+    }
+    if (server.startupTimeoutSeconds() < 1) {
+      throw new IllegalArgumentException("backend.mlx.startupTimeoutSeconds must be at least 1.");
+    }
+  }
+
+  private void validateManagedLlamaServer() {
+    if (!usesManagedLlamaServer()) {
+      return;
+    }
+
+    LlamaServerConfig server = llamaServerConfig();
+    if (server.command().isBlank() || server.modelPath() == null) {
+      throw new IllegalArgumentException("Managed llama-server requires backend.llama.command and backend.llama.modelPath.");
+    }
+    if (server.port() < 0 || server.port() > 65_535) {
+      throw new IllegalArgumentException("backend.llama.port must be between 0 and 65535.");
+    }
+    if (server.startupTimeoutSeconds() < 1) {
+      throw new IllegalArgumentException("backend.llama.startupTimeoutSeconds must be at least 1.");
+    }
+  }
+
+  private void validateConversation() {
     if (maxRecentTurns() < 1) {
       throw new IllegalArgumentException("chat.maxRecentTurns must be at least 1.");
     }
@@ -85,21 +109,29 @@ public final class AppConfig {
     if (cacheBusterInterval() < 0) {
       throw new IllegalArgumentException("cacheBuster.interval must be 0 or greater.");
     }
+  }
+
+  private void validateValidationOutputMode() {
     if (!"auto".equalsIgnoreCase(validationOutputMode())
       && !"text".equalsIgnoreCase(validationOutputMode())
       && !"json-schema".equalsIgnoreCase(validationOutputMode())) {
       throw new IllegalArgumentException("validation.outputMode must be auto, text, or json-schema.");
     }
+  }
+
+  private void validateTurnPenalties() {
     if (turnPenaltySingleLowHp() < 1 || turnPenaltySingleHighHp() < turnPenaltySingleLowHp()) {
       throw new IllegalArgumentException("Turn penalties must be positive, and the high value must be >= the low value.");
     }
+  }
+
+  private void validateResilience() {
     if (chatFailureThreshold() < 1 || validationFailureThreshold() < 1 || backgroundFailureThreshold() < 1) {
       throw new IllegalArgumentException("Resilience failure thresholds must all be at least 1.");
     }
     if (chatCooldownSeconds() < 1 || validationCooldownSeconds() < 1 || backgroundCooldownSeconds() < 1) {
       throw new IllegalArgumentException("Resilience cooldown values must all be at least 1 second.");
     }
-    return this;
   }
 
   public String backendType() {
@@ -235,6 +267,10 @@ public final class AppConfig {
 
   public Path turnStateFile() {
     return files.turnStateFile();
+  }
+
+  public Path knowledgeGraphFile() {
+    return files.knowledgeGraphFile();
   }
 
   public Path resetCacheBusterTemplateFile() {
@@ -457,6 +493,7 @@ public final class AppConfig {
         source.requiredPath("file.history"),
         source.requiredPath("file.legacyHistory"),
         source.requiredPath("file.turnState"),
+        source.requiredPath("file.knowledgeGraph"),
         source.requiredPath("file.resetCacheBusterTemplate")
       ),
       new ConversationConfig(
@@ -567,6 +604,7 @@ public final class AppConfig {
     Path historyFile,
     Path legacyHistoryFile,
     Path turnStateFile,
+    Path knowledgeGraphFile,
     Path resetCacheBusterTemplateFile
   ) {
   }

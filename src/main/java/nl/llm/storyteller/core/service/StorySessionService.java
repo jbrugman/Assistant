@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.Message;
 
 import java.io.IOException;
@@ -11,7 +11,7 @@ import java.util.UUID;
 public final class StorySessionService {
   private static final String SYSTEM = "system";
 
-  private final AppConfig config;
+  private final nl.llm.storyteller.core.config.AppConfig config;
   private final HistoryStore historyStore;
   private final ChatClient chatClient;
   private final ResponseGuard responseGuard;
@@ -22,7 +22,7 @@ public final class StorySessionService {
   private final PromptResourceLoader promptResourceLoader;
 
   public StorySessionService(
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     HistoryStore historyStore,
     ChatClient chatClient,
     ResponseGuard responseGuard,

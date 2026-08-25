@@ -46,7 +46,7 @@ class StorySessionServiceTest {
             cacheBuster.interval=1
             """);
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
@@ -112,7 +112,7 @@ class StorySessionServiceTest {
         Path baseDirectory = Files.createTempDirectory("storyteller-reset-turn");
         writeOverride(baseDirectory, "systemprompts/application.config", "validation.enabled=false");
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.appendTurn("Earlier prompt", "Earlier reply");
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
@@ -212,7 +212,7 @@ class StorySessionServiceTest {
         Path baseDirectory = Files.createTempDirectory("storyteller-undo-turn");
         writeOverride(baseDirectory, "systemprompts/application.config", "validation.enabled=false");
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.appendTurn("Original prompt", "Bad answer");
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);

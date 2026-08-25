@@ -1,17 +1,17 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.ValidationOutcome;
 
 import java.io.IOException;
 
 public final class ResponseGuard {
-  private final AppConfig config;
+  private final nl.llm.storyteller.core.config.AppConfig config;
   private final ValidationClient validationClient;
   private final ValidationDecisionParser validationDecisionParser;
   private final ResponseSanitizer responseSanitizer;
 
-  public ResponseGuard(ChatClient client, AppConfig config) {
+  public ResponseGuard(ChatClient client, nl.llm.storyteller.core.config.AppConfig config) {
     this(
       config,
       new ValidationClient(client, config),
@@ -21,7 +21,7 @@ public final class ResponseGuard {
   }
 
   public ResponseGuard(
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     ValidationClient validationClient,
     ValidationDecisionParser validationDecisionParser,
     ResponseSanitizer responseSanitizer

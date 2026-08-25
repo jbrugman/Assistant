@@ -7,6 +7,7 @@ public record StoryChatPromptInput(
   String canonicalState,
   String summary,
   String recentSummary,
+  String knowledgeGraphFacts,
   List<Message> recentMessages,
   String extraSystemInstruction
 ) { }

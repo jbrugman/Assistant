@@ -20,6 +20,9 @@ final class TerminalStoryteller {
   private static final String QUIT_COMMAND = "/quit";
   private static final String EXPORT_COMMAND = "/export";
   private static final String IMAGE_COMMAND = "/image";
+  private static final String GRAPH_COMMAND = "/graph";
+  private static final String GRAPH_GENERATE_COMMAND = "/graph -generate";
+  private static final String GRAPH_FILL_COMMAND = "/graph -fill";
   private static final String EXPORT_ALL_OPTION = "-all";
   private static final String EXPORT_INTRO_OPTION = "-intro";
   private static final String EXPORT_CLEAN_OPTION = "-clean";
@@ -147,6 +150,30 @@ final class TerminalStoryteller {
   }
 
   private boolean handleCommand(String userInput) {
+    if (GRAPH_FILL_COMMAND.equalsIgnoreCase(userInput)) {
+      handleGraphFillCommand();
+      return true;
+    }
+    if (GRAPH_GENERATE_COMMAND.equalsIgnoreCase(userInput)) {
+      var graph = context.knowledgeGraphInitializer().generateEmpty();
+      renderer.printMessage("Empty knowledge graph generated locally (revision %d)."
+        .formatted(graph.revision()));
+      return true;
+    }
+    if (GRAPH_COMMAND.equalsIgnoreCase(userInput)) {
+      renderer.printMessage(KnowledgeGraphFormatter.format(
+        context.knowledgeGraphService().current(),
+        context.config().knowledgeGraphFile()
+      ));
+      return true;
+    }
+    if (userInput.regionMatches(true, 0, GRAPH_COMMAND + " ", 0, GRAPH_COMMAND.length() + 1)) {
+      renderer.printError(
+        "Graph command error",
+        "Use /graph, /graph -generate, or /graph -fill."
+      );
+      return true;
+    }
     if (IMAGE_COMMAND.equalsIgnoreCase(userInput) || userInput.regionMatches(true, 0, IMAGE_COMMAND + " ", 0, IMAGE_COMMAND.length() + 1)) {
       handleImageCommand(userInput);
       return true;
@@ -166,6 +193,19 @@ final class TerminalStoryteller {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
     }
     return true;
+  }
+
+  private void handleGraphFillCommand() {
+    try {
+      var result = context.knowledgeGraphFillService().fill();
+      renderer.printMessage("Knowledge graph filled from fixed protagonists: %d entities, %d facts."
+        .formatted(result.entities(), result.facts()));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
+    } catch (IOException | RuntimeException ex) {
+      renderer.printError("Knowledge graph fill error", ex.getMessage());
+    }
   }
 
   private void handleImageCommand(String userInput) {

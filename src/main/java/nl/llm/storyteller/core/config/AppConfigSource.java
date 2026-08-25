@@ -1,4 +1,4 @@
-package nl.llm.storyteller.core;
+package nl.llm.storyteller.core.config;
 
 import java.nio.file.Path;
 import java.util.Properties;

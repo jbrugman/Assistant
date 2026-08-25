@@ -29,7 +29,7 @@ class ValidationClientTest {
   void shouldRequestJsonSchemaForAutomaticValidationOutput() throws Exception {
     RecordingChatClient client = new RecordingChatClient("{\"decision\":\"ALLOW\",\"response\":\"\"}");
 
-    new ValidationClient(client, AppConfig.load()).validate("system", "request");
+    new ValidationClient(client, nl.llm.storyteller.core.config.AppConfig.load()).validate("system", "request");
 
     Map<String, Object> responseFormat = responseFormat(client.options().getFirst());
     assertEquals("json_schema", responseFormat.get("type"));
@@ -44,7 +44,7 @@ class ValidationClientTest {
     """)
   void shouldRetryAsTextWhenAutomaticStructuredOutputIsUnsupported() throws Exception {
     FallbackChatClient client = new FallbackChatClient();
-    ValidationClient validationClient = new ValidationClient(client, AppConfig.load());
+    ValidationClient validationClient = new ValidationClient(client, nl.llm.storyteller.core.config.AppConfig.load());
 
     String result = validationClient.validate("system", "request");
     validationClient.validate("system", "another request");
@@ -71,7 +71,7 @@ class ValidationClientTest {
 
     assertThrows(
       StructuredOutputNotSupportedException.class,
-      () -> new ValidationClient(client, AppConfigLoader.load(baseDirectory, null)).validate("system", "request")
+      () -> new ValidationClient(client, nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null)).validate("system", "request")
     );
     assertEquals(1, client.options().size());
   }

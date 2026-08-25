@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.MlxServerConfig;
+import nl.llm.storyteller.core.config.MlxServerConfig;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -34,7 +34,7 @@ public final class ManagedMlxServer implements AutoCloseable {
     this.outputDrainer = Thread.ofVirtual().name("mlx-server-output").start(this::drainOutput);
   }
 
-  public static ManagedMlxServer start(MlxServerConfig config) throws IOException, InterruptedException {
+  public static ManagedMlxServer start(nl.llm.storyteller.core.config.MlxServerConfig config) throws IOException, InterruptedException {
     if (!Files.exists(config.modelPath())) {
       throw new IOException("MLX model path does not exist: " + config.modelPath());
     }
@@ -53,7 +53,7 @@ public final class ManagedMlxServer implements AutoCloseable {
     }
   }
 
-  static List<String> buildCommand(MlxServerConfig config, int port) {
+  static List<String> buildCommand(nl.llm.storyteller.core.config.MlxServerConfig config, int port) {
     List<String> command = new ArrayList<>();
     command.add(config.command());
     if (!config.arguments().isBlank()) {

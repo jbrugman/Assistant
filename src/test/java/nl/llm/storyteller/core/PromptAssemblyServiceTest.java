@@ -46,7 +46,7 @@ class PromptAssemblyServiceTest {
         writeOverride(baseDirectory, "systemprompts/canonicalstatecontext.md", "CANONICAL CONTEXT:%n%s");
         Files.createDirectories(baseDirectory.resolve("memory"));
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = getHistoryStore(config);
 
         FileSupport.writeTextFile(config.summaryFile(), "LONG SUMMARY");
@@ -172,7 +172,7 @@ class PromptAssemblyServiceTest {
             """);
         Files.createDirectories(baseDirectory.resolve("memory"));
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
@@ -258,7 +258,7 @@ class PromptAssemblyServiceTest {
         writeOverride(baseDirectory, "systemprompts/canonicalstatecontext.md", "CANONICAL CONTEXT:%n%s");
         Files.createDirectories(baseDirectory.resolve("memory"));
 
-        AppConfig config = AppConfigLoader.load(baseDirectory, null);
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = getHistoryStore(config);
         FileSupport.writeTextFile(config.summaryFile(), "LONG SUMMARY");
         FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
@@ -324,7 +324,7 @@ class PromptAssemblyServiceTest {
         }
     }
 
-    private static HistoryStore getHistoryStore(AppConfig config) {
+    private static HistoryStore getHistoryStore(nl.llm.storyteller.core.config.AppConfig config) {
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.save(
             new HistoryState(

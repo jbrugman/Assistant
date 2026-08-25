@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.TestAppConfigFactory;
 import nl.llm.storyteller.core.model.TurnRuleDecision;
@@ -106,7 +106,7 @@ class TurnManagerTest {
             game.turnPenaltySingleHighHp=10
             """.formatted(turnBasedEnabled));
 
-        AppConfig config = TestAppConfigFactory.load(baseDirectory);
+        nl.llm.storyteller.core.config.AppConfig config = TestAppConfigFactory.load(baseDirectory);
         PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
         TurnStateStore turnStateStore = new TurnStateStore(config.turnStateFile());
         TurnManager turnManager = new TurnManager(

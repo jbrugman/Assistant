@@ -1,0 +1,27 @@
+@startuml
+title Storyteller Image Flow
+
+start
+:Receive /image instruction;
+:Read image from desktop clipboard;
+if (PNG available?) then (yes)
+  :Encode transient PNG data URL;
+  :Build multimodal user message;
+  :Send through chat resilience guard;
+  :Receive draft response;
+  if (validation enabled?) then (yes)
+    :Validate using instruction and response text only;
+    :Select allowed draft or replacement;
+  endif
+  :Persist instruction and final response text;
+  note right
+  Image bytes are never written to history,
+  summaries, canonical state, or exports.
+  end note
+  :Queue text-only derived-memory updates;
+  :Print final response;
+else (no)
+  :Print local image command error;
+endif
+stop
+@enduml

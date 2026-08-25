@@ -1,8 +1,8 @@
-package nl.llm.storyteller.core;
+package nl.llm.storyteller.core.config;
 
 import java.nio.file.Path;
 
-public record LlamaServerConfig(
+public record MlxServerConfig(
   String command,
   Path modelPath,
   int port,

@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.Message;
 
 import java.io.IOException;
@@ -10,10 +10,10 @@ import java.util.Map;
 
 public final class ValidationClient {
   private final ChatClient client;
-  private final AppConfig config;
+  private final nl.llm.storyteller.core.config.AppConfig config;
   private volatile boolean automaticStructuredOutputRejected;
 
-  public ValidationClient(ChatClient client, AppConfig config) {
+  public ValidationClient(ChatClient client, nl.llm.storyteller.core.config.AppConfig config) {
     this.client = client;
     this.config = config;
   }

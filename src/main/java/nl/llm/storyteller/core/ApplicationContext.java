@@ -5,12 +5,18 @@ import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.StoryExportService;
 import nl.llm.storyteller.core.service.StorySessionService;
+import nl.llm.storyteller.core.service.KnowledgeGraphFillService;
+import nl.llm.storyteller.core.graph.KnowledgeGraphService;
+import nl.llm.storyteller.core.graph.KnowledgeGraphInitializer;
 
 public record ApplicationContext(
-  AppConfig config,
+  nl.llm.storyteller.core.config.AppConfig config,
   DerivedMemoryTaskQueue derivedMemoryTaskQueue,
   StorySessionService storySessionService,
   StoryExportService storyExportService,
+  KnowledgeGraphService knowledgeGraphService,
+  KnowledgeGraphInitializer knowledgeGraphInitializer,
+  KnowledgeGraphFillService knowledgeGraphFillService,
   ManagedLlamaServer managedLlamaServer,
   ManagedMlxServer managedMlxServer
 ) implements AutoCloseable {

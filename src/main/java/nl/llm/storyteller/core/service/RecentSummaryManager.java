@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.AppConfig;
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.RecentSummaryPromptInput;
@@ -13,7 +13,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   public RecentSummaryManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder
@@ -27,7 +27,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   public RecentSummaryManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
@@ -39,7 +39,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   private RecentSummaryManager(
     HistoryStore historyStore,
     ChatClient client,
-    AppConfig config,
+    nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
