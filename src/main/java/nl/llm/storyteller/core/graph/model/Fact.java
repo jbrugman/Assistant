@@ -3,7 +3,7 @@ package nl.llm.storyteller.core.graph.model;
 public record Fact(
   String id,
   EntityId subject,
-  Predicate predicate,
+  PredicateId predicate,
   EntityId object,
   Polarity polarity,
   FactStatus status,

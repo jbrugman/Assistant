@@ -3,6 +3,8 @@ package nl.llm.storyteller.core;
 import nl.llm.storyteller.core.graph.ReadOnlyKnowledgeGraphService;
 import nl.llm.storyteller.core.graph.KnowledgeGraphInitializer;
 import nl.llm.storyteller.core.graph.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
+import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
@@ -98,8 +100,13 @@ public final class ApplicationFactory {
       new GameModeDefinitionParser(),
       new TurnStateStore(config.turnStateFile())
     );
-    KnowledgeGraphStore knowledgeGraphStore = new KnowledgeGraphStore(config.knowledgeGraphFile());
-    ReadOnlyKnowledgeGraphService knowledgeGraphService = new ReadOnlyKnowledgeGraphService(knowledgeGraphStore);
+    PredicateCatalog predicateCatalog = PredicateCatalog.load(config.baseDir());
+    KnowledgeGraphStore knowledgeGraphStore = new KnowledgeGraphStore(
+      config.knowledgeGraphFile(), new KnowledgeGraphValidator(predicateCatalog)
+    );
+    ReadOnlyKnowledgeGraphService knowledgeGraphService = new ReadOnlyKnowledgeGraphService(
+      knowledgeGraphStore, predicateCatalog
+    );
     PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
       historyStore,
       summaryManager,
@@ -135,7 +142,8 @@ public final class ApplicationFactory {
           knowledgeGraphStore,
           knowledgeGraphService,
           config.summaryOptions(),
-          config.summaryRequestTimeoutSeconds()
+          config.summaryRequestTimeoutSeconds(),
+          predicateCatalog
         )
       ),
       managedLlamaServer,

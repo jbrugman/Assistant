@@ -1,0 +1,15 @@
+{
+  "predicates": {
+    "POSSESSES": { "subjectType": "CHARACTER", "objectType": "ITEM", "temporal": true, "positiveText": "possesses", "negativeText": "does not possess" },
+    "CAN_PERFORM": { "subjectType": "CHARACTER", "objectType": "SKILL", "temporal": false, "positiveText": "can perform", "negativeText": "cannot perform" },
+    "LOVES": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "loves", "negativeText": "does not love" },
+    "TRUSTS": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "trusts", "negativeText": "does not trust" },
+    "HATES": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "hates", "negativeText": "does not hate" },
+    "PROTECTIVE_OF": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "is protective of", "negativeText": "is not protective of" },
+    "FRIENDS_WITH": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "is friends with", "negativeText": "is not friends with" },
+    "TRAINS_WITH": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "trains with", "negativeText": "does not train with" },
+    "FEELS_SAFE_WITH": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "feels safe with", "negativeText": "does not feel safe with" },
+    "LIVES_WITH": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": true, "positiveText": "lives with", "negativeText": "does not live with" },
+    "LIVES": { "subjectType": "CHARACTER", "objectType": "LOCATION", "temporal": true, "positiveText": "lives at", "negativeText": "does not live at" }
+  }
+}

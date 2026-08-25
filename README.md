@@ -15,110 +15,8 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 - Maven
 - An OpenAI-compatible chat server with a loaded or selectable model, such as LM Studio, Jan.ai, a self-hosted compatible endpoint, or a hosted compatible API
 
-## Recommended Setup
-
-- Recommended reference machine: MacBook Pro with M1 Max and 64 GB unified memory
-- Better results usually come from a relatively large mature instruct model, such as `google/gemma-4-26b-a4b-it-qat` in a 6-bit MLX quantization with reasoning disabled, using roughly 21.8 GB and a 32K to 48K context window
-- Minimum recommended class: Gemma 4 12B QAT or a roughly comparable model
-- If you have less memory available, the default Gemma 4 26B A4B 4-bit variant is roughly `16 GB`, which makes it practical to experiment with a `32K` context window on a machine such as an M1 Mac with `32 GB` of unified memory
-
-## Workable Setup
-
-- MacBook Pro with Apple Silicon (`M`-series) and `32 GB` to `48 GB` of unified memory
-- [google/gemma-4-12b-qat](https://lmstudio.ai/models/google/gemma-4-12b-qat), preferably the 4-bit variant, using roughly `8 GB` of model memory
-- A `32K` context window, using roughly another `8 GB` of memory
-
-The 12B dense model occasionally makes stylistic mistakes, but it is generally good enough to follow story rules and hard constraints.
-It is a practical model for experimenting with the storyteller app on a smaller machine.
-Including runtime, context, and general system overhead, total memory usage will usually end up around `18 GB` to `20 GB`, which is still workable on a `32 GB` unified memory machine.
-The broader takeaway is that Apple Silicon with a moderate amount of unified memory is already a very capable platform for exploring local large language models.
-
-## Hardware Fit At A Glance
-
-This table is a practical fit guide for local storyteller use with quantized models.
-The context ranges in the hardware columns refer to the model context window size used for this app (recommended values).
-It is meant as a quick "is this worth trying on my machine?" reference, not as a benchmark table or a hard compatibility guarantee.
-
-| Model                     | Parameters | RTX 3080 Ti 12 GB (`16K`) | RTX 4090 24 GB (`16K` to `32K`) | Mac 32 GB unified (`16K` to `32K`) | Mac 64 GB unified (`32K` to `48K`) | Practical take                                                                          |
-|---------------------------|-----------:|---------------------------|---------------------------------|------------------------------------|------------------------------------|-----------------------------------------------------------------------------------------|
-| `Qwen3-8B`                |       8.2B | Yes                       | Yes                             | Yes                                | Yes                                | Good entry-level choice                                                                 |
-| `Llama-3.1-8B-Instruct`   |         8B | Yes                       | Yes                             | Yes                                | Yes                                | Safe and practical                                                                      |
-| `Granite-3.1-8B-Instruct` |         8B | Yes                       | Yes                             | Yes                                | Yes                                | Good compact alternative                                                                |
-| `Gemma-4-12B-QAT`         |        12B | Maybe                     | Yes                             | Yes                                | Yes                                | Strong option, but `12 GB` VRAM is tight                                                |
-| `Gemma-4-26B-A4B`         |    26B A4B | No                        | Maybe                           | Maybe                              | Yes                                | Very strong option on higher-memory Apple Silicon, but too heavy for smaller GPU setups |
-
-Interpretation:
-- `Yes` means the setup is generally workable for this app at the recommended context range for that machine.
-- `Maybe` means it can work, but it is more sensitive to quantization, runtime overhead, and context length.
-- `No` means it is usually not a practical match for this storyteller use case.
-
-Note:
-On an Apple Silicon machine with enough unified memory, especially `64 GB`, `Gemma-4-26B-A4B` will often not only produce better results, but will likely also respond noticeably faster than dense `8B` or `12B` models.
-
-Practical guidance:
-- `RTX 3080 Ti 12 GB`: mainly suitable for `8B` models, and borderline for some `12B` setups.
-- `RTX 4090 24 GB`: a strong fit for `8B` and `12B` models at moderate context sizes.
-- `Mac 32 GB unified`: a good fit for `8B` and `12B` models.
-- `Mac 64 GB unified`: the most comfortable option here, with much more room for larger models and longer context windows.
-
-### Note
-
-On the reference machine above, a larger local model such as Gemma 4 26B 6-bit typically uses about `32 to 36 GB` of shared memory in practice:
-
-- about `22 GB` for the model itself
-- about `8 to 12 GB` for a `32K to 48K` context window
-- about `2 GB` for runtime overhead
-
-These numbers are practical estimates, not hard guarantees. Actual memory use depends on the exact quantization, runtime, backend, and context length.
-
-## Performance & Memory Architecture (Apple Silicon / LM Studio)
-
-Long-context local models, especially larger Mixture-of-Experts models such as Gemma 4 26B-A4B or Qwen 3 Coder 30B, trade context depth against memory pressure and desktop responsiveness. A 64 GB Apple Silicon machine can be a strong long-context setup, but there is no universal safe `65K` configuration: model format, quantization, runtime, vision support, and the loaded context length all materially affect memory use.
-
-### Sequential derived-memory queue
-
-A completed story turn can schedule three derived-memory refreshes: long-term summary, recent summary, and canonical state. These jobs are deliberately submitted to one daemon-backed `DerivedMemoryTaskQueue` and run sequentially.
-
-- This keeps derived-memory requests off the foreground story path.
-- It avoids the application itself starting three simultaneous background inference calls.
-- It reduces peak pressure on the backend, but does not override the backend's own parallelism or resource settings.
-
-### Periodic cache busting and drift
-
-Long prompts can make a model less attentive to older instructions or world constraints. The app offers a portable best-effort mitigation: every `cacheBuster.interval` persisted story turns (default `5`), it sends an internal reset request with a unique token prepended to the system prompt. The response is discarded; no extra message is shown to the user. `Ctrl-U` undo always sends the same reset-with-cache-buster request after removing the last turn.
-
-This is not a documented KV-cache flush and does not guarantee that a backend discards a cache. It deliberately changes the prompt prefix so cache-sensitive OpenAI-compatible backends are less likely to reuse an exact stale prefix. Set `cacheBuster.interval=0` to disable periodic requests.
-
-### LM Studio starting points for a 64 GB Mac
-
-Use LM Studio's memory estimator before loading a model and verify the actual configuration after loading. The values below are starting points, not guarantees or application requirements. LM Studio supports configuring context length, evaluation batch size, Flash Attention, GPU offload, and model parallelism at load time; support varies by engine and model format.
-
-| Setting               | Suggested starting point                              | Why                                                                                                       |
-|-----------------------|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| Context length        | Start at `32K`; raise incrementally after testing     | Context length is a primary driver of KV-cache memory use.                                                |
-| GPU offload           | `max` when the estimator shows sufficient headroom    | Maximizes accelerator use; leave room for macOS and other applications.                                   |
-| Flash Attention       | Enabled when supported                                | Can reduce attention memory use and improve speed on llama.cpp-based models.                              |
-| Evaluation batch size | `512`, then tune                                      | Smaller values reduce prompt-ingestion peaks at the cost of throughput.                                   |
-| Parallel predictions  | `1` or `2` for tight memory budgets                   | The Java queue serializes derived-memory work, but backend parallelism can still increase resource use.   |
-| KV-cache quantization | Test the available option for the loaded engine/model | It can substantially change memory use and quality; do not assume one quantization is optimal everywhere. |
-
-CPU-thread, physical-batch, and KV-cache settings differ across LM Studio engines and model formats. Prefer LM Studio's current model-specific controls and estimator over fixed thread counts or OS-level memory-limit overrides. See the [LM Studio model-loading documentation](https://lmstudio.ai/docs/developer/rest/load) and [CLI resource estimator](https://lmstudio.ai/docs/cli/local-models/load).
-
-### KV-cache quantization
-
-For long contexts, KV-cache quantization is often one of the most effective memory-saving controls because KV-cache use grows with context length. It is distinct from the quantization of the model weights themselves.
-
-- Start with `q8_0` for the K and V caches when it is available: it is usually the more conservative memory-versus-quality trade-off.
-- Try `q4_0` for both caches when memory pressure or swapping remains a problem. It can reduce KV-cache memory substantially, but may affect output quality, especially for a particular model or very long context.
-- Keep Flash Attention enabled when the selected engine requires it for quantized K/V caches, and test a representative long story prompt after changing the setting.
-
-These are backend load settings, not OpenAI-compatible request parameters, so Storyteller does not set them automatically. Jan's llama.cpp engine exposes `q8_0` and `q4_0` K/V-cache options for memory-constrained setups; LM Studio availability depends on the active engine and model format. See the [Jan llama.cpp engine guide](https://jan.ai/docs/llama-cpp) and [LM Studio load configuration reference](https://beta.lmstudio.ai/docs/typescript/api-reference/llm-load-model-config).
-
-### Thread allocation detail (Apple Silicon)
-
-On an M1 Max, the CPU has eight performance cores and two efficiency cores. If LM Studio exposes a CPU-thread control for the active runtime, `8` is a sensible throughput-oriented starting point because it can keep the performance cores busy. `6` is a sensible responsiveness-oriented starting point when IntelliJ, a browser, or compilation should retain more CPU headroom.
-
-Do not assume that `7` is universally the default or that powers of two are inherently optimal: the best value depends on the LM Studio engine, model format, GPU offload level, and what else the machine is doing. Measure generation speed and UI responsiveness with the target model, then keep the lowest value that gives the desired experience.
+## Recommended setup
+See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
 
 ## Used Tools / Hardware
 
@@ -149,6 +47,7 @@ At runtime, local filesystem overrides take precedence when present:
 - `./systemprompts/application.config`
 - `./systemprompts/*.md`
 - `./systemprompts/*.yml`
+- `./systemprompts/*.json`
 
 So the behavior is:
 1. use bundled defaults from the build artifact
@@ -239,6 +138,9 @@ The `Ctrl-L` action is read-only:
 - `/export -intro`: same as `/export`, with user prompts in italic between story sections
 - `/export -clean`: export only assistant story output
 - `/export -all`: export user prompts and assistant output chronologically with explicit headings
+- `/graph`: display the current knowledge graph without calling the model
+- `/graph -generate`: create and immediately load a minimal empty graph without calling the model
+- `/graph -fill`: generate, validate, persist, and immediately load a graph from the configured fixed protagonists using the model
 
 Exports are written as Markdown files in the application working directory.
 
@@ -260,12 +162,16 @@ These are compiled into the app from `src/main/resources/systemprompts/`:
 - `canonicalstatecontext.md`
 - `validationsystemprompt.md`
 - `validationrequesttemplate.md`
+- `resetcachebuster.md`
+- `turnviolationsingletemplate.md`
+- `turnviolationpartytemplate.md`
+- `graph-predicates.json`
 
 ### Optional local overrides
 
 If you create a local `systemprompts/` folder in the working directory with files of the same names, those files override the bundled defaults.
 
-An example override folder is included at [`systemprompts.example/`](systemprompts.example), including mode-specific examples such as [`cowriter_story`](systemprompts.example/cowriter_story) and [`dungeons_dragons`](systemprompts.example/dungeons_dragons).
+Example override folders are included under [`configs.example/`](configs.example), including mode-specific examples such as [`cowriter_story`](configs.example/cowriter_story) and [`dungeons_dragons`](configs.example/dungeons_dragons).
 Those examples show complete prompt sets, fixed protagonists, and runtime defaults for different storytelling modes.
 
 The Dungeons & Dragons example also demonstrates the optional engine-level turn-based game mode.
@@ -281,7 +187,7 @@ The app reads and writes story memory in `memory/`:
 - `canonical-state.yaml`
 - `knowledge-graph.json`
 
-These files and their parent `memory/` directory may start out missing. The app creates and updates them as needed.
+These files and their parent `memory/` directory may start out missing. Story history and derived-memory files are created and updated as needed. The graph file is created explicitly through `/graph -generate` or `/graph -fill`, or supplied manually.
 
 ### Knowledge graph MVP
 
@@ -290,10 +196,10 @@ Storyteller loads and validates `memory/knowledge-graph.json` automatically when
 When the current user input or candidate response mentions an entity name or alias, its active hard facts are injected into both the story and validation prompts.
 Missing files and turns without matching entities preserve the existing behavior.
 
-The initial closed ontology supports:
+The graph ontology is closed at runtime but configurable before startup. The bundled catalog supports:
 
-- entity types `CHARACTER`, `ITEM`, and `SKILL`;
-- predicates `POSSESSES` (`CHARACTER` to `ITEM`), `CAN_PERFORM` (`CHARACTER` to `SKILL`), and directional `LOVES` (`CHARACTER` to `CHARACTER`);
+- entity types `CHARACTER`, `ITEM`, `SKILL`, and `LOCATION`;
+- bundled predicates for possessions, skills, interpersonal relationships, cohabitation (`LIVES_WITH`), and residence (`LIVES`, `CHARACTER` to `LOCATION`);
 - positive and negative active facts, with absent facts resolving to `UNKNOWN`;
 - fixed fact sources, statuses, aliases, revision and schema metadata;
 - strict entity-reference, predicate-type, duplicate, and contradiction validation;
@@ -301,6 +207,41 @@ The initial closed ontology supports:
 - validated, atomically replaced JSON persistence through `KnowledgeGraphStore`;
 - reflection-free graph JSON encoding and decoding for GraalVM native images;
 - bounded name/alias retrieval and prompt grounding for active hard facts.
+
+Predicate definitions are data-driven through `systemprompts/graph-predicates.json`. A local file with that name replaces the bundled catalog, so it must contain every predicate that should remain available. Each predicate configures its permitted subject and object entity types, temporal flag, and positive and negative prompt text. Facts store the stable predicate ID as a string, so adding a predicate requires no Java enum or formatter change. The same catalog drives graph validation, prompt rendering, and the allowed-predicate instructions for `/graph -fill`.
+
+The bundled relationship predicates are `LOVES`, `TRUSTS`, `HATES`, `PROTECTIVE_OF`, `FRIENDS_WITH`, `TRAINS_WITH`, `FEELS_SAFE_WITH`, and `LIVES_WITH`. `LIVES_WITH` connects two characters; `LIVES` connects a character to a `LOCATION`, such as a villa, penthouse, or house. Relationship facts are directional unless both directions are explicitly present.
+
+Example custom predicate:
+
+```json
+{
+  "predicates": {
+    "MENTORS": {
+      "subjectType": "CHARACTER",
+      "objectType": "CHARACTER",
+      "temporal": false,
+      "positiveText": "mentors",
+      "negativeText": "does not mentor"
+    }
+  }
+}
+```
+
+Facts reference the configured predicate by its string ID. `sourceTurn` is optional for fixed-protagonist facts and is only meaningful when a fact originates from a numbered user or assistant turn:
+
+```json
+{
+  "id": "valerie-lives-lhorizon",
+  "subject": "valerie_thorne",
+  "predicate": "LIVES",
+  "object": "villa_lhorizon",
+  "polarity": "POSITIVE",
+  "status": "ACTIVE",
+  "source": "FIXED_PROTAGONIST",
+  "hard": true
+}
+```
 
 The CLI provides three graph management commands. They are local control commands and are never recorded as story turns:
 
@@ -311,75 +252,7 @@ The CLI provides three graph management commands. They are local control command
 `/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted facts to `ACTIVE`, `FIXED_PROTAGONIST`, and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Normal story turns remain read-only with respect to graph persistence; automatic per-turn mutation remains a later phase documented in [`graph_feature_bleeding_mitigation.md`](docs/architecture/graph_feature_bleeding_mitigation.md).
 
 ## Configuration
-
-All default configuration values now come from bundled `application.config`, not hard-coded Java defaults.
-
-By default, `model.chat` and `model.validator` are left blank. For an OpenAI-compatible backend the app then omits the `model` field, so LM Studio, Jan.ai, or another compatible backend can use its currently loaded, selected, or default model automatically. A managed MLX server instead uses `backend.mlx.modelPath` as the request model automatically.
-
-`backend.type=openai-compatible` is the default and sends requests to `backend.http.url`; it works with LM Studio, Jan, Ollama, OpenAI-compatible hosted APIs, and externally started model servers. Set `backend.type=managed-llama-server` to start a local `llama-server` process for GGUF, or `backend.type=managed-mlx-server` to start `mlx_vlm.server` for a local MLX model. Both managed servers bind only to `127.0.0.1` and stop when the application closes.
-
-For example:
-
-```properties
-backend.type=managed-llama-server
-backend.llama.command=llama-server
-backend.llama.modelPath=./models/Gemma4-26B-A4B-QAT.gguf
-backend.llama.port=0
-backend.llama.startupTimeoutSeconds=120
-backend.llama.arguments=--ctx-size 32768 --ctx-checkpoints 32 --parallel 3 --threads 6 --threads-batch 6 --batch-size 1024 --ubatch-size 512 --kv-offload --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --reasoning off
-```
-
-For a local MLX model on Apple Silicon:
-
-```properties
-backend.type=managed-mlx-server
-backend.mlx.command=python3
-backend.mlx.modelPath=./model/gemma-4-26b-a4b-it-4bit
-backend.mlx.port=0
-backend.mlx.startupTimeoutSeconds=180
-backend.mlx.arguments=-m mlx_vlm.server --max-kv-size 32768 --max-tokens 32768
-```
-
-Install `mlx-vlm` for the configured Python interpreter and ensure `python3` is available on `PATH`. The managed MLX server is intended for local use and uses its OpenAI-compatible `/v1/chat/completions` endpoint.
-
-The bundled defaults do not select a managed-server command, model, or model-specific arguments. Configure those values in a local `application.config` or start from the examples in `systemprompts.example/llama_server` and `systemprompts.example/mlx_server`. An MoE model's active expert count is encoded by the model itself; `--n-cpu-moe` means something different and would keep MoE layers on the CPU.
-
-Legacy local overrides using `lmstudio.url` remain accepted and map to `backend.http.url`.
-
-Configuration is now split into:
-- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/AppConfigLoader.java): loads bundled defaults, local overrides, and native-runtime overrides
-- [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/AppConfigSource.java): typed access to merged raw properties
-- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/AppConfig.java): validated runtime view used by the app
-
-Important settings:
-- `chat.maxRecentTurns=2`
-- `recentSummary.maxRecentTurns=12`
-- `recentSummary.batchMessages=6`
-- `summary.batchMessages=10`
-- `canonicalState.batchMessages=2`
-- `cacheBuster.interval=5` (`0` disables periodic cache busters)
-- `validation.enabled=true`
-- `validation.outputMode=auto` requests JSON Schema constrained validation when supported and retries as text when the endpoint rejects it; the rejection is remembered for the active session
-- `resilience.chat.failureThreshold=3`
-- `resilience.chat.cooldownSeconds=20`
-- `resilience.validation.failureThreshold=2`
-- `resilience.validation.cooldownSeconds=15`
-- `resilience.background.failureThreshold=2`
-- `resilience.background.cooldownSeconds=60`
-
-If a model behaves badly with the rules engine, disable it with:
-
-```properties
-validation.enabled=false
-```
-
-When validation is disabled, `rules.md` is skipped and the raw model answer is returned directly.
-When validation is enabled, the validator returns an `ALLOW` or `REPLACE` decision. By default its request includes an OpenAI-compatible JSON Schema response format so supporting backends constrain that decision during generation. The schema is deliberately used only for validation; story responses remain free text. Older compatible endpoints automatically use the existing tolerant text path when they reject structured output. Set `validation.outputMode=text` for a legacy endpoint, or `json-schema` to require constrained validator output.
-
-The app also uses a small built-in resilience layer around LLM calls:
-- foreground chat calls use a short cooldown-based fail-fast guard
-- validation calls use their own guard and remain independent from the foreground response policy
-- background memory refresh calls use a more aggressive cooldown so repeated summary/state updates stop hammering an unavailable backend
+See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
 
 ## Prompt Assembly
 
@@ -390,6 +263,7 @@ The app does not send the full history back to the model. It sends:
   canonical state
   long-term summary
   recent summary
+  relevant knowledge-graph facts
 - the last `chat.maxRecentTurns` raw turns
 - the latest user message
 
@@ -445,8 +319,22 @@ Prompt responsibilities are now split more explicitly:
 Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/core/model`](src/main/java/nl/llm/storyteller/core/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
 
 Configuration follows the same separation:
-- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/AppConfigSource.java): loading, merging, and path resolution
-- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/AppConfig.java): validated runtime settings only
+- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/config/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/config/AppConfigSource.java): loading, merging, and path resolution
+- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/config/AppConfig.java): validated runtime settings only
+
+Graph responsibilities are separated as well:
+- [`PredicateCatalog.java`](src/main/java/nl/llm/storyteller/core/graph/PredicateCatalog.java): immutable, configuration-driven predicate definitions
+- [`KnowledgeGraphValidator.java`](src/main/java/nl/llm/storyteller/core/graph/KnowledgeGraphValidator.java): entity, predicate-type, reference, duplicate, and contradiction validation
+- [`ReadOnlyKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/ReadOnlyKnowledgeGraphService.java): automatic snapshot refresh, entity resolution, and bounded fact rendering
+- [`KnowledgeGraphStore.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphStore.java): atomic graph persistence
+- [`KnowledgeGraphJsonCodec.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphJsonCodec.java): reflection-free JSON I/O for JVM and native-image builds
+
+The runtime flow is documented as one full diagram and four focused diagrams:
+- [full storyteller flow](docs/architecture/02-storytelller-flow-design-full.puml)
+- [runtime flow](docs/architecture/02-a-storytelller-flow-design-runtime.puml)
+- [knowledge-graph flow](docs/architecture/02-b-storytelller-flow-design-graph.puml)
+- [image flow](docs/architecture/02-c-storytelller-flow-design-image.puml)
+- [story-session flow](docs/architecture/02-d-storytelller-flow-design-storysession.puml)
 
 Validation is also split into focused parts:
 - [`ValidationClient.java`](src/main/java/nl/llm/storyteller/core/service/ValidationClient.java): sends the validator prompt to the configured model
@@ -506,99 +394,9 @@ Not yet.
 ## Changelog
 
 ### 1.2.0
-- Added the bounded `nl.llm.storyteller.core.graph` capability for graph-based mitigation of entity contagion and feature bleeding.
-- Added a deliberately closed first ontology containing `CHARACTER`, `ITEM`, `SKILL`, `POSSESSES`, and `CAN_PERFORM`.
-- Added directional positive and negative `LOVES` facts to prevent romantic relationships from bleeding between characters.
-- Added strict graph document validation, immutable lookup snapshots, explicit `TRUE`/`FALSE`/`UNKNOWN` truth semantics, and atomically replaced JSON persistence.
-- Added automatic graph loading at startup and before runtime fact retrieval, while retaining the last valid snapshot during incomplete or invalid file edits.
-- Added bounded active-hard-fact injection into both story generation and validation prompts.
-- Added local `/graph` inspection and `/graph -generate` empty-document creation without model calls.
-- Added `/graph -fill` for model-assisted extraction from only the configured fixed-protagonist document, followed by deterministic Java normalization, validation, atomic persistence, and snapshot publication.
-- Added reflection-free graph JSON encoding and decoding so graph loading, generation, filling, and persistence work in GraalVM native executables.
-- Added focused tests for graph loading, round-trip persistence, entity references, predicate constraints, aliases, contradictions, immutability, unknown facts, automatic runtime loading, empty initialization, fixed-protagonist-only fill input, model-result normalization, and failure preservation.
-- Added the mitigation design and updated the README, component design, and flow design for the active graph runtime slice and remaining future phases.
+- Added a validated knowledge graph that grounds story generation and validation with relevant hard facts to reduce entity, skill, relationship, and location bleeding.
+- Added a configuration-driven predicate catalog with directional relationships, `LOCATION` support, automatic loading, atomic persistence, and native-image-compatible JSON handling.
+- Added local `/graph` inspection, model-free `/graph -generate`, and model-assisted `/graph -fill` using only the configured fixed protagonists.
+- Added graph regression coverage and updated the architecture documentation with focused runtime, graph, image, and story-session flows.
 
-### 1.1.5
-- Fixed managed MLX requests so `model.chat` and `model.validator` no longer need to duplicate `backend.mlx.modelPath`; when left blank, the managed model path is now sent automatically.
-
-### 1.1.4
-- Added `/image <instruction>` for sending an image copied to the macOS or Windows desktop clipboard as a transient base64 vision input.
-- Kept clipboard image data out of history, validation, derived-memory updates, and story exports; only instruction and response text are persisted.
-
-### 1.1.3
-- Added an optional managed `mlx_vlm.server` backend for local MLX models, including process startup, dynamic loopback ports, readiness checks, and lifecycle shutdown.
-- Added a mlx-vlm example configuration and documented the managed MLX backend in the README and PlantUML architecture diagrams.
-
-### 1.1.2
-- Added OpenAI-compatible JSON Schema structured output for validator decisions, with `auto`, `text`, and required `json-schema` output modes.
-- In automatic mode, validation falls back once to the existing tolerant plain-text parser when a backend rejects `response_format`; that capability result is cached for the remaining application session.
-- Added llama.cpp managed-server examples for a 32K context, 32 context checkpoints, one server slot, CPU/batch sizing, GPU KV-cache offload, Q8_0 K/V cache, Flash Attention, and disabled reasoning.
-
-### 1.1.1
-- Enabled GraalVM shared-arena support for the JLine 4 terminal provider in native builds.
-
-### 1.1.0
-- Reorganized the single deployable application into explicit `nl.llm.storyteller.core` and `nl.llm.storyteller.cli` packages, retaining one Maven project, one runnable shaded jar, and the existing CLI behavior.
-- Documented the local browser API boundary and session lifecycle design, including the accompanying API architecture diagram, while keeping HTTP implementation outside the core for now.
-- Refactored validator decision parsing into focused JSON, structured-node, and tolerant-text helpers; explicit structured decisions now take precedence over incidental decision words in response text.
-- Removed Maven Shade warnings by retaining one Jackson license/notice pair and filtering duplicate manifests, module descriptors, and identical license resources from the shaded jar.
-
-### 1.0.11
-- Split the terminal application into dedicated composition, terminal-controller, and renderer classes so display formatting can be unit-tested without JLine.
-- Added renderer tests for word wrapping and fenced code blocks, and aligned the derived-memory queue and cache-buster tests with the Given/When/Then display-name convention.
-
-### 1.0.10
-- Replaced the three independent derived-memory executors with one shared sequential task queue so background refreshes cannot call the LLM backend concurrently.
-- Added configurable periodic cache-buster requests after persisted story turns (`cacheBuster.interval=5`, `0` to disable), while undo always retains its cache-buster reset.
-- Added Apple Silicon / LM Studio performance guidance with conservative long-context and memory-tuning starting points.
-- Added configuration and queue-ordering test coverage and updated the architecture documentation.
-
-### 1.0.9
-- Added `Ctrl-U` / `Cmd-U` as an undo-and-retry control action that removes the last persisted turn, sends a transient reset request, and restores the previous user prompt into the input buffer for editing.
-- Added `Ctrl-L` / `Cmd-L` as a local read-only shortcut that shows the last persisted user prompt and assistant reply without sending anything to the model.
-- Fixed reset-only `Ctrl-W` turns so they are treated as transient control requests instead of normal story turns.
-- Fixed reset-only turns to stay out of `history.json` and to skip long-term summary, recent summary, and canonical state refresh triggers.
-- Added a transient request-local cache-buster token to reset-only turns as a presumed best-effort portable cache-break for LM Studio and other OpenAI-compatible backends that do not expose a standard per-request KV-cache flush or slot-selection API.
-- Fixed history rollback so undoing the last turn safely clamps the summary, recent-summary, and canonical-state cursors to the shortened `history.json`.
-- Added a history helper for retrieving the latest persisted turn as a user+assistant pair.
-- Documented the new last-turn inspection shortcut and the transient undo/reset control flow in the README.
-- Documented the transient undo/reset control flow and its non-persisted behavior in the README.
-
-### 1.0.8
-- Fixed prompt assembly for stricter LM Studio and OpenAI-compatible chat templates by sending story chat as one combined first `system` message instead of multiple separate `system` messages.
-- Fixed long-term summary, recent summary, and canonical state background updates to use the same single-system-message layout, preventing LM Studio template failures on derived-memory refresh calls.
-
-### 1.0.7
-- Updated the release packaging flow to publish the runnable shaded jar as `storyteller-<version>-all.jar`, avoiding self-overlap warnings on repeated Maven package or verify runs.
-
-### 1.0.6
-- Added an optional engine-level turn-based game mode that tracks round participation outside the LLM and injects prompt penalties for illegal extra moves.
-- Added persistent turn-state storage in `memory/turn-state.json` and integrated turn-rule evaluation into prompt assembly before each story turn.
-- Updated the Dungeons & Dragons example configuration to demonstrate turn-based mode defaults and revised the example READMEs to use a more consistent structure.
-- Updated the README and PlantUML diagrams to document the new turn-based game flow and example-mode positioning.
-
-### 1.0.5
-- Added the first `systemprompts.example/` mode examples as reusable reference configurations for alternative storyteller setups.
-
-### 1.0.4
-- Fixed validator rewrite handling so `REPLACE` responses now use the corrected text instead of falling back to the fail-closed warning message.
-- Made validator parsing more tolerant for smaller or less strict models by supporting wrapped rewrite payloads in `content`, `message.content`, and full chat-completion `choices[0].message.content` envelopes.
-- Added test coverage for plain-text validator rewrite payloads such as `REPLACE: ...` and `REPLACE` followed by corrected text on the next line.
-
-### 1.0.3
-- Switched terminal control commands from plain `exit` and `quit` to `/exit` and `/quit`
-- Added Markdown story export commands: `/export`, `/export -intro`, `/export -clean`, and `/export -all`
-- Added `StoryExportService` to export story history into Markdown files in the application working directory
-- Updated the README and PlantUML diagrams to document the new command and export flow
-
-### 1.0.2
-- Added more test coverage
-- Added a lightweight resilience layer for repeated LLM backend failures, with separate cooldown policies for chat, validation, and background memory refreshes
-
-### 1.0.1
-- Extracted prompt construction into dedicated builder services for chat, validation, summary, recent summary, and canonical state updates.
-- Added small prompt-input records in `model` so prompt builders no longer depend on long ordered `String` parameter lists.
-- Moved `ValidationOutcome` into the `model` package as a pure decision/result type.
-- Simplified `DerivedMemoryManager` by removing unused prompt helper code and renaming the enablement hook to `isDisabled()` for clearer control flow.
-- Tightened small parser and config cleanups, including the redundant null check in `ValidationDecisionParser` and a smaller top-level `AppConfig` constructor shape.
-- Updated the README and PlantUML diagrams to match the current storyteller prompt and validation architecture.
+Read more: https://github.com/jbrugman/Assistant/wiki/Changelog

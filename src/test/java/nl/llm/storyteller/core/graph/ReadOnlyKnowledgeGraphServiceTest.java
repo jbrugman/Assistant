@@ -8,7 +8,7 @@ import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
-import nl.llm.storyteller.core.graph.model.Predicate;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -69,9 +69,9 @@ class ReadOnlyKnowledgeGraphServiceTest {
         "chris", new Entity(EntityType.CHARACTER, "Chris", List.of())
       ),
       List.of(
-        new Fact("valerie-loves-mike", valerie, Predicate.LOVES, mike, Polarity.POSITIVE,
+        new Fact("valerie-loves-mike", valerie, new PredicateId("LOVES"), mike, Polarity.POSITIVE,
           FactStatus.ACTIVE, FactSource.MANUAL, null, true),
-        new Fact("valerie-not-loves-chris", valerie, Predicate.LOVES, chris, Polarity.NEGATIVE,
+        new Fact("valerie-not-loves-chris", valerie, new PredicateId("LOVES"), chris, Polarity.NEGATIVE,
           FactStatus.ACTIVE, FactSource.MANUAL, null, true)
       )
     );
@@ -112,6 +112,6 @@ class ReadOnlyKnowledgeGraphServiceTest {
   private Fact fact(
     String id, EntityId subject, EntityId object, Polarity polarity, FactStatus status, boolean hard
   ) {
-    return new Fact(id, subject, Predicate.POSSESSES, object, polarity, status, FactSource.MANUAL, null, hard);
+    return new Fact(id, subject, new PredicateId("POSSESSES"), object, polarity, status, FactSource.MANUAL, null, hard);
   }
 }
