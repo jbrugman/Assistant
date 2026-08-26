@@ -67,8 +67,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   @Override
   protected DerivedMemoryJob prepareJob() {
     HistoryState state = historyStore.load();
-    List<Message> recent = historyStore.recentMessages(config.maxRecentTurns());
-    int cutoffIndex = state.messages().size() - recent.size();
+    int cutoffIndex = state.messages().size();
     int cursor = safeCursor(state.canonicalStateCursor(), state.messages().size());
 
     if (cutoffIndex <= cursor) {
