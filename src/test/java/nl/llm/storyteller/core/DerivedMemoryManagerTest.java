@@ -6,6 +6,7 @@ import nl.llm.storyteller.core.model.CanonicalStatePromptInput;
 import nl.llm.storyteller.core.model.RecentSummaryPromptInput;
 import nl.llm.storyteller.core.model.SummaryPromptInput;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
+import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,6 +35,86 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DerivedMemoryManagerTest {
+    @Test
+    @DisplayName("""
+        Given one completed story turn and a canonical-state batch size of one message,
+        When the canonical-state refresh job is prepared,
+        Then the complete new turn should be included immediately
+        """)
+    void shouldPrepareCanonicalStateRefreshAfterEveryCompletedTurn() throws Exception {
+        TestContext context = createContext(
+            """
+                chat.maxRecentTurns=6
+                canonicalState.batchMessages=1
+                """
+        );
+        context.historyStore().save(
+            new HistoryState(
+                List.of(
+                    new Message("user", "Turn one"),
+                    new Message("assistant", "Reply one")
+                ),
+                0,
+                0,
+                0
+            )
+        );
+
+        CanonicalStateManager canonicalStateManager = createCanonicalStateManager(context, new NoOpChatClient());
+        try {
+            Object job = prepareJob(canonicalStateManager);
+
+            assertNotNull(job);
+            assertEquals(
+                List.of(
+                    new Message("user", "Turn one"),
+                    new Message("assistant", "Reply one")
+                ),
+                pendingMessages(job)
+            );
+        } finally {
+            canonicalStateManager.shutdown();
+        }
+    }
+
+    @Test
+    @DisplayName("""
+        Given a canonical-state refresh is running when another completed turn is persisted,
+        When another canonical-state refresh is requested,
+        Then the new turn should be processed immediately after the running refresh
+        """)
+    void shouldProcessCanonicalStateRefreshRequestedWhilePreviousRefreshIsRunning() throws Exception {
+        TestContext context = createContext("canonicalState.batchMessages=1");
+        context.historyStore().save(
+            new HistoryState(
+                List.of(
+                    new Message("user", "Turn one"),
+                    new Message("assistant", "Reply one")
+                ),
+                0,
+                0,
+                0
+            )
+        );
+        SequencedChatClient client = new SequencedChatClient();
+        CanonicalStateManager canonicalStateManager = createCanonicalStateManager(context, client);
+        try {
+            canonicalStateManager.startUpdateIfNeeded();
+            assertTrue(client.firstStarted().await(5, TimeUnit.SECONDS));
+
+            context.historyStore().appendTurn("Turn two", "Reply two");
+            canonicalStateManager.startUpdateIfNeeded();
+            client.allowFirstToFinish().countDown();
+
+            assertTrue(client.secondFinished().await(5, TimeUnit.SECONDS));
+            awaitWorkerIdle(canonicalStateManager);
+            assertEquals(4, context.historyStore().load().canonicalStateCursor());
+            assertEquals("Canonical state 2", canonicalStateManager.loadCanonicalState());
+        } finally {
+            canonicalStateManager.shutdown();
+        }
+    }
+
     @Test
     @DisplayName("""
         Given older story messages below the summary batch threshold,
@@ -240,6 +322,17 @@ class DerivedMemoryManagerTest {
         );
     }
 
+    private CanonicalStateManager createCanonicalStateManager(TestContext context, ChatClient client) {
+        return new CanonicalStateManager(
+            context.historyStore(),
+            client,
+            context.config(),
+            context.promptResourceLoader(),
+            context.promptTemplateService(),
+            new CanonicalStatePromptBuilder(context.promptResourceLoader(), context.promptTemplateService())
+        );
+    }
+
     private void awaitWorkerIdle(Object manager) {
         try {
             var runningField = manager.getClass().getSuperclass().getDeclaredField("running");
@@ -341,6 +434,39 @@ class DerivedMemoryManagerTest {
 
         CountDownLatch finished() {
             return finished;
+        }
+    }
+
+    private static final class SequencedChatClient implements ChatClient {
+        private final AtomicInteger calls = new AtomicInteger();
+        private final CountDownLatch firstStarted = new CountDownLatch(1);
+        private final CountDownLatch allowFirstToFinish = new CountDownLatch(1);
+        private final CountDownLatch secondFinished = new CountDownLatch(1);
+
+        @Override
+        public String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds) throws InterruptedException {
+            int call = calls.incrementAndGet();
+            if (call == 1) {
+                firstStarted.countDown();
+                if (!allowFirstToFinish.await(5, TimeUnit.SECONDS)) {
+                    throw new AssertionError("Timed out while waiting to finish the first canonical-state refresh.");
+                }
+            } else if (call == 2) {
+                secondFinished.countDown();
+            }
+            return "Canonical state " + call;
+        }
+
+        CountDownLatch firstStarted() {
+            return firstStarted;
+        }
+
+        CountDownLatch allowFirstToFinish() {
+            return allowFirstToFinish;
+        }
+
+        CountDownLatch secondFinished() {
+            return secondFinished;
         }
     }
 }

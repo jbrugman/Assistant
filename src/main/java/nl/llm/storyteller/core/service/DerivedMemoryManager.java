@@ -20,6 +20,7 @@ abstract class DerivedMemoryManager {
   private final DerivedMemoryTaskQueue taskQueue;
   private final boolean ownsTaskQueue;
   private final AtomicBoolean running = new AtomicBoolean(false);
+  private final AtomicBoolean updateRequested = new AtomicBoolean(false);
   private final Object lock = new Object();
 
   DerivedMemoryManager(
@@ -53,6 +54,7 @@ abstract class DerivedMemoryManager {
 
     synchronized (lock) {
       if (running.get()) {
+        updateRequested.set(true);
         return;
       }
 
@@ -112,6 +114,9 @@ abstract class DerivedMemoryManager {
       ignoreFailure();
     } finally {
       running.set(false);
+      if (updateRequested.getAndSet(false)) {
+        triggerUpdateIfNeeded();
+      }
     }
   }
 
