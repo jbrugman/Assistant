@@ -11,6 +11,7 @@ import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.model.TruthValue;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -21,6 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class KnowledgeGraphSnapshotTest {
   @Test
+  @DisplayName("""
+    Given a valid knowledge graph document with entities, aliases, and facts,
+    When a snapshot is created,
+    Then its entities, aliases, and facts should be indexed
+    """)
   void indexesEntitiesAliasesAndFacts() {
     KnowledgeGraphSnapshot snapshot = KnowledgeGraphSnapshot.from(document(), new KnowledgeGraphValidator());
 
@@ -38,6 +44,11 @@ class KnowledgeGraphSnapshotTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a knowledge graph without a matching fact,
+    When its truth value is requested,
+    Then the result should be unknown rather than false
+    """)
   void missingFactIsUnknownRatherThanFalse() {
     KnowledgeGraphSnapshot snapshot = KnowledgeGraphSnapshot.from(document(), new KnowledgeGraphValidator());
 
@@ -51,6 +62,11 @@ class KnowledgeGraphSnapshotTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a knowledge graph snapshot,
+    When a caller attempts to modify an exposed collection,
+    Then the modification should be rejected
+    """)
   void exposedCollectionsAreImmutable() {
     KnowledgeGraphSnapshot snapshot = KnowledgeGraphSnapshot.from(document(), new KnowledgeGraphValidator());
 

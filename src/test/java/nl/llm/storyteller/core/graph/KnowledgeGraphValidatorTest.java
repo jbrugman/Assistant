@@ -9,7 +9,7 @@ import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
-import nl.llm.storyteller.core.graph.model.PredicateId;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -24,6 +24,11 @@ class KnowledgeGraphValidatorTest {
   private final KnowledgeGraphValidator validator = new KnowledgeGraphValidator();
 
   @Test
+  @DisplayName("""
+    Given a love fact between two characters,
+    When the knowledge graph is validated,
+    Then the fact should be accepted
+    """)
   void acceptsLoveBetweenCharacters() {
     EntityId valerie = new EntityId("character.valerie");
     EntityId mike = new EntityId("character.mike");
@@ -42,11 +47,21 @@ class KnowledgeGraphValidatorTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a closed-ontology fact with matching entity types,
+    When the knowledge graph is validated,
+    Then the fact should be accepted
+    """)
   void acceptsClosedOntologyFactWithMatchingEntityTypes() {
     assertDoesNotThrow(() -> validator.validate(validDocument()));
   }
 
   @Test
+  @DisplayName("""
+    Given facts with an unknown reference and an invalid predicate type,
+    When the knowledge graph is validated,
+    Then both violations should be reported
+    """)
   void rejectsUnknownReferencesAndWrongPredicateTypes() {
     KnowledgeGraphDocument invalid = new KnowledgeGraphDocument(
       1,
@@ -71,6 +86,11 @@ class KnowledgeGraphValidatorTest {
   }
 
   @Test
+  @DisplayName("""
+    Given contradictory active facts for the same subject, predicate, and object,
+    When the knowledge graph is validated,
+    Then the contradiction should be reported
+    """)
   void rejectsDuplicateAndContradictoryActiveFacts() {
     KnowledgeGraphDocument valid = validDocument();
     List<Fact> facts = new ArrayList<>(valid.facts());
@@ -91,6 +111,11 @@ class KnowledgeGraphValidatorTest {
   }
 
   @Test
+  @DisplayName("""
+    Given an unsupported schema, negative revision, and invalid entity identifier,
+    When the knowledge graph is validated,
+    Then every document violation should be reported
+    """)
   void rejectsUnsupportedSchemaAndInvalidIdentifiers() {
     KnowledgeGraphDocument invalid = new KnowledgeGraphDocument(
       2,

@@ -9,6 +9,7 @@ import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -29,6 +30,11 @@ class ReadOnlyKnowledgeGraphServiceTest {
   private final EntityId piano = new EntityId("piano");
 
   @Test
+  @DisplayName("""
+    Given active hard facts for an entity with a matching alias,
+    When relevant facts are requested for text containing that alias,
+    Then only the matching active hard facts should be returned
+    """)
   void shouldSelectActiveHardFactsForMentionedNameOrAlias() {
     ReadOnlyKnowledgeGraphService service = service();
 
@@ -41,6 +47,11 @@ class ReadOnlyKnowledgeGraphServiceTest {
   }
 
   @Test
+  @DisplayName("""
+    Given entity names that occur inside other words or are absent,
+    When relevant facts are requested,
+    Then no unrelated facts should be returned
+    """)
   void shouldNotMatchNamesInsideOtherWordsOrReturnUnrelatedFacts() {
     ReadOnlyKnowledgeGraphService service = service();
 
@@ -49,6 +60,11 @@ class ReadOnlyKnowledgeGraphServiceTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a graph service started before its graph file exists,
+    When the graph file is created and relevant facts are requested,
+    Then the newly created graph should be loaded automatically
+    """)
   void automaticallyLoadsGraphFileCreatedAfterStartup() {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("knowledge-graph.json"));
     ReadOnlyKnowledgeGraphService service = new ReadOnlyKnowledgeGraphService(store);
@@ -58,6 +74,11 @@ class ReadOnlyKnowledgeGraphServiceTest {
   }
 
   @Test
+  @DisplayName("""
+    Given positive and negative directional romantic relationships,
+    When relevant facts are requested for their subject,
+    Then both relationships should be rendered in the correct direction
+    """)
   void rendersDirectionalPositiveAndNegativeRomanticRelationships() {
     EntityId valerie = new EntityId("valerie");
     KnowledgeGraphDocument document = new KnowledgeGraphDocument(

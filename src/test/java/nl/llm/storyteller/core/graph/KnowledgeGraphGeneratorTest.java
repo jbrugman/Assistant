@@ -3,6 +3,7 @@ package nl.llm.storyteller.core.graph;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.ChatClient;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,6 +17,11 @@ class KnowledgeGraphGeneratorTest {
   @TempDir Path tempDir;
 
   @Test
+  @DisplayName("""
+    Given valid knowledge graph JSON returned by the model,
+    When a knowledge graph is generated,
+    Then the normalized graph should be persisted and published
+    """)
   void validatesPersistsAndPublishesModelResult() throws Exception {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("graph.json"));
     ReadOnlyKnowledgeGraphService service = new ReadOnlyKnowledgeGraphService(store);
@@ -39,6 +45,11 @@ class KnowledgeGraphGeneratorTest {
   }
 
   @Test
+  @DisplayName("""
+    Given an existing graph and invalid model output,
+    When a knowledge graph is generated,
+    Then generation should fail without replacing the existing graph
+    """)
   void keepsExistingGraphWhenModelOutputIsInvalid() {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("graph.json"));
     store.save(KnowledgeGraphDocument.empty());

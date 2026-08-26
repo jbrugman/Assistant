@@ -7,10 +7,20 @@ import java.util.Base64;
 import java.util.Locale;
 
 final class ClipboardImageReader {
+  private final ProcessStarter processStarter;
+
+  ClipboardImageReader() {
+    this(image -> new ProcessBuilder(command(image)).redirectErrorStream(true).start());
+  }
+
+  ClipboardImageReader(ProcessStarter processStarter) {
+    this.processStarter = processStarter;
+  }
+
   String readPngDataUrl() throws IOException {
     Path image = Files.createTempFile("storyteller-clipboard-", ".png");
     try {
-      Process process = new ProcessBuilder(command(image)).redirectErrorStream(true).start();
+      Process process = processStarter.start(image);
       String output = new String(process.getInputStream().readAllBytes());
       try {
         if (process.waitFor() != 0 || Files.size(image) == 0) {
@@ -26,8 +36,12 @@ final class ClipboardImageReader {
     }
   }
 
-  private String[] command(Path image) {
-    String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+  private static String[] command(Path image) {
+    return command(System.getProperty("os.name", ""), image);
+  }
+
+  static String[] command(String osName, Path image) {
+    String os = osName.toLowerCase(Locale.ROOT);
     if (os.contains("mac")) {
       String script = "set imageData to the clipboard as «class PNGf»\n"
         + "set outputFile to open for access POSIX file \"" + image + "\" with write permission\n"
@@ -42,5 +56,10 @@ final class ClipboardImageReader {
       return new String[]{"powershell.exe", "-STA", "-NoProfile", "-NonInteractive", "-Command", script};
     }
     throw new IllegalArgumentException("Clipboard images are supported only on macOS and Windows.");
+  }
+
+  @FunctionalInterface
+  interface ProcessStarter {
+    Process start(Path image) throws IOException;
   }
 }
