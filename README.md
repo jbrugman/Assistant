@@ -61,10 +61,10 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.2.0-all.jar
+java -jar target/storyteller-1.2.1-all.jar
 ```
 
-The local default build version is `1.2.0`.
+The local default build version is `1.2.1`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.2.0` and then `v1.2.1`, `v1.2.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -392,6 +392,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.2.1
+- Fixed canonical-state batching so `canonicalState.batchMessages=1` refreshes after every completed story turn, including when a new refresh is requested while the previous background update is still running.
+
 
 ### 1.2.0
 - Added a validated knowledge graph that grounds story generation and validation with relevant hard facts to reduce entity, skill, relationship, and location bleeding.
