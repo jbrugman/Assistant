@@ -12,6 +12,7 @@ import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.model.TruthValue;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,6 +31,11 @@ class KnowledgeGraphStoreTest {
   Path tempDir;
 
   @Test
+  @DisplayName("""
+    Given a knowledge graph store whose file does not exist,
+    When the graph is loaded,
+    Then an empty document should be returned
+    """)
   void missingFileLoadsAnEmptyDocument() {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("knowledge-graph.json"));
 
@@ -37,6 +43,11 @@ class KnowledgeGraphStoreTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a valid knowledge graph document,
+    When the document is saved and loaded,
+    Then the document and its snapshot should be preserved without temporary files
+    """)
   void savesAndLoadsAValidatedDocumentAndSnapshot() throws IOException {
     Path path = tempDir.resolve("memory/knowledge-graph.json");
     KnowledgeGraphStore store = new KnowledgeGraphStore(path);
@@ -59,6 +70,11 @@ class KnowledgeGraphStoreTest {
   }
 
   @Test
+  @DisplayName("""
+    Given an existing graph and an invalid replacement document,
+    When the invalid document is saved,
+    Then validation should fail without replacing the existing file
+    """)
   void rejectsInvalidDocumentBeforeReplacingExistingFile() throws IOException {
     Path path = tempDir.resolve("knowledge-graph.json");
     KnowledgeGraphStore store = new KnowledgeGraphStore(path);
@@ -72,6 +88,11 @@ class KnowledgeGraphStoreTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a graph file containing malformed JSON,
+    When the graph is loaded,
+    Then an error identifying the malformed graph should be reported
+    """)
   void reportsMalformedJsonWithTheGraphPath() throws IOException {
     Path path = tempDir.resolve("knowledge-graph.json");
     Files.writeString(path, "{not-json");

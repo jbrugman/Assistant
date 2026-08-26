@@ -9,6 +9,7 @@ import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -20,6 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PredicateCatalogTest {
   @Test
+  @DisplayName("""
+    Given the default predicate catalog configuration,
+    When the residence predicates are loaded,
+    Then their configured types and text should be available
+    """)
   void defaultCatalogContainsConfiguredResidencePredicates() {
     PredicateCatalog catalog = PredicateCatalog.load(Path.of(System.getProperty("user.dir")).toAbsolutePath());
 
@@ -29,6 +35,11 @@ class PredicateCatalogTest {
   }
 
   @Test
+  @DisplayName("""
+    Given a predicate configured in JSON without a corresponding Java enum,
+    When the predicate is validated and rendered,
+    Then it should work without a Java code change
+    """)
   void supportsConfiguredPredicateWithoutJavaEnumChange() {
     PredicateCatalog catalog = PredicateCatalog.fromJson("""
       {"predicates":{"MENTORS":{

@@ -4,5 +4,4 @@ public record FactKey(
   EntityId subject,
   PredicateId predicate,
   EntityId object
-) {
-}
+) { }

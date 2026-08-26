@@ -21,7 +21,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryStoreTest {
     @Test
-    @DisplayName("Given a transient image message, history should persist text only")
+    @DisplayName("""
+        Given a transient image message,
+        When the message is persisted to history,
+        Then only its text should be stored
+        """)
     void shouldNeverPersistTransientImageData() throws Exception {
         Path directory = Files.createTempDirectory("storyteller-image-history");
         Path historyFile = directory.resolve("history.json");

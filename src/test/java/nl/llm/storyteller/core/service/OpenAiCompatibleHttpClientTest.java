@@ -46,7 +46,11 @@ class OpenAiCompatibleHttpClientTest {
     }
 
     @Test
-    @DisplayName("Given a transient image, the request should contain OpenAI-compatible content parts")
+    @DisplayName("""
+        Given a transient image message,
+        When the OpenAI-compatible request payload is built,
+        Then the message should contain text and image content parts
+        """)
     void shouldBuildMultimodalMessageContent() {
         OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
             "http://localhost:1234/v1/chat/completions", "vision-model", true
