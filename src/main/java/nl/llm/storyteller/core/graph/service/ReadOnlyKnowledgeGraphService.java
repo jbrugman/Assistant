@@ -1,9 +1,13 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
+import nl.llm.storyteller.core.graph.KnowledgeGraphSnapshot;
+import nl.llm.storyteller.core.graph.PredicateCatalog;
+import nl.llm.storyteller.core.graph.PredicateDefinition;
 import nl.llm.storyteller.core.graph.model.Entity;
 import nl.llm.storyteller.core.graph.model.EntityId;
 import nl.llm.storyteller.core.graph.model.Fact;
 import nl.llm.storyteller.core.graph.model.FactStatus;
+import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 
@@ -13,7 +17,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/** Minimal read-only runtime facade for deterministic prompt grounding. */
+/** Runtime facade for deterministic prompt grounding. */
 public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphService {
   private volatile KnowledgeGraphSnapshot snapshot;
   private final KnowledgeGraphStore store;
@@ -73,8 +77,27 @@ public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphServic
       return "";
     }
 
-    return "Knowledge graph facts (authoritative; do not transfer traits between characters):\n"
-      + relevant.stream().map(this::format).collect(Collectors.joining("\n"));
+    String authoritative = relevant.stream()
+      .filter(Fact::hard)
+      .map(this::format)
+      .collect(Collectors.joining("\n"));
+    String generated = relevant.stream()
+      .filter(fact -> !fact.hard() && fact.source() == FactSource.TURNBASED)
+      .map(this::format)
+      .collect(Collectors.joining("\n"));
+    StringBuilder result = new StringBuilder();
+    if (!authoritative.isBlank()) {
+      result.append("Knowledge graph facts (authoritative; do not transfer traits between characters):\n")
+        .append(authoritative);
+    }
+    if (!generated.isBlank()) {
+      if (!result.isEmpty()) {
+        result.append("\n");
+      }
+      result.append("Turn-based graph context (model-generated, lower confidence; never override authoritative facts):\n")
+        .append(generated);
+    }
+    return result.toString();
   }
 
   private void refreshIfAvailable() {
@@ -110,7 +133,8 @@ public final class ReadOnlyKnowledgeGraphService implements KnowledgeGraphServic
   }
 
   private boolean isGroundingFact(Fact fact) {
-    return fact.hard() && fact.status() == FactStatus.ACTIVE;
+    return fact.status() == FactStatus.ACTIVE
+      && (fact.hard() || fact.source() == FactSource.TURNBASED);
   }
 
   private String format(Fact fact) {

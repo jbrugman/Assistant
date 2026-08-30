@@ -5,8 +5,13 @@ import java.util.List;
 public record Entity(
   EntityType type,
   String name,
-  List<String> aliases
+  List<String> aliases,
+  FactSource source
 ) {
+  public Entity(EntityType type, String name, List<String> aliases) {
+    this(type, name, aliases, FactSource.MANUAL);
+  }
+
   public Entity {
     name = name == null ? "" : name.trim();
     aliases = aliases == null

@@ -61,10 +61,10 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.2.1-all.jar
+java -jar target/storyteller-1.2.2-all.jar
 ```
 
-The local default build version is `1.2.1`.
+The local default build version is `1.2.2`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.2.0` and then `v1.2.1`, `v1.2.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -141,6 +141,7 @@ The `Ctrl-L` action is read-only:
 - `/graph`: display the current knowledge graph without calling the model
 - `/graph -generate`: create and immediately load a minimal empty graph without calling the model
 - `/graph -fill`: generate, validate, persist, and immediately load a graph from the configured fixed protagonists using the model
+- `/graph -reset`: remove only entities and facts whose source is `TURNBASED`
 
 Exports are written as Markdown files in the application working directory.
 
@@ -187,13 +188,13 @@ The app reads and writes story memory in `memory/`:
 - `canonical-state.yaml`
 - `knowledge-graph.json`
 
-These files and their parent `memory/` directory may start out missing. Story history and derived-memory files are created and updated as needed. The graph file is created explicitly through `/graph -generate` or `/graph -fill`, or supplied manually.
+These files and their parent `memory/` directory may start out missing. Story history and derived-memory files are created and updated as needed. The graph file is created through `/graph -generate`, `/graph -fill`, a configured turn-based update, or supplied manually.
 
 ### Knowledge graph MVP
 
 Version 1.2.0 introduces a small knowledge graph for mitigation of entity contagion and feature bleeding.
 Storyteller loads and validates `memory/knowledge-graph.json` automatically when it exists (configurable through `file.knowledgeGraph`). Changes made while Storyteller is running are picked up automatically before graph facts are used; an invalid intermediate edit never replaces the last valid in-memory snapshot.
-When the current user input or candidate response mentions an entity name or alias, its active hard facts are injected into both the story and validation prompts.
+When the current user input or candidate response mentions an entity name or alias, its active facts are injected into both the story and validation prompts. Hard manual and fixed-protagonist facts are labeled authoritative. Model-generated turn-based facts are labeled as lower-confidence context and may never override authoritative facts.
 Missing files and turns without matching entities preserve the existing behavior.
 
 The graph ontology is closed at runtime but configurable before startup. The bundled catalog supports:
@@ -201,7 +202,7 @@ The graph ontology is closed at runtime but configurable before startup. The bun
 - entity types `CHARACTER`, `ITEM`, `SKILL`, and `LOCATION`;
 - bundled predicates for possessions, skills, interpersonal relationships, cohabitation (`LIVES_WITH`), and residence (`LIVES`, `CHARACTER` to `LOCATION`);
 - positive and negative active facts, with absent facts resolving to `UNKNOWN`;
-- fixed fact sources, statuses, aliases, revision and schema metadata;
+- source metadata on both entities and facts, plus statuses, aliases, revision and schema metadata;
 - strict entity-reference, predicate-type, duplicate, and contradiction validation;
 - immutable in-memory indexes for entity, alias, subject, object, and truth lookup;
 - validated, atomically replaced JSON persistence through `KnowledgeGraphStore`;
@@ -243,16 +244,23 @@ Facts reference the configured predicate by its string ID. `sourceTurn` is optio
 }
 ```
 
-The CLI provides three graph management commands. They are local control commands and are never recorded as story turns:
+Every entity also has a `source`. Fixed-protagonist generation assigns `FIXED_PROTAGONIST`; automatic extraction from completed story turns assigns `TURNBASED` to every generated entity and fact. TURNBASED facts are always normalized to `hard=false` and therefore carry less weight than hard manual or fixed-protagonist facts.
+
+Automatic graph extraction runs after every `graph.turnBased.batchTurns` completed turns. The default is `3`. Only that latest batch of complete user-assistant turns is sent for extraction, and the resulting candidate is merged atomically. Existing non-TURNBASED entities and facts are protected from replacement or contradiction.
+
+The CLI provides four graph management commands. They are local control commands and are never recorded as story turns:
 
 - `/graph` displays the current graph and configured JSON path without calling the model;
 - `/graph -generate` creates and immediately publishes a minimal empty graph document without calling the model;
-- `/graph -fill` sends only the complete configured `fixed_protagonists.yml` content to the model, validates and normalizes the returned closed-ontology graph in Java, atomically replaces the graph file, and immediately publishes the new snapshot.
+- `/graph -fill` sends only the complete configured `fixed_protagonists.yml` content to the model, validates and normalizes the returned closed-ontology graph in Java, atomically replaces the graph file, and immediately publishes the new snapshot;
+- `/graph -reset` atomically removes only TURNBASED entities and facts while preserving fixed-protagonist, manual, and other sourced data.
 
-`/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted facts to `ACTIVE`, `FIXED_PROTAGONIST`, and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Normal story turns remain read-only with respect to graph persistence; automatic per-turn mutation remains a later phase documented in [`graph_feature_bleeding_mitigation.md`](docs/architecture/graph_feature_bleeding_mitigation.md).
+`/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted entities and facts to `FIXED_PROTAGONIST`, with facts set to `ACTIVE` and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Automatic turn-based extraction is best-effort and never fails the completed foreground story turn.
 
 ## Configuration
 See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
+
+Set `graph.turnBased.batchTurns` to the number of completed story turns per automatic graph update. It must be at least `1` and defaults to `3`.
 
 ## Prompt Assembly
 
@@ -288,13 +296,15 @@ This keeps prompt size down while preserving continuity.
 Important runtime detail:
 - the foreground story turn stays synchronous for prompt assembly, model response, validation, and history append
 - the derived-memory refreshes for `summary.md`, `recent-summary.md`, and `canonical-state.yaml` are triggered asynchronously afterward
-- all three refreshes share one single-threaded task queue, so their LLM calls run sequentially without blocking the user from getting the current story response
+- the three memory refreshes and automatic turn-based graph extraction share one single-threaded task queue, so their LLM calls run sequentially without blocking the user from getting the current story response
 
 ## Runtime Structure
 
 This remains one Maven project and one distributable jar. Within it, the terminal adapter is deliberately separated from the reusable core:
 - `nl.llm.storyteller.cli`: JLine, terminal input, shortcuts, and terminal rendering
 - `nl.llm.storyteller.core`, `.core.service`, and `.core.model`: configuration, story behavior, persistence, prompting, and backend integration
+- `nl.llm.storyteller.core.graph.service`: graph query, initialization, fixed-protagonist generation, and reset services
+- `nl.llm.storyteller.core.graph.turnbasedservice`: periodic lower-authority graph extraction and merge from completed turns
 
 This is an intentional modular-monolith choice: deployment, configuration, and operational complexity stay small today, while one-way package dependencies keep the CLI and future HTTP adapter outside the core. If independent deployment becomes useful later, those adapters can move into separate modules or services without moving storyteller behavior out of the core first.
 
@@ -325,7 +335,9 @@ Configuration follows the same separation:
 Graph responsibilities are separated as well:
 - [`PredicateCatalog.java`](src/main/java/nl/llm/storyteller/core/graph/PredicateCatalog.java): immutable, configuration-driven predicate definitions
 - [`KnowledgeGraphValidator.java`](src/main/java/nl/llm/storyteller/core/graph/KnowledgeGraphValidator.java): entity, predicate-type, reference, duplicate, and contradiction validation
-- [`ReadOnlyKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/ReadOnlyKnowledgeGraphService.java): automatic snapshot refresh, entity resolution, and bounded fact rendering
+- [`ReadOnlyKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/service/ReadOnlyKnowledgeGraphService.java): automatic snapshot refresh, entity resolution, and authority-aware fact rendering
+- [`KnowledgeGraphManagementService.java`](src/main/java/nl/llm/storyteller/core/graph/service/KnowledgeGraphManagementService.java): selective TURNBASED reset
+- [`TurnBasedKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/turnbasedservice/TurnBasedKnowledgeGraphService.java): configured turn batching, extraction, source normalization, and protected merge
 - [`KnowledgeGraphStore.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphStore.java): atomic graph persistence
 - [`KnowledgeGraphJsonCodec.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphJsonCodec.java): reflection-free JSON I/O for JVM and native-image builds
 
@@ -392,6 +404,12 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.2.2
+- Added configurable automatic knowledge-graph updates from every `graph.turnBased.batchTurns` completed story turns, defaulting to three.
+- Added source metadata to graph entities and introduced lower-authority `TURNBASED` entities and facts that cannot override fixed-protagonist or manual graph data.
+- Added `/graph -reset` to remove only TURNBASED graph items, including startup help, CLI validation, regression tests, and updated architecture diagrams.
+- Moved graph services into `core.graph.service` and isolated automatic turn extraction and merge in `core.graph.turnbasedservice`.
 
 ### 1.2.1
 - Fixed canonical-state batching so `canonicalState.batchMessages=1` refreshes after every completed story turn, including when a new refresh is requested while the previous background update is still running.

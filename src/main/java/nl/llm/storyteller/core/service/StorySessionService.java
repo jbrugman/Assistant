@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service;
 
 import nl.llm.storyteller.core.config.AppConfig;
+import nl.llm.storyteller.core.graph.turnbasedservice.TurnBasedKnowledgeGraphService;
 import nl.llm.storyteller.core.model.Message;
 
 import java.io.IOException;
@@ -20,6 +21,7 @@ public final class StorySessionService {
   private final CanonicalStateManager canonicalStateManager;
   private final PromptAssemblyService promptAssemblyService;
   private final PromptResourceLoader promptResourceLoader;
+  private final TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService;
 
   public StorySessionService(
     nl.llm.storyteller.core.config.AppConfig config,
@@ -32,6 +34,24 @@ public final class StorySessionService {
     PromptAssemblyService promptAssemblyService,
     PromptResourceLoader promptResourceLoader
   ) {
+    this(
+      config, historyStore, chatClient, responseGuard, summaryManager, recentSummaryManager,
+      canonicalStateManager, promptAssemblyService, promptResourceLoader, null
+    );
+  }
+
+  public StorySessionService(
+    nl.llm.storyteller.core.config.AppConfig config,
+    HistoryStore historyStore,
+    ChatClient chatClient,
+    ResponseGuard responseGuard,
+    SummaryManager summaryManager,
+    RecentSummaryManager recentSummaryManager,
+    CanonicalStateManager canonicalStateManager,
+    PromptAssemblyService promptAssemblyService,
+    PromptResourceLoader promptResourceLoader,
+    TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService
+  ) {
     this.config = config;
     this.historyStore = historyStore;
     this.chatClient = chatClient;
@@ -41,6 +61,7 @@ public final class StorySessionService {
     this.canonicalStateManager = canonicalStateManager;
     this.promptAssemblyService = promptAssemblyService;
     this.promptResourceLoader = promptResourceLoader;
+    this.turnBasedKnowledgeGraphService = turnBasedKnowledgeGraphService;
   }
 
   public String handleUserTurn(String userInput) throws IOException, InterruptedException {
@@ -71,6 +92,9 @@ public final class StorySessionService {
     );
 
     historyStore.appendTurn(userInput, response);
+    if (turnBasedKnowledgeGraphService != null) {
+      turnBasedKnowledgeGraphService.startUpdateIfNeeded();
+    }
     runAutomaticCacheBusterIfDue();
     canonicalStateManager.startUpdateIfNeeded();
     recentSummaryManager.startUpdateIfNeeded();

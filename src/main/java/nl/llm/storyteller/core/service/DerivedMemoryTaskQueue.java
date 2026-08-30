@@ -10,7 +10,7 @@ public final class DerivedMemoryTaskQueue implements AutoCloseable {
     return thread;
   });
 
-  void submit(Runnable task) {
+  public void submit(Runnable task) {
     executor.submit(task);
   }
 

@@ -1,7 +1,7 @@
-package nl.llm.storyteller.core.service;
+package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.TestAppConfigFactory;
-import nl.llm.storyteller.core.graph.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.service.PromptResourceLoader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

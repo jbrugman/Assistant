@@ -1,4 +1,4 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
 import java.io.IOException;
 

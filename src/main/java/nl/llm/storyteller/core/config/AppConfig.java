@@ -103,7 +103,8 @@ public final class AppConfig {
     if (recentSummaryMaxTurns() < maxRecentTurns()) {
       throw new IllegalArgumentException("recentSummary.maxRecentTurns must be >= chat.maxRecentTurns.");
     }
-    if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1) {
+    if (summaryBatchMessages() < 1 || recentSummaryBatchMessages() < 1 || canonicalStateBatchMessages() < 1
+      || graphTurnBasedBatchTurns() < 1) {
       throw new IllegalArgumentException("Batch sizes must all be at least 1.");
     }
     if (cacheBusterInterval() < 0) {
@@ -295,6 +296,10 @@ public final class AppConfig {
 
   public int canonicalStateBatchMessages() {
     return conversation.canonicalStateBatchMessages();
+  }
+
+  public int graphTurnBasedBatchTurns() {
+    return conversation.graphTurnBasedBatchTurns();
   }
 
   public int cacheBusterInterval() {
@@ -502,6 +507,7 @@ public final class AppConfig {
         source.requiredInt("summary.batchMessages"),
         source.requiredInt("recentSummary.batchMessages"),
         source.requiredInt("canonicalState.batchMessages"),
+        source.requiredInt("graph.turnBased.batchTurns"),
         source.requiredInt("cacheBuster.interval"),
         source.requiredBoolean("game.turnBasedModeEnabled"),
         source.requiredInt("game.turnPenaltySingleLowHp"),
@@ -615,6 +621,7 @@ public final class AppConfig {
     int summaryBatchMessages,
     int recentSummaryBatchMessages,
     int canonicalStateBatchMessages,
+    int graphTurnBasedBatchTurns,
     int cacheBusterInterval,
     boolean turnBasedModeEnabled,
     int turnPenaltySingleLowHp,

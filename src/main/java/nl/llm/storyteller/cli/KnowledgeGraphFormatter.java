@@ -24,6 +24,7 @@ final class KnowledgeGraphFormatter {
       .sorted(Comparator.comparing(entry -> entry.getKey().value()))
       .forEach(entry -> result.append("\n- ").append(entry.getValue().name())
         .append(" [").append(entry.getValue().type()).append("]")
+        .append(" source=").append(entry.getValue().source())
         .append(entry.getValue().aliases().isEmpty() ? "" : " aliases=" + entry.getValue().aliases()));
 
     result.append("\n\nFacts:");
@@ -39,6 +40,7 @@ final class KnowledgeGraphFormatter {
     String subject = graph.entity(fact.subject()).orElseThrow().name();
     String object = graph.entity(fact.object()).orElseThrow().name();
     String polarity = fact.polarity() == Polarity.NEGATIVE ? "NOT " : "";
-    return subject + " " + polarity + fact.predicate() + " " + object + (fact.hard() ? " [hard]" : "");
+    return subject + " " + polarity + fact.predicate() + " " + object
+      + " [source=" + fact.source() + (fact.hard() ? ", hard" : "") + "]";
   }
 }

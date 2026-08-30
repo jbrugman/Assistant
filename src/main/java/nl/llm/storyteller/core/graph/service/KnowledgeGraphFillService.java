@@ -1,7 +1,6 @@
-package nl.llm.storyteller.core.service;
+package nl.llm.storyteller.core.graph.service;
 
-import nl.llm.storyteller.core.graph.KnowledgeGraphGeneration;
-import nl.llm.storyteller.core.graph.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.service.PromptResourceLoader;
 
 import java.io.IOException;
 

@@ -3,8 +3,9 @@ package nl.llm.storyteller.cli;
 import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.TestAppConfigFactory;
 import nl.llm.storyteller.core.config.AppConfig;
-import nl.llm.storyteller.core.graph.KnowledgeGraphInitializer;
-import nl.llm.storyteller.core.graph.ReadOnlyKnowledgeGraphService;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphInitializer;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphManagementService;
+import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
@@ -48,7 +49,7 @@ class TerminalStorytellerTest {
     String output = result.output().replaceAll("\\s+", " ");
 
     assertTrue(output.contains("Graph command error"));
-    assertTrue(output.contains("Use /graph, /graph -generate, or /graph -fill."));
+    assertTrue(output.contains("Use /graph, /graph -generate, /graph -fill, or /graph -reset."));
     assertTrue(output.contains("Image command error"));
     assertTrue(output.contains("Use /image <instruction> after copying an image to the clipboard."));
     assertTrue(output.contains("Export command error"));
@@ -91,6 +92,24 @@ class TerminalStorytellerTest {
     assertTrue(output.indexOf("Knowledge graph:") != output.lastIndexOf("Knowledge graph:"));
   }
 
+  @Test
+  @DisplayName("""
+    Given a configured graph management service,
+    When the graph reset command is entered,
+    Then the terminal should report the selective turn-based reset result
+    """)
+  void handlesTurnBasedGraphResetCommand() throws Exception {
+    AppConfig config = TestAppConfigFactory.load(tempDir);
+    KnowledgeGraphStore store = new KnowledgeGraphStore(config.knowledgeGraphFile());
+    ReadOnlyKnowledgeGraphService graphService = new ReadOnlyKnowledgeGraphService(store);
+    KnowledgeGraphManagementService managementService = new KnowledgeGraphManagementService(store, graphService);
+    ApplicationContext context = context(config, graphService, null, managementService);
+
+    TerminalResult result = runTerminal("/graph -reset\n/exit\n", context);
+
+    assertTrue(result.output().contains("Turn-based graph data reset: 0 entities and 0 facts removed"));
+  }
+
   private TerminalResult runTerminal(String input) throws Exception {
     AppConfig config = TestAppConfigFactory.load(tempDir);
     return runTerminal(input, context(config, null, null));
@@ -101,6 +120,15 @@ class TerminalStorytellerTest {
     ReadOnlyKnowledgeGraphService graphService,
     KnowledgeGraphInitializer graphInitializer
   ) {
+    return context(config, graphService, graphInitializer, null);
+  }
+
+  private ApplicationContext context(
+    AppConfig config,
+    ReadOnlyKnowledgeGraphService graphService,
+    KnowledgeGraphInitializer graphInitializer,
+    KnowledgeGraphManagementService graphManagementService
+  ) {
     return new ApplicationContext(
       config,
       null,
@@ -109,6 +137,7 @@ class TerminalStorytellerTest {
       graphService,
       graphInitializer,
       null,
+      graphManagementService,
       null,
       null
     );

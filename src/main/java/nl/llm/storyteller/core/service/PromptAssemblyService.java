@@ -1,6 +1,6 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.graph.KnowledgeGraphService;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphService;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.StoryChatPromptInput;
 import nl.llm.storyteller.core.model.TurnRuleDecision;

@@ -9,6 +9,7 @@ import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
+import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

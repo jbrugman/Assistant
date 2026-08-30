@@ -63,6 +63,27 @@ package "State & Memory" #FCE7F3 {
   [CanonicalStateManager]
 }
 
+package "Graph Services\nnl.llm.storyteller.core.graph.service" #EDE9FE {
+  [KnowledgeGraphService]
+  [ReadOnlyKnowledgeGraphService]
+  [KnowledgeGraphInitializer]
+  [KnowledgeGraphGenerator]
+  [KnowledgeGraphFillService]
+  [KnowledgeGraphManagementService]
+}
+
+package "Turn-based Graph\nnl.llm.storyteller.core.graph.turnbasedservice" #F3E8FF {
+  [TurnBasedKnowledgeGraphService]
+}
+
+package "Graph Domain & Persistence\nnl.llm.storyteller.core.graph" #EDE9FE {
+  [KnowledgeGraphSnapshot]
+  [KnowledgeGraphValidator]
+  [PredicateCatalog]
+  [KnowledgeGraphStore]
+  [Graph Entities / Facts / Sources]
+}
+
 package "Validation & Backend" #DBEAFE {
   [ValidationClient]
   [ValidationDecisionParser]
@@ -118,6 +139,10 @@ together {
 [TerminalStoryteller] --> [StoryExportService]
 [TerminalStoryteller] --> [TerminalRenderer]
 [TerminalStoryteller] --> [ClipboardImageReader] : /image
+[TerminalStoryteller] --> [KnowledgeGraphService] : /graph
+[TerminalStoryteller] --> [KnowledgeGraphInitializer] : /graph -generate
+[TerminalStoryteller] --> [KnowledgeGraphFillService] : /graph -fill
+[TerminalStoryteller] --> [KnowledgeGraphManagementService] : /graph -reset
 
 [AppConfigLoader] --> [AppConfig]
 [AppConfigLoader] --> SystemPrompts : load defaults and overrides
@@ -129,6 +154,7 @@ together {
 [StorySessionService] --> [RecentSummaryManager]
 [StorySessionService] --> [CanonicalStateManager]
 [StorySessionService] --> [ResilientChatClient]
+[StorySessionService] --> [TurnBasedKnowledgeGraphService] : trigger after completed turn
 [StorySessionService] ..> [DerivedMemoryManager] : trigger async refreshes
 
 [PromptAssemblyService] --> [Prompt Builders]
@@ -159,6 +185,8 @@ together {
 [DerivedMemoryManager] --> [ResilientChatClient]
 [DerivedMemoryManager] --> [DerivedMemoryTaskQueue] : submit refresh
 [ApplicationFactory] --> [DerivedMemoryTaskQueue] : create
+[ApplicationFactory] --> [KnowledgeGraphService]
+[ApplicationFactory] --> [TurnBasedKnowledgeGraphService]
 [AssistantApp] ..> [DerivedMemoryTaskQueue] : close via context
 
 [HistoryStore] --> MemoryFiles : history.json
@@ -166,6 +194,22 @@ together {
 [SummaryManager] --> MemoryFiles : summary.md
 [RecentSummaryManager] --> MemoryFiles : recent-summary.md
 [CanonicalStateManager] --> MemoryFiles : canonical-state.yaml
+[KnowledgeGraphStore] --> MemoryFiles : knowledge-graph.json
+
+[ReadOnlyKnowledgeGraphService] ..|> [KnowledgeGraphService]
+[ReadOnlyKnowledgeGraphService] --> [KnowledgeGraphSnapshot]
+[ReadOnlyKnowledgeGraphService] --> [PredicateCatalog]
+[KnowledgeGraphInitializer] --> [KnowledgeGraphStore]
+[KnowledgeGraphFillService] --> [KnowledgeGraphGenerator]
+[KnowledgeGraphGenerator] --> [KnowledgeGraphStore]
+[KnowledgeGraphGenerator] --> [ResilientChatClient]
+[KnowledgeGraphManagementService] --> [KnowledgeGraphStore] : remove TURNBASED only
+[TurnBasedKnowledgeGraphService] --> [HistoryStore] : latest configured turn batch
+[TurnBasedKnowledgeGraphService] --> [ResilientChatClient] : extract candidate
+[TurnBasedKnowledgeGraphService] --> [DerivedMemoryTaskQueue] : sequential background task
+[TurnBasedKnowledgeGraphService] --> [KnowledgeGraphStore] : protected atomic merge
+[KnowledgeGraphStore] --> [KnowledgeGraphValidator]
+[KnowledgeGraphStore] --> [Graph Entities / Facts / Sources]
 
 [ResponseGuard] --> [ValidationClient]
 [ResponseGuard] --> [ValidationDecisionParser]
@@ -201,6 +245,7 @@ Runtime story state:
 - recent-summary.md
 - canonical-state.yaml
 - story-export-*.md
+- knowledge-graph.json
 end note
 
 note bottom of [PromptAssemblyService]
@@ -211,6 +256,7 @@ Foreground prompt stack:
 - summaries
 - recent history
 - optional turn-rule instruction
+- authoritative and lower-confidence graph facts
 end note
 
 note bottom of [ClipboardImageReader]
@@ -229,7 +275,8 @@ end note
 note bottom of [DerivedMemoryTaskQueue]
 Asynchronous after-turn processing:
 - one shared single-threaded worker
-- summary, recent summary, and canonical state updates
+- summary, recent summary, canonical state,
+  and turn-based graph updates
 - sequential LLM backend calls
 - off the foreground turn path
 end note

@@ -29,7 +29,13 @@ public final class KnowledgeGraphJsonCodec {
       JsonNode node = entry.getValue();
       List<String> aliases = new ArrayList<>();
       node.path("aliases").forEach(alias -> aliases.add(alias.asText()));
-      entities.put(entry.getKey(), new Entity(enumValue(EntityType.class, node, "type"), node.path("name").asText(), aliases));
+      FactSource source = enumValue(FactSource.class, node, "source");
+      entities.put(entry.getKey(), new Entity(
+        enumValue(EntityType.class, node, "type"),
+        node.path("name").asText(),
+        aliases,
+        source == null ? FactSource.MANUAL : source
+      ));
     });
 
     List<Fact> facts = new ArrayList<>();
@@ -58,6 +64,7 @@ public final class KnowledgeGraphJsonCodec {
       node.put("name", entity.name());
       ArrayNode aliases = node.putArray("aliases");
       entity.aliases().forEach(aliases::add);
+      putEnum(node, "source", entity.source());
     });
     ArrayNode facts = root.putArray("facts");
     document.facts().forEach(fact -> {

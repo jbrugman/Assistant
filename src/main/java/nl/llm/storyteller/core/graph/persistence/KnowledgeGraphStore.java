@@ -10,6 +10,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.UnaryOperator;
 import java.nio.file.StandardCopyOption;
 import java.util.Objects;
 
@@ -68,6 +69,12 @@ public final class KnowledgeGraphStore {
     } finally {
       deleteTemporaryFile(temporaryPath);
     }
+  }
+
+  public synchronized KnowledgeGraphDocument update(UnaryOperator<KnowledgeGraphDocument> update) {
+    KnowledgeGraphDocument updated = update.apply(load());
+    save(updated);
+    return updated;
   }
 
   private void moveAtomicallyWhereSupported(Path source, Path target) throws IOException {

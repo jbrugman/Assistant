@@ -4,7 +4,7 @@ Status: accepted; implementation in progress
 Scope: Storyteller chat generation, validation and canonical memory  
 Last updated: 2026-08-25
 
-Implementation note: version 1.2.0 implements the graph domain model, a configurable predicate catalog that is closed after startup, validation, immutable indexes and atomic JSON store, plus a minimal runtime slice. Predicate type constraints, positive/negative rendering, and `/graph -fill` instructions all use the same catalog. The application automatically loads the configured graph, injects relevant active hard facts into generation and validation prompts, provides local `/graph` inspection and empty `/graph -generate` initialization, and supports model-assisted `/graph -fill` extraction from only the fixed-protagonist document. Turn-driven mutation is not implemented.
+Implementation note: version 1.2.0 implements the graph domain model, configurable closed predicate catalog, validation, immutable indexes, atomic JSON persistence, prompt grounding, and the initial graph CLI commands. Version 1.2.2 adds configured extraction from batches of completed turns. Java normalizes all such entities and facts to source `TURNBASED`, forces generated facts to `hard=false`, protects non-TURNBASED data during merge, and provides `/graph -reset` to remove only TURNBASED items.
 
 ## 1. Context
 
@@ -241,11 +241,10 @@ An initial package layout is:
 
 ```text
 nl.llm.storyteller.core.graph
-|- KnowledgeGraphService.java
 |- KnowledgeGraphSnapshot.java
-|- RelevantGraphContext.java
-|- GraphGenerationResult.java
-|  
+|- KnowledgeGraphValidator.java
+|- PredicateCatalog.java
+|
 |- model
 |  |- Entity.java
 |  |- EntityId.java
@@ -257,15 +256,21 @@ nl.llm.storyteller.core.graph
 |  |- FactSource.java
 |  |- FactStatus.java
 |  `- KnowledgeGraphDocument.java
-|  
+|
 |- persistence
+|  |- KnowledgeGraphJsonCodec.java
 |  `- KnowledgeGraphStore.java
-|  
-`- generation
-   |- GraphFactExtractor.java
-   |- GraphCandidateOperation.java
-   |- GraphReconciler.java
-   `- LlmGraphFactExtractor.java
+|
+|- service
+|  |- KnowledgeGraphService.java
+|  |- ReadOnlyKnowledgeGraphService.java
+|  |- KnowledgeGraphInitializer.java
+|  |- KnowledgeGraphGenerator.java
+|  |- KnowledgeGraphFillService.java
+|  `- KnowledgeGraphManagementService.java
+|
+`- turnbasedservice
+   `- TurnBasedKnowledgeGraphService.java
 ```
 
 This is a responsibility map, not a requirement to create every class or subpackage immediately. The first implementation should avoid empty abstractions and introduce only the types needed by the delivered slice.

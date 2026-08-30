@@ -82,13 +82,13 @@ class KnowledgeGraphFormatterTest {
       Revision: 7
 
       Entities:
-      - Valerie [CHARACTER] aliases=[Val]
-      - Microphone [ITEM]
-      - Piano [ITEM]
+      - Valerie [CHARACTER] source=MANUAL aliases=[Val]
+      - Microphone [ITEM] source=MANUAL
+      - Piano [ITEM] source=MANUAL
 
       Facts:
-      - Valerie NOT POSSESSES Piano
-      - Valerie POSSESSES Microphone [hard]""".formatted(graphFile.toAbsolutePath().normalize()),
+      - Valerie NOT POSSESSES Piano [source=MANUAL]
+      - Valerie POSSESSES Microphone [source=MANUAL, hard]""".formatted(graphFile.toAbsolutePath().normalize()),
       formatted
     );
   }
