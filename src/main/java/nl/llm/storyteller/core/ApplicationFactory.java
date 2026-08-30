@@ -1,8 +1,10 @@
 package nl.llm.storyteller.core;
 
-import nl.llm.storyteller.core.graph.ReadOnlyKnowledgeGraphService;
-import nl.llm.storyteller.core.graph.KnowledgeGraphInitializer;
-import nl.llm.storyteller.core.graph.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphInitializer;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphManagementService;
+import nl.llm.storyteller.core.graph.turnbasedservice.TurnBasedKnowledgeGraphService;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
@@ -13,7 +15,7 @@ import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
-import nl.llm.storyteller.core.service.KnowledgeGraphFillService;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphFillService;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
@@ -107,6 +109,17 @@ public final class ApplicationFactory {
     ReadOnlyKnowledgeGraphService knowledgeGraphService = new ReadOnlyKnowledgeGraphService(
       knowledgeGraphStore, predicateCatalog
     );
+    TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService = new TurnBasedKnowledgeGraphService(
+      historyStore,
+      backgroundClient,
+      knowledgeGraphStore,
+      knowledgeGraphService,
+      predicateCatalog,
+      derivedMemoryTaskQueue,
+      config.graphTurnBasedBatchTurns(),
+      config.summaryOptions(),
+      config.summaryRequestTimeoutSeconds()
+    );
     PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
       historyStore,
       summaryManager,
@@ -126,7 +139,8 @@ public final class ApplicationFactory {
       recentSummaryManager,
       canonicalStateManager,
       promptAssemblyService,
-      promptResourceLoader
+      promptResourceLoader,
+      turnBasedKnowledgeGraphService
     );
     return new ApplicationContext(
       config,
@@ -146,6 +160,7 @@ public final class ApplicationFactory {
           predicateCatalog
         )
       ),
+      new KnowledgeGraphManagementService(knowledgeGraphStore, knowledgeGraphService),
       managedLlamaServer,
       managedMlxServer
     );

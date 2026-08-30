@@ -1,7 +1,8 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import nl.llm.storyteller.core.JsonSupport;
+import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Fact;
 import nl.llm.storyteller.core.graph.model.FactSource;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import nl.llm.storyteller.core.graph.model.EntityType;
+import nl.llm.storyteller.core.graph.model.Entity;
 
 /** Prepared for a future model-assisted graph generation iteration; not wired into the current runtime. */
 public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
@@ -68,6 +70,18 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
   }
 
   private KnowledgeGraphDocument normalize(KnowledgeGraphDocument candidate) {
+    Map<String, Entity> entities = candidate.entities().entrySet().stream()
+      .collect(Collectors.toMap(
+        Map.Entry::getKey,
+        entry -> new Entity(
+          entry.getValue().type(),
+          entry.getValue().name(),
+          entry.getValue().aliases(),
+          FactSource.FIXED_PROTAGONIST
+        ),
+        (left, right) -> left,
+        java.util.LinkedHashMap::new
+      ));
     List<Fact> facts = candidate.facts().stream()
       .map(fact -> new Fact(
         fact.id(),
@@ -84,7 +98,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
     return new KnowledgeGraphDocument(
       KnowledgeGraphDocument.CURRENT_SCHEMA_VERSION,
       graphService.current().revision() + 1,
-      candidate.entities(),
+      entities,
       facts
     );
   }
@@ -112,7 +126,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
     Extract a knowledge graph from the supplied story context. Return JSON only, without commentary.
     The root fields are schemaVersion, revision, entities, and facts.
     Entities is an object keyed by stable lowercase IDs. Each entity has one of these types: %s.
-    a name, and aliases. Facts may only use these configured predicates: %s.
+    a name, aliases, and source FIXED_PROTAGONIST. Facts may only use these configured predicates: %s.
     Predicates are directional. Include explicit negative facts only when the source explicitly rules them out.
     Each fact needs a unique id, subject, predicate, object, polarity
     (POSITIVE or NEGATIVE), status ACTIVE, source FIXED_PROTAGONIST, sourceTurn null, and hard true.

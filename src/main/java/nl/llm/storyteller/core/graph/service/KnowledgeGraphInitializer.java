@@ -1,4 +1,4 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;

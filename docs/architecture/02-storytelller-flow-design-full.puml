@@ -6,10 +6,10 @@ start
 :CLI AssistantApp starts and creates the core runtime context;
 
 note right
-Version 1.2.0 includes the active core.graph runtime slice:
+Version 1.2.2 extends the active core.graph runtime slice:
 validated JSON persistence, immutable snapshots,
-automatic loading, graph CLI control commands,
-and bounded prompt grounding.
+authority-aware prompt grounding, graph CLI control,
+and configured turn-based graph extraction.
 end note
 
 if (managed llama-server selected?) then (yes)
@@ -49,17 +49,23 @@ else (no)
           :Create minimal empty graph document locally;
           :Validate and atomically persist graph;
           :Publish empty immutable snapshot;
-        else (/graph -fill)
-          :Load only fixed_protagonists.yml;
-          :Ask model for closed-ontology graph JSON;
-          :Normalize schema, revision, provenance,
-          status, and hardness in Java;
-          if (candidate graph valid?) then (yes)
-            :Atomically persist graph;
-            :Publish new immutable snapshot;
-          else (no)
-            :Retain persisted graph and active snapshot;
-            :Print graph fill error;
+        else (no)
+          if (/graph -fill?) then (yes)
+            :Load only fixed_protagonists.yml;
+            :Ask model for closed-ontology graph JSON;
+            :Normalize entities and facts to
+            FIXED_PROTAGONIST and hard facts;
+            if (candidate graph valid?) then (yes)
+              :Atomically persist graph;
+              :Publish new immutable snapshot;
+            else (no)
+              :Retain persisted graph and active snapshot;
+              :Print graph fill error;
+            endif
+          else (/graph -reset)
+            :Remove only TURNBASED entities and facts;
+            :Preserve all other graph sources;
+            :Atomically persist and publish graph;
           endif
         endif
       endif
@@ -101,7 +107,9 @@ else (no)
 
       :Automatically reload graph file when available;
       :Resolve entities mentioned by name or alias;
-      :Select bounded active hard facts;
+      :Select bounded active facts by authority;
+      :Label hard facts authoritative and
+      TURNBASED facts lower confidence;
       :Assemble prompt stack;
       note right
       Prompt stack contains:
@@ -136,6 +144,12 @@ else (no)
 
       :Append turn to history;
       :Persist turn-state if active;
+
+      if (configured graph turn batch reached?) then (yes)
+        :Queue extraction from latest completed turns;
+        :Normalize candidate entities and facts to TURNBASED;
+        :Merge without overriding non-TURNBASED data;
+      endif
 
       if (Cache-buster interval reached?) then (yes)
         :Send silent reset-with-cache-buster request;

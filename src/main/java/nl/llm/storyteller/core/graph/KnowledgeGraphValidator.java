@@ -81,6 +81,9 @@ public final class KnowledgeGraphValidator {
       if (entity.name().isBlank()) {
         violations.add(ENTITY_PREFIX + rawId + "' has no name");
       }
+      if (entity.source() == null) {
+        violations.add(ENTITY_PREFIX + rawId + "' has no source");
+      }
       validateAliases(id, entity, violations);
       entities.put(id, entity);
     }

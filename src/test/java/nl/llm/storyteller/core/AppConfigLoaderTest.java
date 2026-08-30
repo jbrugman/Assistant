@@ -7,9 +7,30 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AppConfigLoaderTest {
+    @Test
+    @DisplayName("""
+        Given a turn-based graph batch size below one,
+        When the application config is loaded,
+        Then the invalid update interval should be rejected
+        """)
+    void shouldRejectInvalidTurnBasedGraphBatchSize() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-graph-turn-batch");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, "graph.turnBased.batchTurns=0");
+
+        IllegalArgumentException exception = assertThrows(
+            IllegalArgumentException.class,
+            () -> nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null)
+        );
+
+        assertTrue(exception.getMessage().contains("Batch sizes must all be at least 1"));
+    }
+
     @Test
     @DisplayName("""
         Given no local configuration override,
@@ -25,6 +46,8 @@ class AppConfigLoaderTest {
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
         assertTrue(config.commandHelpText().contains("/image <instruction>"));
+        assertTrue(config.commandHelpText().contains("/graph -reset"));
+        assertEquals(3, config.graphTurnBasedBatchTurns());
         assertEquals(5, config.cacheBusterInterval());
         assertEquals("auto", config.validationOutputMode());
         assertEquals(

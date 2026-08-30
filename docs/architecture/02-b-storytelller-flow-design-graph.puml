@@ -14,17 +14,23 @@ if (graph command?) then (yes)
       :Create minimal empty graph;
       :Validate and atomically persist;
       :Publish empty snapshot;
-    else (/graph -fill)
-      :Load only fixed_protagonists.yml;
-      :Request closed-ontology JSON from model;
-      :Normalize schema, revision, source,
-      status and hardness in Java;
-      if (valid candidate?) then (yes)
-        :Atomically replace graph file;
-        :Publish new snapshot;
-      else (no)
-        :Keep persisted graph and active snapshot;
-        :Report fill error;
+    else (no)
+      if (/graph -fill?) then (yes)
+        :Load only fixed_protagonists.yml;
+        :Request closed-ontology JSON from model;
+        :Normalize entities and facts to
+        FIXED_PROTAGONIST and hard facts;
+        if (valid candidate?) then (yes)
+          :Atomically replace graph file;
+          :Publish new snapshot;
+        else (no)
+          :Keep persisted graph and active snapshot;
+          :Report fill error;
+        endif
+      else (/graph -reset)
+        :Remove only TURNBASED entities and facts;
+        :Preserve fixed, manual and other sources;
+        :Atomically persist and publish snapshot;
       endif
     endif
   endif
@@ -36,9 +42,19 @@ else (story or validation prompt)
     :Keep last valid snapshot;
   endif
   :Resolve mentioned names and aliases;
-  :Select bounded ACTIVE hard facts;
-  :Inject facts into generation
+  :Select bounded ACTIVE facts;
+  :Label hard facts authoritative;
+  :Label TURNBASED facts lower confidence;
+  :Inject authority-aware facts into generation
   or validation prompt;
+  if (completed turn count reaches configured batch?) then (yes)
+    :Queue latest complete turn batch;
+    :Extract closed-ontology candidate through model;
+    :Normalize all candidate items to TURNBASED;
+    :Force generated facts to ACTIVE and hard=false;
+    :Protect non-TURNBASED entities and facts;
+    :Atomically merge and publish snapshot;
+  endif
 endif
 
 stop

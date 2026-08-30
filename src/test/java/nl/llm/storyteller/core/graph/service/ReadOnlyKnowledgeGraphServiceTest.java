@@ -1,5 +1,7 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
+import nl.llm.storyteller.core.graph.KnowledgeGraphSnapshot;
+import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.model.Entity;
 import nl.llm.storyteller.core.graph.model.EntityId;
 import nl.llm.storyteller.core.graph.model.EntityType;
@@ -106,6 +108,33 @@ class ReadOnlyKnowledgeGraphServiceTest {
     assertTrue(facts.contains("Valerie does not love Chris."));
   }
 
+  @Test
+  @DisplayName("""
+    Given a non-hard fact generated from completed turns,
+    When relevant graph context is requested,
+    Then the fact should be labeled as lower-confidence context rather than authoritative truth
+    """)
+  void labelsTurnBasedFactsAsLowerConfidenceContext() {
+    KnowledgeGraphDocument document = new KnowledgeGraphDocument(
+      1,
+      2,
+      Map.of(
+        mike.value(), new Entity(EntityType.CHARACTER, "Mike", List.of(), FactSource.TURNBASED),
+        guitar.value(), new Entity(EntityType.ITEM, "Guitar", List.of(), FactSource.TURNBASED)
+      ),
+      List.of(fact("generated-mike-guitar", mike, guitar, Polarity.POSITIVE, FactStatus.ACTIVE, false, FactSource.TURNBASED))
+    );
+    ReadOnlyKnowledgeGraphService service = new ReadOnlyKnowledgeGraphService(
+      KnowledgeGraphSnapshot.from(document, new KnowledgeGraphValidator())
+    );
+
+    String facts = service.relevantFacts("Mike enters.");
+
+    assertTrue(facts.contains("Turn-based graph context (model-generated, lower confidence"));
+    assertTrue(facts.contains("Mike possesses Guitar."));
+    assertFalse(facts.contains("authoritative;"));
+  }
+
   private ReadOnlyKnowledgeGraphService service() {
     KnowledgeGraphDocument document = graphDocument();
     return new ReadOnlyKnowledgeGraphService(KnowledgeGraphSnapshot.from(document, new KnowledgeGraphValidator()));
@@ -133,6 +162,18 @@ class ReadOnlyKnowledgeGraphServiceTest {
   private Fact fact(
     String id, EntityId subject, EntityId object, Polarity polarity, FactStatus status, boolean hard
   ) {
-    return new Fact(id, subject, new PredicateId("POSSESSES"), object, polarity, status, FactSource.MANUAL, null, hard);
+    return fact(id, subject, object, polarity, status, hard, FactSource.MANUAL);
+  }
+
+  private Fact fact(
+    String id,
+    EntityId subject,
+    EntityId object,
+    Polarity polarity,
+    FactStatus status,
+    boolean hard,
+    FactSource source
+  ) {
+    return new Fact(id, subject, new PredicateId("POSSESSES"), object, polarity, status, source, null, hard);
   }
 }

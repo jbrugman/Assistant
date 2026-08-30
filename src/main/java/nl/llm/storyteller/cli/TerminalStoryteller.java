@@ -23,6 +23,7 @@ final class TerminalStoryteller {
   private static final String GRAPH_COMMAND = "/graph";
   private static final String GRAPH_GENERATE_COMMAND = "/graph -generate";
   private static final String GRAPH_FILL_COMMAND = "/graph -fill";
+  private static final String GRAPH_RESET_COMMAND = "/graph -reset";
   private static final String EXPORT_ALL_OPTION = "-all";
   private static final String EXPORT_INTRO_OPTION = "-intro";
   private static final String EXPORT_CLEAN_OPTION = "-clean";
@@ -160,6 +161,14 @@ final class TerminalStoryteller {
         .formatted(graph.revision()));
       return true;
     }
+    if (GRAPH_RESET_COMMAND.equalsIgnoreCase(userInput)) {
+      var result = context.knowledgeGraphManagementService().resetTurnBasedItems();
+      renderer.printMessage(
+        "Turn-based graph data reset: %d entities and %d facts removed (revision %d)."
+          .formatted(result.entitiesRemoved(), result.factsRemoved(), result.revision())
+      );
+      return true;
+    }
     if (GRAPH_COMMAND.equalsIgnoreCase(userInput)) {
       renderer.printMessage(KnowledgeGraphFormatter.format(
         context.knowledgeGraphService().current(),
@@ -170,7 +179,7 @@ final class TerminalStoryteller {
     if (userInput.regionMatches(true, 0, GRAPH_COMMAND + " ", 0, GRAPH_COMMAND.length() + 1)) {
       renderer.printError(
         "Graph command error",
-        "Use /graph, /graph -generate, or /graph -fill."
+        "Use /graph, /graph -generate, /graph -fill, or /graph -reset."
       );
       return true;
     }

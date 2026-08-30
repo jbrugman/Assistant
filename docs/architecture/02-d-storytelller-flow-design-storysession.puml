@@ -12,7 +12,9 @@ endif
 :Load canonical state and summaries;
 :Load recent complete turns;
 :Automatically refresh graph snapshot;
-:Resolve relevant ACTIVE hard facts;
+:Resolve relevant ACTIVE facts by authority;
+:Label hard facts authoritative and
+TURNBASED facts lower confidence;
 :Assemble story prompt;
 :Send chat request through resilience guard;
 :Receive draft response;
@@ -33,11 +35,14 @@ endif
 
 :Append completed turn to history;
 :Persist active turn-state;
+if (graph turn batch reached?) then (yes)
+  :Queue turn-based graph extraction and protected merge;
+endif
 if (cache-buster interval reached?) then (yes)
   :Send silent reset-with-cache-buster request;
 endif
 :Print final response;
 :Queue canonical state, recent summary,
-and long-term summary updates;
+long-term summary and eligible graph updates;
 stop
 @enduml

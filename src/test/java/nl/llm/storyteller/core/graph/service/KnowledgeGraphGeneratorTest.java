@@ -1,6 +1,7 @@
-package nl.llm.storyteller.core.graph;
+package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
+import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.ChatClient;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +42,7 @@ class KnowledgeGraphGeneratorTest {
     assertEquals(1, result.entities());
     assertEquals(1, result.revision());
     assertEquals(1, store.load().schemaVersion());
+    assertEquals(FactSource.FIXED_PROTAGONIST, store.load().entities().get("character.valerie").source());
     assertEquals(1, service.current().revision());
   }
 
