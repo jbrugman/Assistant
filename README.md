@@ -22,8 +22,8 @@ fixed-protagonist constraints. It can be repeated with different models, quantiz
 Specify a model after `/benchmark`, or omit it to use the model already loaded by the backend. The validation,
 cache-buster, and knowledge-graph switches can be enabled independently so their effects can be compared.
 
-The first results below were measured with Gemma 4 26B A4B (`mlx-community/gemma-4-26B-A4B-it-qat-6bit`),
-running as a 6-bit MLX model:
+The first results below were measured with the official Gemma 4 26B A4B model available through LM Studio,
+using its 6-bit MLX variant:
 
 | Configuration | Facts retained | Validation probes | Total time |
 |---|---:|---:|---:|
