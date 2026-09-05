@@ -12,7 +12,7 @@ The main goals are:
 - keep the existing CLI viable
 - make a frontend possible without duplicating storyteller logic
 - avoid sending large prompt, history, and state payloads on every request
-- keep the first API version simple enough to build without introducing a database immediately
+- keep the first API version simple while establishing database-backed persistence boundaries
 
 ## Current Direction
 
@@ -37,7 +37,6 @@ Out of scope for the initial design:
 - shared concurrent editing
 - model download or model management
 - model hosting or inference runtime implementation
-- a database dependency for the local API deployment
 - a full Swagger or OpenAPI contract in this phase
 
 ## Backend Assumption
@@ -53,51 +52,100 @@ It should continue to work with:
 - hosted OpenAI-compatible APIs
 - other local or remote compatible backends
 
-## Modular Monolith Today, Split-Friendly Tomorrow
+## HTTP Framework
 
-The application is intentionally a single deployable Maven project and jar for now. 
-The local storyteller benefits from a simple startup, one configuration surface, and no network boundary between its adapters and story behavior.
+The API uses Javalin as its HTTP framework. This keeps the HTTP adapter explicit and lightweight without introducing a full application framework, dependency-injection container, ORM, or framework-owned persistence model.
 
-It is nevertheless organized as a modular monolith: `core` owns storyteller behavior, while `cli` and the future `api` are adapters with one-way dependencies toward that core. 
-No core class may depend on HTTP, cookie, terminal, or DTO types. 
-If separate deployment becomes justified later, the adapters and their dependencies can be extracted into separate modules or services without first untangling domain behavior.
+Javalin is responsible only for:
+
+- HTTP server lifecycle
+- route registration and request handling
+- request and response serialization through the existing Jackson model
+- cookie and header handling
+- transport-level validation and error mapping
+- response streaming where required
+
+Javalin route handlers must remain thin. They translate HTTP input into application-service calls and translate results into API DTOs. Storyteller orchestration, transaction boundaries, repositories, and domain behavior remain independent of Javalin so the CLI continues to use the same core without an HTTP runtime.
+
+The API module owns its configuration. Its bundled defaults live in `storyteller-api/src/main/resources/application.config`, independently of the core configuration in `storyteller-core/src/main/resources/systemprompts/application.config`. A runtime `application.config` beside the API executable, or in the working directory for the API jar, overrides the API defaults. The core and CLI modules contain no `api.*` settings.
+
+Initial settings:
+
+- `api.host`
+- `api.port`
+- `api.database.path`
+- `api.database.username`
+- `api.database.password`
+- `api.sessionTimeoutMinutes`
+
+## Implementation Conventions
+
+API code and tests must follow the existing project style:
+
+- indent Java and SQL with two spaces
+- use records for immutable DTOs, configuration values, repository projections, and other data carriers where appropriate
+- use classes where identity, mutable lifecycle, resource ownership, or substantial behavior makes a record unsuitable
+- structure test names with the existing multiline `@DisplayName` Given/When/Then form
+- keep Given, When, and Then phases visually distinct in each test
+- prefer parameterized tests when multiple inputs or boundary cases verify the same behavior
+- follow the existing JUnit conventions and avoid introducing another assertion or mocking framework without a concrete need
+
+## Maven Modules And Distributions
+
+Storyteller remains one Git project and one Maven reactor, split into three modules:
+
+```text
+Assistant/
+  pom.xml                 parent and reactor aggregator
+  storyteller-core/       shared domain, services, and core configuration
+  storyteller-cli/        terminal adapter and CLI application
+  storyteller-api/        HTTP adapter, database persistence, and API application
+```
+
+The `storyteller-core` module contains no CLI or API framework dependencies. `storyteller-cli` depends on the core and adds JLine. `storyteller-api` also depends on the core and adds Javalin, Jetty, and H2. The CLI and API modules do not depend on each other.
+
+The CLI starts through `nl.llm.storyteller.cli.AssistantApp`. The API starts independently through `nl.llm.storyteller.api.ApiApplication`. Each application owns its lifecycle and distribution; no runtime discovery or `ServiceLoader` coupling is used.
+
+This creates explicit application boundaries without introducing a compile-time dependency from the core to either adapter. No core class may depend on JLine, Javalin, H2, HTTP, cookie, terminal, or API DTO types.
 
 ## Package Boundary And Core Preservation
 
 The future frontend API must live in a dedicated package so the current CLI and storyteller core remain usable without an HTTP server.
 
-Recommended package layout:
+Module and package layout:
 
 ```text
-nl.llm.storyteller
-  core/                     reusable storyteller configuration and composition root
-    service/                storyteller core and orchestration
-    model/                  core records and value types
-  cli/                      terminal adapter
-  api/
+storyteller-core
+  nl.llm.storyteller.core/  reusable storyteller configuration and composition root
+storyteller-cli
+  nl.llm.storyteller.cli/   terminal adapter and application entry point
+storyteller-api
+  nl.llm.storyteller.api/
     http/                   HTTP server bootstrap, routing, controllers, error mapping
-    dto/                    request and response DTOs only
-    session/                API session lifecycle, cookie handling, and disk-session storage
+    http/dto/               request and response DTOs only
+    session/                API session lifecycle and cookie handling
+    persistence/            repository contracts and JDBC implementations
     bundle/                 import and download bundle handling
 ```
 
 Dependency direction:
 
 ```text
-CLI (TerminalStoryteller) ─┐
-                           ├─> storyteller core (`core` / `core.service` / `core.model`)
-HTTP API (`api`) ──────────┘
+CLI (`storyteller-cli`) ─────────> storyteller core
+API (`storyteller-api`) ─────────> storyteller core
+storyteller core ────────────────X API implementation
 ```
 
 Rules for the API package:
 
 - `api` may depend on the existing `core` packages, but core packages must not depend on `api` classes, HTTP types, cookies, or DTOs.
 - Controllers translate HTTP requests into core calls and translate core results into DTOs; they must not rebuild prompts, validation, history mutation, derived-memory updates, or undo logic.
-- API session storage adapts the existing file-based core state to per-session directories; it must not replace the current CLI memory location or alter CLI behavior.
+- API runtime state is persisted through repository contracts backed by JDBC; storage details must not leak into controllers or storyteller services.
+- The API database must not replace the current CLI memory location or alter CLI behavior. The CLI may continue to use its existing file-backed stores behind the same storage boundaries.
 - Browser-cookie handling stays in `api.session`; the cookie only identifies a server-owned session and never contains story content.
 - Reusable session-facing operations should be extracted from existing services only when both the CLI and API need them. The extraction must preserve existing CLI behavior and test coverage.
 
-This lets the current CLI continue to construct and use its local core exactly as it does now, while the API becomes an additional entry point rather than a framework requirement.
+The CLI and API have separate entry points and processes. Choosing the CLI distribution omits the API completely at compile and packaging time; choosing the API distribution omits the CLI and JLine completely.
 
 ## Session Model
 
@@ -129,7 +177,7 @@ Recommended cookie behavior:
 - cookie value: a random, opaque session reference or signed session reference
 - local default: host-only cookie for `localhost`, `Path=/`, `HttpOnly`, `SameSite=Lax`, and no `Secure` flag because the local API uses HTTP
 - expiry: sliding `Max-Age` aligned with the configured session inactivity timeout; renew it after a valid session access
-- server-side data: history, summaries, canonical state, prompt overrides, and metadata remain in the session directory on disk
+- server-side data: history, summaries, canonical state, prompt overrides, and metadata remain in the API database
 - browser behavior: a frontend can call a current-session endpoint without persisting a session id in JavaScript storage
 - expired session: `GET /v1/session` returns `410` and clears the cookie; a missing cookie returns `404`
 - deletion: clear the cookie when it points to the deleted session
@@ -140,7 +188,7 @@ This remains compatible with non-browser API clients: they can keep using explic
 
 ## Confirmed Session Lifecycle
 
-The first API deployment is a local, filesystem-backed system and does not require a database.
+The first API deployment uses an embedded, file-backed H2 database for runtime state.
 Sessions are ephemeral by default and remain available while they are actively used.
 
 Confirmed behavior:
@@ -149,55 +197,175 @@ Confirmed behavior:
 - inactivity extends or refreshes `expiresAt`
 - the default inactivity expiry is `60` minutes and should be configurable by the local operator
 - expired sessions are cleaned up by a background job and again during application startup
-- cleanup removes the on-disk session directory
-- explicit session deletion removes the same directory immediately
+- cleanup deletes the session and all owned runtime state in one transaction
+- explicit session deletion performs the same transactional deletion immediately
 - separately downloaded session bundles are not affected by session cleanup
 
-This protects disk space while keeping a local browser frontend usable through refreshes and short interruptions.
+This protects storage while keeping a local browser frontend usable through refreshes and short interruptions.
 
 ## Storage Strategy
 
-The first API version should use on-disk session storage rather than a database.
+The first API version should persist runtime state in an embedded, file-backed H2 database.
 
-Recommended layout:
+Database-backed runtime state includes:
 
-```text
-./memory/sessions/<session-id>/
-  history.json
-  history.md
-  summary.md
-  recent-summary.md
-  canonical-state.yaml
-  session-config.json
-  session-metadata.json
-  prompt-overrides/
-    systemprompt.md
-    rules.md
-    fixed_protagonists.yml
-  exports/
+- sessions and lifecycle metadata
+- ordered messages and history cursors
+- summary and recent-summary state
+- canonical state and knowledge-graph state
+- validated session configuration and prompt overrides
+
+Static application defaults, bundled prompt resources, model files, and explicitly generated story or session-bundle downloads remain files. Large binary inputs may also remain files, with only their metadata and stable reference stored in the database.
+
+Persistence rules:
+
+- access runtime state only through repository contracts
+- use JDBC and standard SQL syntax
+- do not use H2-specific SQL, compatibility modes, data types, functions, identity behavior, or other vendor extensions
+- keep transaction boundaries in the application service layer so a turn and its related state changes commit atomically
+- store structured payloads as portable text when a normalized relational representation is not useful; do not depend on vendor-specific JSON column types
+- keep the initial schema in an explicit, portable SQL resource
+- test repository behavior independently from the existing CLI file stores
+
+### Initial Database Schema
+
+Identifiers are generated by the application. Timestamps are written and read as UTC. Large textual values use bounded `VARCHAR` columns so the schema does not depend on a vendor-specific `TEXT`, `CLOB`, or JSON type. The application must enforce smaller practical limits before persistence.
+
+```sql
+CREATE TABLE story_session (
+  session_id VARCHAR(36) NOT NULL,
+  title VARCHAR(255),
+  created_at TIMESTAMP NOT NULL,
+  updated_at TIMESTAMP NOT NULL,
+  last_accessed_at TIMESTAMP NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  PRIMARY KEY (session_id)
+);
+
+CREATE TABLE session_configuration (
+  session_id VARCHAR(36) NOT NULL,
+  temperature DECIMAL(4, 3),
+  top_p DECIMAL(4, 3),
+  validation_enabled BOOLEAN,
+  cache_buster_interval INTEGER,
+  PRIMARY KEY (session_id),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE session_prompt_override (
+  session_id VARCHAR(36) NOT NULL,
+  override_name VARCHAR(64) NOT NULL,
+  override_content VARCHAR(1000000) NOT NULL,
+  PRIMARY KEY (session_id, override_name),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE story_message (
+  session_id VARCHAR(36) NOT NULL,
+  message_index INTEGER NOT NULL,
+  message_role VARCHAR(16) NOT NULL,
+  content VARCHAR(1000000) NOT NULL,
+  PRIMARY KEY (session_id, message_index),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
+  CHECK (message_index >= 0),
+  CHECK (message_role IN ('system', 'user', 'assistant', 'tool'))
+);
+
+CREATE TABLE session_memory (
+  session_id VARCHAR(36) NOT NULL,
+  summary_content VARCHAR(1000000),
+  recent_summary_content VARCHAR(1000000),
+  canonical_state_content VARCHAR(1000000),
+  summary_cursor INTEGER NOT NULL,
+  recent_summary_cursor INTEGER NOT NULL,
+  canonical_state_cursor INTEGER NOT NULL,
+  PRIMARY KEY (session_id),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
+  CHECK (summary_cursor >= 0),
+  CHECK (recent_summary_cursor >= 0),
+  CHECK (canonical_state_cursor >= 0)
+);
+
+CREATE TABLE turn_state (
+  session_id VARCHAR(36) NOT NULL,
+  trigger_word VARCHAR(255) NOT NULL,
+  started BOOLEAN NOT NULL,
+  round_number INTEGER NOT NULL,
+  PRIMARY KEY (session_id),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
+  CHECK (round_number >= 0)
+);
+
+CREATE TABLE turn_protagonist (
+  session_id VARCHAR(36) NOT NULL,
+  protagonist_index INTEGER NOT NULL,
+  protagonist_name VARCHAR(255) NOT NULL,
+  turns_this_round INTEGER NOT NULL,
+  PRIMARY KEY (session_id, protagonist_index),
+  FOREIGN KEY (session_id) REFERENCES turn_state (session_id) ON DELETE CASCADE,
+  CHECK (protagonist_index >= 0),
+  CHECK (turns_this_round >= 0)
+);
+
+CREATE TABLE knowledge_graph (
+  session_id VARCHAR(36) NOT NULL,
+  schema_version INTEGER NOT NULL,
+  revision BIGINT NOT NULL,
+  PRIMARY KEY (session_id),
+  FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
+  CHECK (schema_version > 0),
+  CHECK (revision >= 0)
+);
+
+CREATE TABLE knowledge_entity (
+  session_id VARCHAR(36) NOT NULL,
+  entity_id VARCHAR(255) NOT NULL,
+  entity_type VARCHAR(64) NOT NULL,
+  entity_name VARCHAR(255) NOT NULL,
+  entity_source VARCHAR(64) NOT NULL,
+  PRIMARY KEY (session_id, entity_id),
+  FOREIGN KEY (session_id) REFERENCES knowledge_graph (session_id) ON DELETE CASCADE
+);
+
+CREATE TABLE knowledge_entity_alias (
+  session_id VARCHAR(36) NOT NULL,
+  entity_id VARCHAR(255) NOT NULL,
+  alias_index INTEGER NOT NULL,
+  alias_name VARCHAR(255) NOT NULL,
+  PRIMARY KEY (session_id, entity_id, alias_index),
+  FOREIGN KEY (session_id, entity_id)
+    REFERENCES knowledge_entity (session_id, entity_id) ON DELETE CASCADE,
+  CHECK (alias_index >= 0)
+);
+
+CREATE TABLE knowledge_fact (
+  session_id VARCHAR(36) NOT NULL,
+  fact_id VARCHAR(255) NOT NULL,
+  subject_entity_id VARCHAR(255) NOT NULL,
+  predicate_id VARCHAR(255) NOT NULL,
+  object_entity_id VARCHAR(255) NOT NULL,
+  polarity VARCHAR(32) NOT NULL,
+  fact_status VARCHAR(32) NOT NULL,
+  fact_source VARCHAR(64) NOT NULL,
+  source_turn INTEGER,
+  is_hard BOOLEAN NOT NULL,
+  PRIMARY KEY (session_id, fact_id),
+  FOREIGN KEY (session_id) REFERENCES knowledge_graph (session_id) ON DELETE CASCADE,
+  FOREIGN KEY (session_id, subject_entity_id)
+    REFERENCES knowledge_entity (session_id, entity_id),
+  FOREIGN KEY (session_id, object_entity_id)
+    REFERENCES knowledge_entity (session_id, entity_id),
+  CHECK (source_turn IS NULL OR source_turn >= 0)
+);
 ```
 
-Why this is the preferred first step:
+One transaction persists a completed turn: append its messages, update all affected cursors and derived state, update the knowledge graph when applicable, and finally update the session timestamps. Undo and session deletion are transactional for the same reason. Repository code must issue explicit statements and must not rely on database-generated identifiers.
 
-- avoids large request payloads
-- avoids immediate database complexity
-- keeps sessions easy to inspect and debug
-- maps well to the current file-based architecture
-- can be replaced later by a database-backed store behind the same interface
+## Future Database Direction
 
-## Future Storage Direction
+H2 is the embedded implementation for the first API version, not part of the domain contract. A later move to a production database such as PostgreSQL should require a datasource and deployment change, plus any deliberately database-specific migration, rather than changes to controllers or storyteller behavior.
 
-A database may still make sense later.
-
-Likely reasons to move there later:
-
-- multiple simultaneous users
-- session persistence across longer time spans
-- querying and administration
-- pagination over large histories
-- deployment on a shared server
-
-But the first local API version does not need that complexity because session state is server-owned and persisted on disk.
+Schema and query design must therefore remain portable from the start. Database-specific optimizations may be introduced only when a concrete production requirement justifies them and must stay isolated inside the persistence adapter.
 
 ## Session Bundle Import And Download
 
@@ -587,7 +755,7 @@ Any future CLI behavior that changes history, model state, memory state, or conf
 
 The first local API should stay small and use the decisions already made in this document:
 
-- use the documented filesystem session directory layout
+- persist API runtime state in the embedded H2 database through repository contracts
 - create and restore the active session with the browser cookie
 - support turns, reset, undo, history, state, and the whitelisted session configuration
 - return the complete history for the first version; add paging only when a real session size requires it
@@ -600,5 +768,6 @@ The next implementation step is to convert this minimal slice into:
 
 - an OpenAPI or Swagger contract
 - request and response DTOs
-- a session storage abstraction
+- repository contracts and the H2/JDBC persistence adapter
+- an initial portable SQL schema
 - a first HTTP controller layer

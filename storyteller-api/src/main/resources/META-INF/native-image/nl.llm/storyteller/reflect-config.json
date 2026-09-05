@@ -1,0 +1,20 @@
+[
+  {
+    "name": "nl.llm.storyteller.api.http.dto.CreateSessionRequest",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "nl.llm.storyteller.api.http.dto.ErrorResponse",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "nl.llm.storyteller.api.http.dto.SessionResponse",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true,
+    "allDeclaredFields": true
+  }
+]
