@@ -45,6 +45,7 @@ class AppConfigLoaderTest {
         assertEquals(baseDirectory.toAbsolutePath().normalize(), config.baseDir());
         assertTrue(config.chatModel().isBlank());
         assertTrue(config.validatorModel().isBlank());
+        assertTrue(config.openAiCompatibleApiKey().isBlank());
         assertTrue(config.commandHelpText().contains("/image <instruction>"));
         assertTrue(config.commandHelpText().contains("/graph -reset"));
         assertEquals(3, config.graphTurnBasedBatchTurns());
@@ -72,6 +73,7 @@ class AppConfigLoaderTest {
         Files.createDirectories(configFile.getParent());
         Files.writeString(configFile, """
             lmstudio.url=http://localhost:9999/v1/chat/completions
+            backend.http.apiKey=test-api-key
             model.chat=test-chat-model
             file.systemPrompt=overrides/story.md
             chat.maxRecentTurns=3
@@ -81,6 +83,7 @@ class AppConfigLoaderTest {
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
 
         assertEquals("http://localhost:9999/v1/chat/completions", config.openAiCompatibleUrl());
+        assertEquals("test-api-key", config.openAiCompatibleApiKey());
         assertEquals("test-chat-model", config.chatModel());
         assertEquals(3, config.maxRecentTurns());
         assertEquals(0, config.cacheBusterInterval());

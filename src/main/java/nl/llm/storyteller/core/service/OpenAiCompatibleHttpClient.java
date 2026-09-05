@@ -28,12 +28,18 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
   private final String url;
   private final String model;
   private final boolean hideReasoningBlocks;
+  private final String apiKey;
   private final HttpClient httpClient;
 
   public OpenAiCompatibleHttpClient(String url, String model, boolean hideReasoningBlocks) {
+    this(url, model, hideReasoningBlocks, "");
+  }
+
+  public OpenAiCompatibleHttpClient(String url, String model, boolean hideReasoningBlocks, String apiKey) {
     this.url = Objects.requireNonNull(url);
     this.model = Objects.requireNonNull(model);
     this.hideReasoningBlocks = hideReasoningBlocks;
+    this.apiKey = Objects.requireNonNull(apiKey);
     this.httpClient = HttpClient.newBuilder().build();
   }
 
@@ -42,14 +48,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     throws IOException, InterruptedException {
     Map<String, Object> payload = buildPayload(messages, options);
 
-    HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-      .header("Content-Type", "application/json")
-      .timeout(Duration.ofSeconds(timeoutSeconds))
-      .POST(HttpRequest.BodyPublishers.ofString(
-        JsonSupport.OBJECT_MAPPER.writeValueAsString(payload),
-        StandardCharsets.UTF_8
-      ))
-      .build();
+    HttpRequest request = buildRequest(messages, options, timeoutSeconds);
 
     HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
     int statusCode = response.statusCode();
@@ -86,6 +85,21 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     }
 
     return stripReasoningBlocks(contentNode.asText());
+  }
+
+  HttpRequest buildRequest(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
+    throws JsonProcessingException {
+    HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
+      .header("Content-Type", "application/json")
+      .timeout(Duration.ofSeconds(timeoutSeconds))
+      .POST(HttpRequest.BodyPublishers.ofString(
+        JsonSupport.OBJECT_MAPPER.writeValueAsString(buildPayload(messages, options)),
+        StandardCharsets.UTF_8
+      ));
+    if (!apiKey.isBlank()) {
+      request.header("Authorization", "Bearer " + apiKey);
+    }
+    return request.build();
   }
 
   Map<String, Object> buildPayload(List<Message> messages, Map<String, Object> options) {

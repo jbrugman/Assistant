@@ -143,6 +143,10 @@ public final class AppConfig {
     return modelAccess.openAiCompatibleUrl();
   }
 
+  public String openAiCompatibleApiKey() {
+    return modelAccess.openAiCompatibleApiKey();
+  }
+
   public boolean usesManagedLlamaServer() {
     return "managed-llama-server".equalsIgnoreCase(backendType());
   }
@@ -464,6 +468,7 @@ public final class AppConfig {
       new ModelAccessConfig(
         source.requiredString("backend.type"),
         source.requiredString("backend.http.url"),
+        source.optionalTrimmedString("backend.http.apiKey"),
         source.optionalTrimmedString("model.chat"),
         source.optionalTrimmedString("model.validator"),
         source.optionalTrimmedString("backend.llama.command"),
@@ -574,6 +579,7 @@ public final class AppConfig {
   private record ModelAccessConfig(
     String backendType,
     String openAiCompatibleUrl,
+    String openAiCompatibleApiKey,
     String chatModel,
     String validatorModel,
     String llamaServerCommand,

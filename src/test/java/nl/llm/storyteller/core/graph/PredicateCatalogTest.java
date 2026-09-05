@@ -24,15 +24,19 @@ class PredicateCatalogTest {
   @Test
   @DisplayName("""
     Given the default predicate catalog configuration,
-    When the residence predicates are loaded,
+    When the residence and clothing predicates are loaded,
     Then their configured types and text should be available
     """)
-  void defaultCatalogContainsConfiguredResidencePredicates() {
+  void defaultCatalogContainsConfiguredResidenceAndClothingPredicates() {
     PredicateCatalog catalog = PredicateCatalog.load(Path.of(System.getProperty("user.dir")).toAbsolutePath());
 
     assertEquals(EntityType.CHARACTER, catalog.require(new PredicateId("LIVES_WITH")).objectType());
     assertEquals(EntityType.LOCATION, catalog.require(new PredicateId("LIVES")).objectType());
     assertEquals("lives at", catalog.require(new PredicateId("LIVES")).positiveText());
+    assertEquals(EntityType.CHARACTER, catalog.require(new PredicateId("WEARS")).subjectType());
+    assertEquals(EntityType.ITEM, catalog.require(new PredicateId("WEARS")).objectType());
+    assertTrue(catalog.require(new PredicateId("WEARS")).temporal());
+    assertEquals("wears", catalog.require(new PredicateId("WEARS")).positiveText());
   }
 
   @Test
