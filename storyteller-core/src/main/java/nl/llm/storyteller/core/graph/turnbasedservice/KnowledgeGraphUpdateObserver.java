@@ -8,4 +8,7 @@ public interface KnowledgeGraphUpdateObserver {
 
   default void failed(int latestTurn, String reason) {
   }
+
+  default void skipped(int latestTurn, long startingRevision, long currentRevision) {
+  }
 }

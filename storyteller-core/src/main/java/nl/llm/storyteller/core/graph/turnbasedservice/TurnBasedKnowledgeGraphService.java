@@ -2,6 +2,7 @@ package nl.llm.storyteller.core.graph.turnbasedservice;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
+import nl.llm.storyteller.core.graph.KnowledgeGraphJsonResponse;
 import nl.llm.storyteller.core.graph.model.Entity;
 import nl.llm.storyteller.core.graph.model.EntityId;
 import nl.llm.storyteller.core.graph.model.Fact;
@@ -26,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public final class TurnBasedKnowledgeGraphService {
@@ -116,10 +118,18 @@ public final class TurnBasedKnowledgeGraphService {
       if (!batchStillPresent(turns, latestTurn)) {
         return;
       }
-      store.update(existing -> existing.revision() == startingRevision
-        ? merge(existing, candidate, latestTurn)
-        : existing);
-      KnowledgeGraphDocument updated = store.load();
+      AtomicBoolean applied = new AtomicBoolean(false);
+      KnowledgeGraphDocument updated = store.update(existing -> {
+        if (existing.revision() != startingRevision) {
+          return existing;
+        }
+        applied.set(true);
+        return merge(existing, candidate, latestTurn);
+      });
+      if (!applied.get()) {
+        observer.skipped(latestTurn, startingRevision, updated.revision());
+        return;
+      }
       graphService.publish(store.loadSnapshot());
       observer.succeeded(latestTurn, updated.revision(), updated.entities().size(), updated.facts().size());
     } catch (InterruptedException _) {
@@ -217,16 +227,8 @@ public final class TurnBasedKnowledgeGraphService {
   }
 
   private KnowledgeGraphDocument parse(String response) {
-    String json = response == null ? "" : response.trim();
-    if (json.startsWith("```")) {
-      int firstNewline = json.indexOf('\n');
-      int closingFence = json.lastIndexOf("```");
-      if (firstNewline >= 0 && closingFence > firstNewline) {
-        json = json.substring(firstNewline + 1, closingFence).trim();
-      }
-    }
     try {
-      return codec.fromJson(json);
+      return codec.fromJson(KnowledgeGraphJsonResponse.extract(response));
     } catch (JsonProcessingException ex) {
       throw new IllegalArgumentException("The model returned an invalid turn-based knowledge graph", ex);
     }
