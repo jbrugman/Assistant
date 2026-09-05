@@ -429,7 +429,7 @@ Not yet.
 
 ### 1.2.3
 - Added optional `backend.http.apiKey` configuration for bearer authentication with hosted OpenAI-compatible endpoints.
-- Made turn-based relationship extraction conservative so interactions such as talking, flirting, kissing, sex, cooperation, or momentary affection do not automatically become enduring relationship facts.
+- Made turn-based relationship extraction conservative so interactions such as talking, flirting, kissing, cooperation, or momentary affection do not automatically become enduring relationship facts.
 - Added the temporal `WEARS` predicate for clothing, represented as separate `ITEM` entities and facts per garment.
 - Added outfit snapshot replacement so a character's obsolete `TURNBASED` clothing is removed after changing clothes, while manual and fixed-protagonist graph data remains protected.
 
@@ -438,15 +438,5 @@ Not yet.
 - Added source metadata to graph entities and introduced lower-authority `TURNBASED` entities and facts that cannot override fixed-protagonist or manual graph data.
 - Added `/graph -reset` to remove only TURNBASED graph items, including startup help, CLI validation, regression tests, and updated architecture diagrams.
 - Moved graph services into `core.graph.service` and isolated automatic turn extraction and merge in `core.graph.turnbasedservice`.
-
-### 1.2.1
-- Fixed canonical-state batching so `canonicalState.batchMessages=1` refreshes after every completed story turn, including when a new refresh is requested while the previous background update is still running.
-
-
-### 1.2.0
-- Added a validated knowledge graph that grounds story generation and validation with relevant hard facts to reduce entity, skill, relationship, and location bleeding.
-- Added a configuration-driven predicate catalog with directional relationships, `LOCATION` support, automatic loading, atomic persistence, and native-image-compatible JSON handling.
-- Added local `/graph` inspection, model-free `/graph -generate`, and model-assisted `/graph -fill` using only the configured fixed protagonists.
-- Added graph regression coverage and updated the architecture documentation with focused runtime, graph, image, and story-session flows.
 
 Read more: https://github.com/jbrugman/Assistant/wiki/Changelog
