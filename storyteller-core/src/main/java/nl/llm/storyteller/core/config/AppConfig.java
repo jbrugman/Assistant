@@ -10,6 +10,8 @@ public final class AppConfig {
   private static final String OPTION_TOP_P = "top_p";
   private static final String OPTION_MIN_P = "min_p";
   private static final String OPTION_REPEAT_PENALTY = "repeat_penalty";
+  private static final String OPTION_SEED = "seed";
+  private static final String OPTION_MAX_TOKENS = "max_tokens";
 
   private final Path baseDir;
   private final ModelAccessConfig modelAccess;
@@ -306,8 +308,20 @@ public final class AppConfig {
     return conversation.graphTurnBasedBatchTurns();
   }
 
+  public boolean graphEnabled() {
+    return conversation.graphEnabled();
+  }
+
   public int cacheBusterInterval() {
     return conversation.cacheBusterInterval();
+  }
+
+  public boolean cacheBusterEnabled() {
+    return conversation.cacheBusterEnabled();
+  }
+
+  public String cacheBusterTokenPrefix() {
+    return runtimeText.cacheBusterTokenPrefix();
   }
 
   public boolean turnBasedModeEnabled() {
@@ -513,7 +527,9 @@ public final class AppConfig {
         source.requiredInt("recentSummary.batchMessages"),
         source.requiredInt("canonicalState.batchMessages"),
         source.requiredInt("graph.turnBased.batchTurns"),
+        source.requiredBoolean("graph.enabled"),
         source.requiredInt("cacheBuster.interval"),
+        source.requiredBoolean("cacheBuster.enabled"),
         source.requiredBoolean("game.turnBasedModeEnabled"),
         source.requiredInt("game.turnPenaltySingleLowHp"),
         source.requiredInt("game.turnPenaltySingleHighHp")
@@ -537,6 +553,7 @@ public final class AppConfig {
         source.requiredBoolean("validation.enabled"),
         source.requiredString("validation.outputMode"),
         source.requiredBoolean("response.hideReasoningBlocks"),
+        source.optionalTrimmedString("cacheBuster.tokenPrefix"),
         source.requiredString("response.validationFailClosedMessage"),
         source.requiredString("command.continueStory"),
         source.requiredString("command.resetStory"),
@@ -557,23 +574,52 @@ public final class AppConfig {
         source.requiredString("ui.macHint")
       ),
       new OptionsConfig(
-        linkedMapOf(
-          OPTION_TEMPERATURE, source.requiredDouble("chat.temperature"),
-          OPTION_TOP_K, source.requiredInt("chat.topK"),
-          OPTION_TOP_P, source.requiredDouble("chat.topP"),
-          OPTION_MIN_P, source.requiredDouble("chat.minP"),
-          OPTION_REPEAT_PENALTY, source.requiredDouble("chat.repeatPenalty")
-        ),
-        linkedMapOf(
+        chatOptions(source),
+        deterministicOptions(linkedMapOf(
           OPTION_TEMPERATURE, source.requiredDouble("summary.temperature"),
           OPTION_TOP_P, source.requiredDouble("summary.topP")
-        ),
-        linkedMapOf(
+        ), source, "summary"),
+        deterministicOptions(linkedMapOf(
           OPTION_TEMPERATURE, source.requiredDouble("validation.temperature"),
           OPTION_TOP_P, source.requiredDouble("validation.topP")
-        )
+        ), source, "validation")
       )
     ).validate();
+  }
+
+  private static Map<String, Object> chatOptions(AppConfigSource source) {
+    Map<String, Object> options = linkedMapOf(
+      OPTION_TEMPERATURE, source.requiredDouble("chat.temperature"),
+      OPTION_TOP_K, source.requiredInt("chat.topK"),
+      OPTION_TOP_P, source.requiredDouble("chat.topP"),
+      OPTION_MIN_P, source.requiredDouble("chat.minP"),
+      OPTION_REPEAT_PENALTY, source.requiredDouble("chat.repeatPenalty")
+    );
+    int seed = source.optionalInt("chat.seed", -1);
+    int maxTokens = source.optionalInt("chat.maxTokens", 0);
+    if (seed >= 0) {
+      options.put(OPTION_SEED, seed);
+    }
+    if (maxTokens > 0) {
+      options.put(OPTION_MAX_TOKENS, maxTokens);
+    }
+    return options;
+  }
+
+  private static Map<String, Object> deterministicOptions(
+    Map<String, Object> options,
+    AppConfigSource source,
+    String prefix
+  ) {
+    int seed = source.optionalInt(prefix + ".seed", source.optionalInt("chat.seed", -1));
+    int maxTokens = source.optionalInt(prefix + ".maxTokens", source.optionalInt("chat.maxTokens", 0));
+    if (seed >= 0) {
+      options.put(OPTION_SEED, seed);
+    }
+    if (maxTokens > 0) {
+      options.put(OPTION_MAX_TOKENS, maxTokens);
+    }
+    return options;
   }
 
   private record ModelAccessConfig(
@@ -628,7 +674,9 @@ public final class AppConfig {
     int recentSummaryBatchMessages,
     int canonicalStateBatchMessages,
     int graphTurnBasedBatchTurns,
+    boolean graphEnabled,
     int cacheBusterInterval,
+    boolean cacheBusterEnabled,
     boolean turnBasedModeEnabled,
     int turnPenaltySingleLowHp,
     int turnPenaltySingleHighHp
@@ -662,6 +710,7 @@ public final class AppConfig {
     boolean validationEnabled,
     String validationOutputMode,
     boolean hideReasoningBlocks,
+    String cacheBusterTokenPrefix,
     String validationFailClosedMessage,
     String continueStoryCommand,
     String resetStoryCommand,

@@ -22,6 +22,7 @@ public final class StorySessionService {
   private final PromptAssemblyService promptAssemblyService;
   private final PromptResourceLoader promptResourceLoader;
   private final TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService;
+  private final StoryTurnObserver turnObserver;
 
   public StorySessionService(
     nl.llm.storyteller.core.config.AppConfig config,
@@ -36,7 +37,7 @@ public final class StorySessionService {
   ) {
     this(
       config, historyStore, chatClient, responseGuard, summaryManager, recentSummaryManager,
-      canonicalStateManager, promptAssemblyService, promptResourceLoader, null
+      canonicalStateManager, promptAssemblyService, promptResourceLoader, null, StoryTurnObserver.NONE
     );
   }
 
@@ -52,6 +53,26 @@ public final class StorySessionService {
     PromptResourceLoader promptResourceLoader,
     TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService
   ) {
+    this(
+      config, historyStore, chatClient, responseGuard, summaryManager, recentSummaryManager,
+      canonicalStateManager, promptAssemblyService, promptResourceLoader, turnBasedKnowledgeGraphService,
+      StoryTurnObserver.NONE
+    );
+  }
+
+  public StorySessionService(
+    nl.llm.storyteller.core.config.AppConfig config,
+    HistoryStore historyStore,
+    ChatClient chatClient,
+    ResponseGuard responseGuard,
+    SummaryManager summaryManager,
+    RecentSummaryManager recentSummaryManager,
+    CanonicalStateManager canonicalStateManager,
+    PromptAssemblyService promptAssemblyService,
+    PromptResourceLoader promptResourceLoader,
+    TurnBasedKnowledgeGraphService turnBasedKnowledgeGraphService,
+    StoryTurnObserver turnObserver
+  ) {
     this.config = config;
     this.historyStore = historyStore;
     this.chatClient = chatClient;
@@ -62,6 +83,7 @@ public final class StorySessionService {
     this.promptAssemblyService = promptAssemblyService;
     this.promptResourceLoader = promptResourceLoader;
     this.turnBasedKnowledgeGraphService = turnBasedKnowledgeGraphService;
+    this.turnObserver = turnObserver;
   }
 
   public String handleUserTurn(String userInput) throws IOException, InterruptedException {
@@ -85,11 +107,8 @@ public final class StorySessionService {
       config.chatOptions(),
       config.requestTimeoutSeconds()
     );
-    String response = responseGuard.validate(
-      promptAssemblyService.buildValidationSystemPrompt(),
-      promptAssemblyService.buildValidationRequest(userInput, draftResponse),
-      draftResponse
-    );
+    String response = validateResponse(userInput, draftResponse);
+    turnObserver.completed(userInput, draftResponse, response);
 
     historyStore.appendTurn(userInput, response);
     if (turnBasedKnowledgeGraphService != null) {
@@ -128,6 +147,13 @@ public final class StorySessionService {
       config.chatOptions(),
       config.requestTimeoutSeconds()
     );
+    return validateResponse(userInput, draftResponse);
+  }
+
+  private String validateResponse(String userInput, String draftResponse) throws InterruptedException {
+    if (!config.validationEnabled()) {
+      return responseGuard.validate("", "", draftResponse);
+    }
     return responseGuard.validate(
       promptAssemblyService.buildValidationSystemPrompt(),
       promptAssemblyService.buildValidationRequest(userInput, draftResponse),
@@ -136,6 +162,9 @@ public final class StorySessionService {
   }
 
   private void runAutomaticCacheBusterIfDue() {
+    if (!config.cacheBusterEnabled()) {
+      return;
+    }
     int interval = config.cacheBusterInterval();
     if (interval == 0 || historyStore.load().messages().size() / 2 % interval != 0) {
       return;
@@ -160,7 +189,11 @@ public final class StorySessionService {
 
     List<Message> updatedMessages = new ArrayList<>(messages);
     Message firstMessage = updatedMessages.getFirst();
-    String cacheBuster = promptResourceLoader.loadResetCacheBusterTemplate().formatted(UUID.randomUUID());
+    String configuredPrefix = config.cacheBusterTokenPrefix();
+    String token = configuredPrefix.isBlank()
+      ? UUID.randomUUID().toString()
+      : configuredPrefix + "-" + historyStore.load().messages().size() / 2;
+    String cacheBuster = promptResourceLoader.loadResetCacheBusterTemplate().formatted(token);
     updatedMessages.set(0, new Message(firstMessage.role(), cacheBuster.trim() + "\n\n" + firstMessage.content()));
     return List.copyOf(updatedMessages);
   }

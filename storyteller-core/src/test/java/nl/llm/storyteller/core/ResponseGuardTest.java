@@ -199,6 +199,28 @@ class ResponseGuardTest {
     assertEquals("ALLOW", outcome.decision());
   }
 
+  @Test
+  @DisplayName("""
+    Given a malformed validator replacement containing a trailing JSON field fragment,
+    When the response guard applies the validator decision,
+    Then the fragment should be rejected using the configured fail-closed response
+    """)
+  void shouldRejectMalformedJsonFieldFragmentAsReplacementText() throws Exception {
+    var config = nl.llm.storyteller.core.config.AppConfig.load();
+    ResponseGuard responseGuard = new ResponseGuard(
+      new FakeChatClient("{\"decision\":\"REPLACE\",\"response\":\"\\\", \\\"response\\\": \\\"\\\"}\"}"),
+      config
+    );
+
+    String validatedResponse = responseGuard.validate(
+      "validator system prompt",
+      "validator request",
+      "Alice desires Thomas romantically."
+    );
+
+    assertEquals(config.validationFailClosedMessage(), validatedResponse);
+  }
+
   @ParameterizedTest
   @CsvSource(
     delimiter = '|',

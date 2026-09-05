@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.model.ValidationOutcome;
@@ -13,6 +14,10 @@ public final class ValidationDecisionParser {
   private static final String BLOCK = "BLOCK";
   private static final Pattern DECISION_ONLY_PATTERN = Pattern.compile(
     "\\b(ALLOW|REPLACE|BLOCK)\\b",
+    Pattern.CASE_INSENSITIVE
+  );
+  private static final Pattern JSON_FIELD_FRAGMENT_PATTERN = Pattern.compile(
+    "^\\\\?\"\\s*(?:,\\s*)?\\\\?\"(?:decision|response)\\\\?\"\\s*:",
     Pattern.CASE_INSENSITIVE
   );
 
@@ -32,7 +37,7 @@ public final class ValidationDecisionParser {
 
   private ValidationOutcome parseJsonPayload(String payload) {
     try {
-      return parseStructuredNode(JsonSupport.OBJECT_MAPPER.readTree(payload));
+      return parseStructuredNode(readCompleteJson(payload));
     } catch (JsonProcessingException _) {
       return null;
     }
@@ -43,7 +48,7 @@ public final class ValidationDecisionParser {
     if (replaceRequested) {
       String firstResponse = extractFirstResponseFromRawPayload(payload);
       if (!firstResponse.isBlank()) {
-        return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+        return replacementOutcome(firstResponse);
       }
     }
 
@@ -56,12 +61,12 @@ public final class ValidationDecisionParser {
     if (replaceRequested) {
       String trailingReplacement = extractTrailingReplacement(payload);
       if (!trailingReplacement.isBlank()) {
-        return new ValidationOutcome(REPLACE, trailingReplacement);
+        return replacementOutcome(trailingReplacement);
       }
       return new ValidationOutcome(REPLACE, "");
     }
 
-    return new ValidationOutcome(REPLACE, payload.trim());
+    return replacementOutcome(payload);
   }
 
   private ValidationOutcome parseStructuredNode(JsonNode root) {
@@ -96,7 +101,7 @@ public final class ValidationDecisionParser {
       return decisionOutcome;
     }
     if (!firstResponse.isBlank()) {
-      return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+      return replacementOutcome(firstResponse);
     }
 
     return parseNestedFields(root);
@@ -104,7 +109,7 @@ public final class ValidationDecisionParser {
 
   private ValidationOutcome parseExplicitDecision(String decision, String firstResponse) {
     if (REPLACE.equalsIgnoreCase(decision) && !firstResponse.isBlank()) {
-      return new ValidationOutcome(REPLACE, unwrapReplacementText(firstResponse));
+      return replacementOutcome(firstResponse);
     }
     if (ALLOW.equalsIgnoreCase(decision)) {
       return new ValidationOutcome(ALLOW, "");
@@ -207,6 +212,14 @@ public final class ValidationDecisionParser {
     return normalizedText;
   }
 
+  private ValidationOutcome replacementOutcome(String replacementText) {
+    String normalizedText = unwrapReplacementText(replacementText);
+    if (normalizedText.isBlank() || JSON_FIELD_FRAGMENT_PATTERN.matcher(normalizedText).find()) {
+      return null;
+    }
+    return new ValidationOutcome(REPLACE, normalizedText);
+  }
+
   private String extractTrailingReplacement(String payload) {
     var matcher = DECISION_ONLY_PATTERN.matcher(payload);
     if (!matcher.find() || !REPLACE.equalsIgnoreCase(matcher.group(1))) {
@@ -242,7 +255,7 @@ public final class ValidationDecisionParser {
     String current = raw.trim();
     for (int i = 0; i < 2; i++) {
       try {
-        JsonNode node = JsonSupport.OBJECT_MAPPER.readTree(current);
+        JsonNode node = readCompleteJson(current);
         if (node.isTextual()) {
           current = node.asText().trim();
         } else {
@@ -253,5 +266,11 @@ public final class ValidationDecisionParser {
       }
     }
     return current;
+  }
+
+  private JsonNode readCompleteJson(String payload) throws JsonProcessingException {
+    return JsonSupport.OBJECT_MAPPER.readerFor(JsonNode.class)
+      .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+      .readValue(payload);
   }
 }

@@ -3,6 +3,9 @@ package nl.llm.storyteller.cli;
 import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.service.StoryExportService;
 import nl.llm.storyteller.core.service.StorySessionService;
+import nl.llm.storyteller.cli.benchmark.BenchmarkExecutor;
+import nl.llm.storyteller.cli.benchmark.BenchmarkOptions;
+import nl.llm.storyteller.cli.benchmark.BenchmarkRunner;
 import org.jline.keymap.KeyMap;
 import org.jline.reader.Binding;
 import org.jline.reader.EndOfFileException;
@@ -21,6 +24,7 @@ final class TerminalStoryteller {
   private static final String EXPORT_COMMAND = "/export";
   private static final String IMAGE_COMMAND = "/image";
   private static final String GRAPH_COMMAND = "/graph";
+  private static final String BENCHMARK_COMMAND = "/benchmark";
   private static final String GRAPH_GENERATE_COMMAND = "/graph -generate";
   private static final String GRAPH_FILL_COMMAND = "/graph -fill";
   private static final String GRAPH_RESET_COMMAND = "/graph -reset";
@@ -36,16 +40,27 @@ final class TerminalStoryteller {
   private final TerminalRenderer renderer;
   private final LineReader reader;
   private final ClipboardImageReader clipboardImageReader;
+  private final BenchmarkExecutor benchmarkExecutor;
 
   TerminalStoryteller(Terminal terminal, ApplicationContext context) {
-    this(terminal, context, new ClipboardImageReader());
+    this(terminal, context, new ClipboardImageReader(), new BenchmarkRunner());
   }
 
   TerminalStoryteller(Terminal terminal, ApplicationContext context, ClipboardImageReader clipboardImageReader) {
+    this(terminal, context, clipboardImageReader, new BenchmarkRunner());
+  }
+
+  TerminalStoryteller(
+    Terminal terminal,
+    ApplicationContext context,
+    ClipboardImageReader clipboardImageReader,
+    BenchmarkExecutor benchmarkExecutor
+  ) {
     this.context = context;
     this.renderer = new TerminalRenderer(terminal);
     this.reader = LineReaderBuilder.builder().terminal(terminal).appName(APP_NAME).build();
     this.clipboardImageReader = clipboardImageReader;
+    this.benchmarkExecutor = benchmarkExecutor;
     registerShortcuts();
   }
 
@@ -151,6 +166,11 @@ final class TerminalStoryteller {
   }
 
   private boolean handleCommand(String userInput) {
+    if (BENCHMARK_COMMAND.equalsIgnoreCase(userInput)
+      || userInput.regionMatches(true, 0, BENCHMARK_COMMAND + " ", 0, BENCHMARK_COMMAND.length() + 1)) {
+      handleBenchmarkCommand(userInput);
+      return true;
+    }
     if (GRAPH_FILL_COMMAND.equalsIgnoreCase(userInput)) {
       handleGraphFillCommand();
       return true;
@@ -202,6 +222,21 @@ final class TerminalStoryteller {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
     }
     return true;
+  }
+
+  private void handleBenchmarkCommand(String userInput) {
+    try {
+      BenchmarkOptions options = BenchmarkOptions.parse(userInput);
+      renderer.printMessage("Benchmark started; the normal story history is not used or changed.");
+      renderer.printMessage(benchmarkExecutor.run(context, options).format());
+    } catch (IllegalArgumentException ex) {
+      renderer.printError("Benchmark command error", ex.getMessage());
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      renderer.printError(context.config().backendRequestErrorText(), ex.getMessage());
+    } catch (IOException | RuntimeException ex) {
+      renderer.printError("Benchmark error", ex.getMessage());
+    }
   }
 
   private void handleGraphFillCommand() {
