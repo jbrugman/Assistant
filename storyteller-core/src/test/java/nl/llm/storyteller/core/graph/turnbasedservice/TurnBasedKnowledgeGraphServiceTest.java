@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -186,6 +187,59 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertTrue(merged.facts().stream().anyMatch(fact ->
         WEARS_ID.equals(fact.predicate()) && sweater.equals(fact.object())));
     }
+  }
+
+  @Test
+  @DisplayName("""
+    Given the graph revision changes while a turn-based extraction is running,
+    When the stale candidate is ready to be persisted,
+    Then it should be skipped without publishing or reporting a successful update
+    """)
+  void skipsStaleCandidateWithoutReportingSuccess() {
+    TestContext context = context();
+    appendTurn(context.historyStore(), 1);
+    appendTurn(context.historyStore(), 2);
+    appendTurn(context.historyStore(), 3);
+    AtomicInteger succeeded = new AtomicInteger();
+    AtomicInteger skipped = new AtomicInteger();
+    ChatClient client = (messages, options, timeout) -> {
+      context.store().update(current -> new KnowledgeGraphDocument(
+        current.schemaVersion(), current.revision() + 1, current.entities(), current.facts()
+      ));
+      return """
+        {
+          "schemaVersion": 1,
+          "revision": 0,
+          "entities": {},
+          "facts": []
+        }
+        """;
+    };
+    KnowledgeGraphUpdateObserver observer = new KnowledgeGraphUpdateObserver() {
+      @Override
+      public void succeeded(int latestTurn, long revision, int entities, int facts) {
+        succeeded.incrementAndGet();
+      }
+
+      @Override
+      public void skipped(int latestTurn, long startingRevision, long currentRevision) {
+        skipped.incrementAndGet();
+      }
+    };
+
+    try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
+      TurnBasedKnowledgeGraphService service = new TurnBasedKnowledgeGraphService(
+        context.historyStore(), client, context.store(), context.graphService(), context.predicates(), queue,
+        3, Map.of(), 10, observer
+      );
+
+      service.updateFromTurns(context.historyStore().load().messages(), 3);
+    }
+
+    assertEquals(1, context.store().load().revision());
+    assertEquals(0, context.graphService().current().revision());
+    assertEquals(0, succeeded.get());
+    assertEquals(1, skipped.get());
   }
 
   private static final PredicateId WEARS_ID = new PredicateId("WEARS");

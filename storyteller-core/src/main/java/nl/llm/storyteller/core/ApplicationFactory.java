@@ -195,7 +195,8 @@ public final class ApplicationFactory {
           config.summaryOptions(),
           config.summaryRequestTimeoutSeconds(),
           predicateCatalog
-        )
+        ),
+        derivedMemoryTaskQueue
       ),
       new KnowledgeGraphManagementService(knowledgeGraphStore, knowledgeGraphService),
       managedLlamaServer,

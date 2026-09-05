@@ -105,18 +105,18 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-1.3.1-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.2-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, H2, or the API implementation. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-1.3.1-all.jar
+java -jar storyteller-api/target/storyteller-api-1.3.2-all.jar
 ```
 
 The CLI and API are separate applications with separate entry points. Both depend on `storyteller-core`; neither application contains the other. The API module also owns its own `application.config`.
 
-The local default build version is `1.3.1`.
+The local default build version is `1.3.2`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.3.0` and then `v1.3.1`, `v1.3.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -158,7 +158,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-1.3.1-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.2-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -341,7 +341,7 @@ The CLI provides four graph management commands. They are local control commands
 - `/graph -fill` sends only the complete configured `fixed_protagonists.yml` content to the model, validates and normalizes the returned closed-ontology graph in Java, atomically replaces the graph file, and immediately publishes the new snapshot;
 - `/graph -reset` atomically removes only TURNBASED entities and facts while preserving fixed-protagonist, manual, and other sourced data.
 
-`/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted entities and facts to `FIXED_PROTAGONIST`, with facts set to `ACTIVE` and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Automatic turn-based extraction is best-effort and never fails the completed foreground story turn.
+`/graph -generate` and a successful `/graph -fill` replace the existing graph. `/graph -fill` forces extracted entities and facts to `FIXED_PROTAGONIST`, with facts set to `ACTIVE` and `hard=true`; Java controls schema version and revision. Invalid model JSON or a graph validation failure leaves the existing persisted graph and active snapshot unchanged. Fill generation and automatic turn-based extraction use the same sequential derived-memory queue, preventing either operation from overwriting a graph update produced concurrently by the other. Because `/graph -fill` waits for its queued result, earlier summary, canonical-state, or graph work may delay the command. Automatic turn-based extraction is best-effort and never fails the completed foreground story turn; a candidate based on a stale graph revision is skipped and is not reported as successfully persisted.
 
 ## Configuration
 See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
@@ -382,7 +382,7 @@ This keeps prompt size down while preserving continuity.
 Important runtime detail:
 - the foreground story turn stays synchronous for prompt assembly, model response, validation, and history append
 - the derived-memory refreshes for `summary.md`, `recent-summary.md`, and `canonical-state.yaml` are triggered asynchronously afterward
-- the three memory refreshes and automatic turn-based graph extraction share one single-threaded task queue, so their LLM calls run sequentially without blocking the user from getting the current story response
+- the three memory refreshes, automatic turn-based graph extraction, and manual `/graph -fill` generation share one single-threaded task queue, so their LLM calls run sequentially; background work does not block the current story response, while `/graph -fill` deliberately waits for earlier queued work and its own result
 
 ## Runtime Structure
 
@@ -490,6 +490,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.2
+- Prevented `/graph -fill` and automatic turn-based knowledge-graph extraction from overwriting each other's updates.
 
 ### 1.3.1
 - Added an isolated, reproducible local-model benchmark with a fixed fact-retention scenario and independently switchable validation, cache-buster, and knowledge-graph processing.
