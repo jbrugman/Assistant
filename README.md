@@ -219,7 +219,7 @@ Each feature can be measured independently:
 ```
 
 ```text
-/benchmark -mlx-community/gemma-4-26B-A4B-it-qat-6bit --validation=off --cache-buster=on --knowledge-graph=on
+/benchmark -google/gemma-4-26b-a4b --validation=off --cache-buster=on --knowledge-graph=on
 ```
 
 
