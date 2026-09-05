@@ -53,7 +53,7 @@ backend.http.apiKey=your-omlx-api-key
 The app ships with working built-in defaults.
 
 Bundled defaults live in:
-- `src/main/resources/systemprompts/`
+- `storyteller-core/src/main/resources/systemprompts/`
 
 Those files are compiled into:
 - the runnable jar
@@ -79,11 +79,19 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.2.3-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.0-all.jar
 ```
 
-The local default build version is `1.2.3`.
-GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.2.0` and then `v1.2.1`, `v1.2.2`, and so on.
+The CLI jar does not contain Javalin, Jetty, H2, or the API implementation. Run the independent API application with:
+
+```bash
+java -jar storyteller-api/target/storyteller-api-1.3.0-all.jar
+```
+
+The CLI and API are separate applications with separate entry points. Both depend on `storyteller-core`; neither application contains the other. The API module also owns its own `application.config`.
+
+The local default build version is `1.3.0`.
+GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.3.0` and then `v1.3.1`, `v1.3.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
 
@@ -91,22 +99,30 @@ Merges of Dependabot pull requests and pull requests whose source branch is `nor
 
 ```bash
 cd ~/Assistant
-mvn -Pnative -DskipTests package
+mvn -pl storyteller-cli -am -Pnative -DskipTests package
 ```
 
 The native binary is normally written to:
 
 ```text
-target/storyteller
+storyteller-cli/target/storyteller
 ```
 
 The native build enables GraalVM shared-arena support for JLine's Java FFM terminal provider.
+
+Build the independent API native executable with:
+
+```bash
+mvn -pl storyteller-api -am -Pnative-api -DskipTests package
+```
+
+That executable is written to `storyteller-api/target/storyteller-api` and starts the HTTP server automatically.
 
 Run it from the project root:
 
 ```bash
 cd ~/Assistant
-./target/storyteller
+./storyteller-cli/target/storyteller
 ```
 
 If an `application.config` file exists next to the native executable, it is loaded as an additional runtime override.
@@ -115,8 +131,8 @@ If an `application.config` file exists next to the native executable, it is load
 
 ```bash
 cd ~/Assistant
-mvn -q compile dependency:copy-dependencies
-java -cp "target/classes:target/dependency/*" nl.llm.storyteller.cli.AssistantApp
+mvn -q -pl storyteller-cli -am package
+java -jar storyteller-cli/target/storyteller-cli-1.3.0-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -167,7 +183,7 @@ Exports are written as Markdown files in the application working directory.
 
 ### Bundled defaults
 
-These are compiled into the app from `src/main/resources/systemprompts/`:
+These are compiled into the app from `storyteller-core/src/main/resources/systemprompts/`:
 - `application.config`
 - `systemprompt.md`
 - `rules.md`
@@ -331,37 +347,37 @@ This remains one Maven project and one distributable jar. Within it, the termina
 This is an intentional modular-monolith choice: deployment, configuration, and operational complexity stay small today, while one-way package dependencies keep the CLI and future HTTP adapter outside the core. If independent deployment becomes useful later, those adapters can move into separate modules or services without moving storyteller behavior out of the core first.
 
 The runtime responsibilities are now split more explicitly:
-- [`AssistantApp.java`](src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
-- [`ApplicationFactory.java`](src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
-- [`OpenAiCompatibleHttpClient.java`](src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, llama-server, and mlx-vlm
-- [`ManagedLlamaServer.java`](src/main/java/nl/llm/storyteller/core/service/ManagedLlamaServer.java): optional local llama-server process lifecycle and readiness handling
-- [`ManagedMlxServer.java`](src/main/java/nl/llm/storyteller/core/service/ManagedMlxServer.java): optional local mlx-vlm process lifecycle and readiness handling
-- [`TerminalStoryteller.java`](src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
-- [`TerminalRenderer.java`](src/main/java/nl/llm/storyteller/cli/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
-- [`StorySessionService.java`](src/main/java/nl/llm/storyteller/core/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
-- [`PromptAssemblyService.java`](src/main/java/nl/llm/storyteller/core/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
+- [`AssistantApp.java`](storyteller-cli/src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
+- [`ApplicationFactory.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
+- [`OpenAiCompatibleHttpClient.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, llama-server, and mlx-vlm
+- [`ManagedLlamaServer.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ManagedLlamaServer.java): optional local llama-server process lifecycle and readiness handling
+- [`ManagedMlxServer.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ManagedMlxServer.java): optional local mlx-vlm process lifecycle and readiness handling
+- [`TerminalStoryteller.java`](storyteller-cli/src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
+- [`TerminalRenderer.java`](storyteller-cli/src/main/java/nl/llm/storyteller/cli/TerminalRenderer.java): terminal formatting, wrapping, banners, and user-visible messages
+- [`StorySessionService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/StorySessionService.java): prompt assembly, model call, validation, history append, and derived-memory refresh triggering
+- [`PromptAssemblyService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
 
 Prompt responsibilities are now split more explicitly:
-- [`PromptResourceLoader.java`](src/main/java/nl/llm/storyteller/core/service/PromptResourceLoader.java): loads raw prompt resources
-- [`PromptTemplateService.java`](src/main/java/nl/llm/storyteller/core/service/PromptTemplateService.java): formats reusable prompt fragments
-- [`StoryChatPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
-- [`ValidationPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/ValidationPromptBuilder.java): builds validator system and user payloads
-- [`SummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](src/main/java/nl/llm/storyteller/core/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
+- [`PromptResourceLoader.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptResourceLoader.java): loads raw prompt resources
+- [`PromptTemplateService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptTemplateService.java): formats reusable prompt fragments
+- [`StoryChatPromptBuilder.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
+- [`ValidationPromptBuilder.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ValidationPromptBuilder.java): builds validator system and user payloads
+- [`SummaryPromptBuilder.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/SummaryPromptBuilder.java), [`RecentSummaryPromptBuilder.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/RecentSummaryPromptBuilder.java), and [`CanonicalStatePromptBuilder.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/CanonicalStatePromptBuilder.java): build the three derived-memory update prompts
 
-Those builders now take small prompt-input records from [`src/main/java/nl/llm/storyteller/core/model`](src/main/java/nl/llm/storyteller/core/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
+Those builders now take small prompt-input records from [`storyteller-core/src/main/java/nl/llm/storyteller/core/model`](storyteller-core/src/main/java/nl/llm/storyteller/core/model), so prompt inputs are explicit instead of being passed around as long ordered `String` argument lists.
 
 Configuration follows the same separation:
-- [`AppConfigLoader.java`](src/main/java/nl/llm/storyteller/core/config/AppConfigLoader.java) and [`AppConfigSource.java`](src/main/java/nl/llm/storyteller/core/config/AppConfigSource.java): loading, merging, and path resolution
-- [`AppConfig.java`](src/main/java/nl/llm/storyteller/core/config/AppConfig.java): validated runtime settings only
+- [`AppConfigLoader.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/config/AppConfigLoader.java) and [`AppConfigSource.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/config/AppConfigSource.java): loading, merging, and path resolution
+- [`AppConfig.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/config/AppConfig.java): validated runtime settings only
 
 Graph responsibilities are separated as well:
-- [`PredicateCatalog.java`](src/main/java/nl/llm/storyteller/core/graph/PredicateCatalog.java): immutable, configuration-driven predicate definitions
-- [`KnowledgeGraphValidator.java`](src/main/java/nl/llm/storyteller/core/graph/KnowledgeGraphValidator.java): entity, predicate-type, reference, duplicate, and contradiction validation
-- [`ReadOnlyKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/service/ReadOnlyKnowledgeGraphService.java): automatic snapshot refresh, entity resolution, and authority-aware fact rendering
-- [`KnowledgeGraphManagementService.java`](src/main/java/nl/llm/storyteller/core/graph/service/KnowledgeGraphManagementService.java): selective TURNBASED reset
-- [`TurnBasedKnowledgeGraphService.java`](src/main/java/nl/llm/storyteller/core/graph/turnbasedservice/TurnBasedKnowledgeGraphService.java): configured turn batching, extraction, source normalization, and protected merge
-- [`KnowledgeGraphStore.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphStore.java): atomic graph persistence
-- [`KnowledgeGraphJsonCodec.java`](src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphJsonCodec.java): reflection-free JSON I/O for JVM and native-image builds
+- [`PredicateCatalog.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/PredicateCatalog.java): immutable, configuration-driven predicate definitions
+- [`KnowledgeGraphValidator.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/KnowledgeGraphValidator.java): entity, predicate-type, reference, duplicate, and contradiction validation
+- [`ReadOnlyKnowledgeGraphService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/service/ReadOnlyKnowledgeGraphService.java): automatic snapshot refresh, entity resolution, and authority-aware fact rendering
+- [`KnowledgeGraphManagementService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/service/KnowledgeGraphManagementService.java): selective TURNBASED reset
+- [`TurnBasedKnowledgeGraphService.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/turnbasedservice/TurnBasedKnowledgeGraphService.java): configured turn batching, extraction, source normalization, and protected merge
+- [`KnowledgeGraphStore.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphStore.java): atomic graph persistence
+- [`KnowledgeGraphJsonCodec.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/graph/persistence/KnowledgeGraphJsonCodec.java): reflection-free JSON I/O for JVM and native-image builds
 
 The runtime flow is documented as one full diagram and four focused diagrams:
 - [full storyteller flow](docs/architecture/02-storytelller-flow-design-full.puml)
@@ -371,20 +387,20 @@ The runtime flow is documented as one full diagram and four focused diagrams:
 - [story-session flow](docs/architecture/02-d-storytelller-flow-design-storysession.puml)
 
 Validation is also split into focused parts:
-- [`ValidationClient.java`](src/main/java/nl/llm/storyteller/core/service/ValidationClient.java): sends the validator prompt to the configured model
-- [`ValidationDecisionParser.java`](src/main/java/nl/llm/storyteller/core/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
-- [`ValidationOutcome.java`](src/main/java/nl/llm/storyteller/core/model/ValidationOutcome.java): compact validation decision model with small decision helpers
-- [`ResponseSanitizer.java`](src/main/java/nl/llm/storyteller/core/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
-- [`ResponseGuard.java`](src/main/java/nl/llm/storyteller/core/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
+- [`ValidationClient.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ValidationClient.java): sends the validator prompt to the configured model
+- [`ValidationDecisionParser.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ValidationDecisionParser.java): extracts `ALLOW` or `REPLACE` from structured or plain-text validator output
+- [`ValidationOutcome.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/model/ValidationOutcome.java): compact validation decision model with small decision helpers
+- [`ResponseSanitizer.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ResponseSanitizer.java): cleans visible JSON-style escapes before terminal output
+- [`ResponseGuard.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ResponseGuard.java): coordinates those parts, including validator-provided replacement text when a rewrite is needed
 
 LLM backend resilience is handled separately:
-- [`ResilientChatClient.java`](src/main/java/nl/llm/storyteller/core/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
-- [`LlmBackendGuard.java`](src/main/java/nl/llm/storyteller/core/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
+- [`ResilientChatClient.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/ResilientChatClient.java): wraps a `ChatClient` with fail-fast cooldown behavior
+- [`LlmBackendGuard.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/LlmBackendGuard.java): tracks repeated failures and temporarily opens a cooldown window after the configured threshold
 
 The three derived-memory updaters now share one common infrastructure layer:
-- [`DerivedMemoryTaskQueue.java`](src/main/java/nl/llm/storyteller/core/service/DerivedMemoryTaskQueue.java): shared sequential execution and worker lifecycle
-- [`DerivedMemoryManager.java`](src/main/java/nl/llm/storyteller/core/service/DerivedMemoryManager.java): per-manager concurrency guard, model-call flow, and safe write-back coordination
-- [`SummaryManager.java`](src/main/java/nl/llm/storyteller/core/service/SummaryManager.java), [`RecentSummaryManager.java`](src/main/java/nl/llm/storyteller/core/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](src/main/java/nl/llm/storyteller/core/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
+- [`DerivedMemoryTaskQueue.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/DerivedMemoryTaskQueue.java): shared sequential execution and worker lifecycle
+- [`DerivedMemoryManager.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/DerivedMemoryManager.java): per-manager concurrency guard, model-call flow, and safe write-back coordination
+- [`SummaryManager.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/SummaryManager.java), [`RecentSummaryManager.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/RecentSummaryManager.java), and [`CanonicalStateManager.java`](storyteller-core/src/main/java/nl/llm/storyteller/core/service/CanonicalStateManager.java): their own cutoff rules and prompt contents
 
 Those background memory refreshes are asynchronous by design:
 - `StorySessionService` triggers them after the current turn has already been appended to history
@@ -426,6 +442,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.0
+- Reorganized the project into separate `storyteller-core`, `storyteller-cli`, and `storyteller-api` Maven modules. The CLI and new API are independent applications that share the core, keeping their code and dependencies out of each other's distributions.
+- The API currently supports only creating a session and resuming the active session through a secure session cookie; story interaction is not available through the API yet.
 
 ### 1.2.3
 - Added optional `backend.http.apiKey` configuration for bearer authentication with hosted OpenAI-compatible endpoints.

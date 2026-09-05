@@ -59,7 +59,7 @@ jobs:
       - name: Determine next release version
         id: version
         run: |
-          release_minor="1.2"
+          release_minor="1.3"
           last_tag="$(git tag -l "v${release_minor}.*" --sort=-version:refname | head -n 1)"
           if [ -z "$last_tag" ]; then
             next_patch=0
@@ -72,7 +72,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Build release JAR
+      - name: Build release JARs
         run: mvn -B -Drevision=${{ steps.version.outputs.version }} clean package
 
       - name: Publish GitHub release
@@ -81,11 +81,13 @@ jobs:
         run: |
           if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
             gh release upload "${{ steps.version.outputs.tag }}" \
-              "target/storyteller-${{ steps.version.outputs.version }}-all.jar" \
+              "storyteller-cli/target/storyteller-cli-${{ steps.version.outputs.version }}-all.jar" \
+              "storyteller-api/target/storyteller-api-${{ steps.version.outputs.version }}-all.jar" \
               --clobber
           else
             gh release create "${{ steps.version.outputs.tag }}" \
-              "target/storyteller-${{ steps.version.outputs.version }}-all.jar" \
+              "storyteller-cli/target/storyteller-cli-${{ steps.version.outputs.version }}-all.jar" \
+              "storyteller-api/target/storyteller-api-${{ steps.version.outputs.version }}-all.jar" \
               --target "${GITHUB_SHA}" \
               --title "${{ steps.version.outputs.tag }}" \
               --generate-notes
