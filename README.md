@@ -15,6 +15,32 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 - Maven
 - An OpenAI-compatible chat server with a loaded or selectable model, such as LM Studio, Jan.ai, a self-hosted compatible endpoint, or a hosted compatible API
 
+## Benchmarking
+
+The app includes a fixed 50-turn benchmark that measures both long-term fact retention and validation of binding
+fixed-protagonist constraints. It can be repeated with different models, quantizations, and feature combinations.
+Specify a model after `/benchmark`, or omit it to use the model already loaded by the backend. The validation,
+cache-buster, and knowledge-graph switches can be enabled independently so their effects can be compared.
+
+The first results below were measured with Gemma 4 26B A4B (`mlx-community/gemma-4-26B-A4B-it-qat-6bit`),
+running as a 6-bit MLX model:
+
+| Configuration | Facts retained | Validation probes | Total time |
+|---|---:|---:|---:|
+| All features disabled | 20% (1/5) | 0/4 | 1m 09s |
+| Cache-buster only | 20% (1/5) | 0/4 | 1m 48s |
+| Knowledge graph only | 100% (5/5) | 0/4 | 3m 19s |
+| Knowledge graph and validation | 100% (5/5) | 4/4 | 4m 30s |
+
+In these initial runs, cache-busting did not improve fact retention and only increased execution time. Knowledge-graph
+injection improved fact retention from 20% to 100%. Validation did not further increase the already perfect retention
+score, but it correctly repaired all four deliberate fixed-protagonist constraint violations without regressions. For
+this model and benchmark, the strongest configuration is therefore knowledge graph and validation enabled, with the
+cache-buster disabled. Cache-busting will not be removed based on this initial result: more representative tests across
+different models and scenarios are needed before making that decision. It can already be disabled through configuration
+when it provides no measurable benefit. In this comparison, disabling it also reduced the average turn time from 2.16
+seconds to 1.40 seconds while producing the same fact-retention score.
+
 ## Recommended setup
 See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
 
@@ -79,18 +105,18 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-1.3.0-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.1-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, H2, or the API implementation. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-1.3.0-all.jar
+java -jar storyteller-api/target/storyteller-api-1.3.1-all.jar
 ```
 
 The CLI and API are separate applications with separate entry points. Both depend on `storyteller-core`; neither application contains the other. The API module also owns its own `application.config`.
 
-The local default build version is `1.3.0`.
+The local default build version is `1.3.1`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.3.0` and then `v1.3.1`, `v1.3.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -132,7 +158,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-1.3.0-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.1-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -152,6 +178,8 @@ The `Ctrl-W` / reset turn is treated as a control action rather than as a normal
 This is not a documented LM Studio KV-cache flush. It is a portable best-effort prefix break for OpenAI-compatible backends that may reuse internal prompt state when the leading prompt prefix matches exactly.
 
 After every `cacheBuster.interval` persisted story turns, the app also sends this reset-with-cache-buster request internally. Its response is discarded and any failure is ignored, so it never adds a second user-visible message or turns a completed story response into an error. It can add latency. Set the interval to `0` to disable these periodic calls.
+
+Set `cacheBuster.enabled=false` to disable cache-buster processing independently of its configured interval. Set `graph.enabled=false` to disable both graph injection and automatic turn-based graph extraction. These are the same core switches used by the benchmark; `validation.enabled` controls validation in the same way.
 
 The `Ctrl-U` / undo-and-retry action builds on that reset flow:
 - it removes the last user+assistant turn from `history.json`
@@ -176,6 +204,26 @@ The `Ctrl-L` action is read-only:
 - `/graph -generate`: create and immediately load a minimal empty graph without calling the model
 - `/graph -fill`: generate, validate, persist, and immediately load a graph from the configured fixed protagonists using the model
 - `/graph -reset`: remove only entities and facts whose source is `TURNBASED`
+- `/benchmark [-<model>]`: run the fixed, isolated 50-turn retention benchmark with the requested model, or the model already loaded by the backend when omitted
+
+The benchmark never reads or changes the normal story history or knowledge graph. Its defaults are fixed at seed `42`, temperature `0`, top-k `1`, top-p `1`, two recent turns, at most 128 generated tokens for story and validation requests, and at most 2048 tokens for graph JSON extraction. The English-only scenario tests `LIVES`, `TRUSTS`, and changing `WEARS` facts supported by the graph ontology. When supplied, the model name after `/benchmark` is sent as the chat and validator model. Without it, no model override is sent and the backend uses its already loaded model; `model.chat` from `application.config` is not substituted. A managed MLX benchmark reuses the already running server, so an explicitly selected model must already be the configured managed MLX model. Start it with `--max-kv-size 4096` and a server output ceiling of at least `--max-tokens 2048`; individual story requests remain capped at 128 tokens. An OpenAI-compatible remote endpoint controls its own context and server output limits.
+
+Every run writes an English audit report under `benchmark-results/`. It records each probe, the original draft, the final response after the normal validator, expected or forbidden assertions, pass/fail status, whether validation replaced the draft, and graph revision/entity/fact counts. Fact-retention probes remain separate from adversarial validation probes. The latter use a binding fixed-protagonist constraint that Alice is romantically and sexually attracted only to women, plus an explicit rule that fixed-protagonist world state must be preserved, and then attempt to introduce attraction toward named men. The real validator receives those normal rules and fixed-protagonist data. The summary counts replacements across all turns; improvements and regressions count replacements on scored probes where correctness can be determined. A validation-probe `REPLACE` counts as useful when it retains Alice and removes the forbidden assertion; it does not need to retain the named man from that forbidden assertion. Rejected graph updates are also reported instead of silently presenting an empty graph as a model retention failure.
+
+`Graph updates rejected` counts candidate graph updates that Java refused to persist. A rejection is atomic: the complete candidate update is discarded and the previously stored graph remains unchanged. Typical reasons include invalid JSON, missing required fields, invalid identifiers, unknown entity references, type-incompatible relationships, contradictions, and predicates that are not present in the configured predicate catalog. For example, when a model emits an unsupported `DESIRE` predicate, that predicate is never added to the graph; the rejected-update counter and audit reason record the blocked attempt.
+
+Each feature can be measured independently:
+
+```text
+/benchmark --validation=off --cache-buster=on --knowledge-graph=on
+```
+
+```text
+/benchmark -mlx-community/gemma-4-26B-A4B-it-qat-6bit --validation=off --cache-buster=on --knowledge-graph=on
+```
+
+
+Use `--turns=10` through `--turns=100` to change the fixed run length. All three feature switches default to `on`. Run the command repeatedly with one switch changed at a time for comparable results.
 
 Exports are written as Markdown files in the application working directory.
 
@@ -442,6 +490,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.1
+- Added an isolated, reproducible local-model benchmark with a fixed fact-retention scenario and independently switchable validation, cache-buster, and knowledge-graph processing.
 
 ### 1.3.0
 - Reorganized the project into separate `storyteller-core`, `storyteller-cli`, and `storyteller-api` Maven modules. The CLI and new API are independent applications that share the core, keeping their code and dependencies out of each other's distributions.

@@ -30,16 +30,31 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
   private final boolean hideReasoningBlocks;
   private final String apiKey;
   private final HttpClient httpClient;
+  private final ChatRequestMetrics metrics;
+  private final String metricsPurpose;
 
   public OpenAiCompatibleHttpClient(String url, String model, boolean hideReasoningBlocks) {
     this(url, model, hideReasoningBlocks, "");
   }
 
   public OpenAiCompatibleHttpClient(String url, String model, boolean hideReasoningBlocks, String apiKey) {
+    this(url, model, hideReasoningBlocks, apiKey, ChatRequestMetrics.NONE, "generation");
+  }
+
+  public OpenAiCompatibleHttpClient(
+    String url,
+    String model,
+    boolean hideReasoningBlocks,
+    String apiKey,
+    ChatRequestMetrics metrics,
+    String metricsPurpose
+  ) {
     this.url = Objects.requireNonNull(url);
     this.model = Objects.requireNonNull(model);
     this.hideReasoningBlocks = hideReasoningBlocks;
     this.apiKey = Objects.requireNonNull(apiKey);
+    this.metrics = Objects.requireNonNull(metrics);
+    this.metricsPurpose = Objects.requireNonNull(metricsPurpose);
     this.httpClient = HttpClient.newBuilder().build();
   }
 
@@ -50,6 +65,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
 
     HttpRequest request = buildRequest(messages, options, timeoutSeconds);
 
+    long started = System.nanoTime();
     HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
     int statusCode = response.statusCode();
     String responseBody;
@@ -84,6 +100,11 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
       throw new IllegalArgumentException("OpenAI-compatible response does not contain choices[0].message.content.");
     }
 
+    metrics.recordRequest(
+      metricsPurpose,
+      data.path("usage").path("completion_tokens").asLong(-1),
+      Duration.ofNanos(System.nanoTime() - started)
+    );
     return stripReasoningBlocks(contentNode.asText());
   }
 

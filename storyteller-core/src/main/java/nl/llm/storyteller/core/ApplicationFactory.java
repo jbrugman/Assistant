@@ -5,11 +5,14 @@ import nl.llm.storyteller.core.graph.service.KnowledgeGraphInitializer;
 import nl.llm.storyteller.core.graph.service.KnowledgeGraphGenerator;
 import nl.llm.storyteller.core.graph.service.KnowledgeGraphManagementService;
 import nl.llm.storyteller.core.graph.turnbasedservice.TurnBasedKnowledgeGraphService;
+import nl.llm.storyteller.core.graph.turnbasedservice.KnowledgeGraphUpdateObserver;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
+import nl.llm.storyteller.core.service.ChatRequestMetrics;
+import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
 import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
@@ -28,6 +31,7 @@ import nl.llm.storyteller.core.service.ResponseGuard;
 import nl.llm.storyteller.core.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.core.service.StoryExportService;
 import nl.llm.storyteller.core.service.StorySessionService;
+import nl.llm.storyteller.core.service.StoryTurnObserver;
 import nl.llm.storyteller.core.service.SummaryManager;
 import nl.llm.storyteller.core.service.SummaryPromptBuilder;
 import nl.llm.storyteller.core.service.TurnManager;
@@ -42,7 +46,34 @@ public final class ApplicationFactory {
   }
 
   public static ApplicationContext create() {
-    nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfig.load();
+    return create(nl.llm.storyteller.core.config.AppConfig.load(), ChatRequestMetrics.NONE);
+  }
+
+  public static ApplicationContext create(nl.llm.storyteller.core.config.AppConfig config) {
+    return create(config, ChatRequestMetrics.NONE);
+  }
+
+  public static ApplicationContext create(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ChatRequestMetrics metrics
+  ) {
+    return create(config, metrics, StoryTurnObserver.NONE, KnowledgeGraphUpdateObserver.NONE);
+  }
+
+  public static ApplicationContext create(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ChatRequestMetrics metrics,
+    StoryTurnObserver turnObserver
+  ) {
+    return create(config, metrics, turnObserver, KnowledgeGraphUpdateObserver.NONE);
+  }
+
+  public static ApplicationContext create(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ChatRequestMetrics metrics,
+    StoryTurnObserver turnObserver,
+    KnowledgeGraphUpdateObserver graphObserver
+  ) {
     HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
     PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
     PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
@@ -65,11 +96,15 @@ public final class ApplicationFactory {
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
     String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
-      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey()
+      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation"
     );
-    OpenAiCompatibleHttpClient validatorDelegate = new OpenAiCompatibleHttpClient(
-      backendUrl, config.validatorModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey()
-    );
+    ChatClient validatorDelegate = config.validationEnabled()
+      ? new OpenAiCompatibleHttpClient(
+        backendUrl, config.validatorModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "validation"
+      )
+      : (_, _, _) -> {
+        throw new IllegalStateException("Validation client is disabled by validation.enabled=false.");
+      };
     ResilientChatClient chatClient = new ResilientChatClient(
       chatDelegate,
       new LlmBackendGuard("Chat backend", config.chatFailureThreshold(), config.chatCooldownSeconds())
@@ -118,7 +153,8 @@ public final class ApplicationFactory {
       derivedMemoryTaskQueue,
       config.graphTurnBasedBatchTurns(),
       config.summaryOptions(),
-      config.summaryRequestTimeoutSeconds()
+      config.summaryRequestTimeoutSeconds(),
+      graphObserver
     );
     PromptAssemblyService promptAssemblyService = new PromptAssemblyService(
       historyStore,
@@ -128,7 +164,7 @@ public final class ApplicationFactory {
       turnManager,
       storyChatPromptBuilder,
       validationPromptBuilder,
-      knowledgeGraphService
+      config.graphEnabled() ? knowledgeGraphService : null
     );
     StorySessionService storySessionService = new StorySessionService(
       config,
@@ -140,7 +176,8 @@ public final class ApplicationFactory {
       canonicalStateManager,
       promptAssemblyService,
       promptResourceLoader,
-      turnBasedKnowledgeGraphService
+      config.graphEnabled() ? turnBasedKnowledgeGraphService : null,
+      turnObserver
     );
     return new ApplicationContext(
       config,

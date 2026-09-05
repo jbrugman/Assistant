@@ -2,6 +2,8 @@ package nl.llm.storyteller.core;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,6 +13,56 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AppConfigLoaderTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"graph.enabled", "cacheBuster.enabled", "validation.enabled"})
+    @DisplayName("""
+        Given a disabled core processing feature,
+        When the application config is loaded,
+        Then the corresponding core switch should be off
+        """)
+    void shouldDisableCoreProcessingFeatures(String key) throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-switch");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, key + "=false\n");
+
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
+
+        boolean enabled = switch (key) {
+            case "graph.enabled" -> config.graphEnabled();
+            case "cacheBuster.enabled" -> config.cacheBusterEnabled();
+            case "validation.enabled" -> config.validationEnabled();
+            default -> throw new IllegalArgumentException(key);
+        };
+        assertEquals(false, enabled);
+    }
+
+    @Test
+    @DisplayName("""
+        Given deterministic chat options in an override,
+        When the application config is loaded,
+        Then seed and maximum output tokens should be sent only when explicitly configured
+        """)
+    void shouldLoadOptionalDeterministicChatOptions() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-deterministic");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+            chat.seed=42
+            chat.maxTokens=128
+            summary.maxTokens=2048
+            validation.maxTokens=64
+            """);
+
+        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
+
+        assertEquals(42, config.chatOptions().get("seed"));
+        assertEquals(128, config.chatOptions().get("max_tokens"));
+        assertEquals(42, config.summaryOptions().get("seed"));
+        assertEquals(2048, config.summaryOptions().get("max_tokens"));
+        assertEquals(64, config.validationOptions().get("max_tokens"));
+    }
+
     @Test
     @DisplayName("""
         Given a turn-based graph batch size below one,
@@ -49,7 +101,9 @@ class AppConfigLoaderTest {
         assertTrue(config.commandHelpText().contains("/image <instruction>"));
         assertTrue(config.commandHelpText().contains("/graph -reset"));
         assertEquals(3, config.graphTurnBasedBatchTurns());
+        assertTrue(config.graphEnabled());
         assertEquals(5, config.cacheBusterInterval());
+        assertTrue(config.cacheBusterEnabled());
         assertEquals("auto", config.validationOutputMode());
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),

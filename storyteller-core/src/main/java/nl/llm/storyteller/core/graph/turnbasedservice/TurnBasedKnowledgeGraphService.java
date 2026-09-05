@@ -41,6 +41,7 @@ public final class TurnBasedKnowledgeGraphService {
   private final Map<String, Object> options;
   private final int timeoutSeconds;
   private final KnowledgeGraphJsonCodec codec = new KnowledgeGraphJsonCodec();
+  private final KnowledgeGraphUpdateObserver observer;
 
   public TurnBasedKnowledgeGraphService(
     HistoryStore historyStore,
@@ -53,6 +54,24 @@ public final class TurnBasedKnowledgeGraphService {
     Map<String, Object> options,
     int timeoutSeconds
   ) {
+    this(
+      historyStore, chatClient, store, graphService, predicates, taskQueue, batchTurns, options,
+      timeoutSeconds, KnowledgeGraphUpdateObserver.NONE
+    );
+  }
+
+  public TurnBasedKnowledgeGraphService(
+    HistoryStore historyStore,
+    ChatClient chatClient,
+    KnowledgeGraphStore store,
+    ReadOnlyKnowledgeGraphService graphService,
+    PredicateCatalog predicates,
+    DerivedMemoryTaskQueue taskQueue,
+    int batchTurns,
+    Map<String, Object> options,
+    int timeoutSeconds,
+    KnowledgeGraphUpdateObserver observer
+  ) {
     this.historyStore = historyStore;
     this.chatClient = chatClient;
     this.store = store;
@@ -62,6 +81,7 @@ public final class TurnBasedKnowledgeGraphService {
     this.batchTurns = batchTurns;
     this.options = options;
     this.timeoutSeconds = timeoutSeconds;
+    this.observer = observer;
   }
 
   public void startUpdateIfNeeded() {
@@ -77,13 +97,14 @@ public final class TurnBasedKnowledgeGraphService {
   }
 
   void updateFromTurns(List<Message> turns, int latestTurn) {
+    String rawResponse = "";
     try {
       if (!batchStillPresent(turns, latestTurn)) {
         return;
       }
       KnowledgeGraphDocument current = store.load();
       long startingRevision = current.revision();
-      String response = chatClient.chat(
+      rawResponse = chatClient.chat(
         List.of(
           new Message("system", systemPrompt()),
           new Message("user", userPrompt(current, turns))
@@ -91,17 +112,21 @@ public final class TurnBasedKnowledgeGraphService {
         options,
         timeoutSeconds
       );
-      KnowledgeGraphDocument candidate = parse(response);
+      KnowledgeGraphDocument candidate = parse(rawResponse);
       if (!batchStillPresent(turns, latestTurn)) {
         return;
       }
       store.update(existing -> existing.revision() == startingRevision
         ? merge(existing, candidate, latestTurn)
         : existing);
+      KnowledgeGraphDocument updated = store.load();
       graphService.publish(store.loadSnapshot());
+      observer.succeeded(latestTurn, updated.revision(), updated.entities().size(), updated.facts().size());
     } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
-    } catch (IOException | RuntimeException _) {
+    } catch (IOException | RuntimeException ex) {
+      String reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+      observer.failed(latestTurn, reason + responseSnippet(rawResponse));
       // Turn-derived graph updates are best-effort and must never fail the completed story turn.
     }
   }
@@ -210,7 +235,44 @@ public final class TurnBasedKnowledgeGraphService {
   private String systemPrompt() {
     return """
       Extract only explicit knowledge-graph entities and facts from the supplied completed story turns.
-      Return JSON only with schemaVersion, revision, entities, and facts.
+      Return JSON only. Use exactly this object shape and field names:
+      {
+        "schemaVersion": 1,
+        "revision": 0,
+        "entities": {
+          "character.alice": {
+            "type": "CHARACTER",
+            "name": "Alice",
+            "aliases": [],
+            "source": "TURNBASED"
+          },
+          "location.paris": {
+            "type": "LOCATION",
+            "name": "Paris",
+            "aliases": [],
+            "source": "TURNBASED"
+          }
+        },
+        "facts": [
+          {
+            "id": "fact.alice_lives_paris",
+            "subject": "character.alice",
+            "predicate": "LIVES",
+            "object": "location.paris",
+            "polarity": "POSITIVE",
+            "status": "ACTIVE",
+            "source": "TURNBASED",
+            "sourceTurn": null,
+            "hard": false
+          }
+        ]
+      }
+      The example only demonstrates the schema. Do not copy Alice or Paris unless the supplied turns support them.
+      `entities` must be a JSON object keyed by entity ID, never an array and never a name-to-type map.
+      Entity and fact IDs must be lowercase identifiers matching [a-z][a-z0-9]*(?:[._-][a-z0-9]+)*.
+      Every entity requires type, name, aliases, and source. Every fact requires id, subject, predicate,
+      object, polarity, status, source, sourceTurn, and hard. References must use IDs present in `entities`
+      or already present in the current graph.
       Reuse stable entity and fact IDs from the current graph when applicable.
       Every entity and fact must use source TURNBASED. Facts must use status ACTIVE, hard false,
       and one of these configured directional predicates: %s.
@@ -227,6 +289,14 @@ public final class TurnBasedKnowledgeGraphService {
       worn. Omission from that resulting set means a previous TURNBASED garment is no longer worn.
       Turn-based data is generated context with lower authority than manual or fixed-protagonist data.
       """.formatted(predicates.modelInstructions());
+  }
+
+  private String responseSnippet(String response) {
+    if (response == null || response.isBlank()) {
+      return "";
+    }
+    String normalized = response.trim().replaceAll("\\s+", " ");
+    return "; response: " + normalized.substring(0, Math.min(normalized.length(), 1_000));
   }
 
   private String userPrompt(KnowledgeGraphDocument current, List<Message> turns) {

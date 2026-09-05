@@ -88,6 +88,10 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertFalse(graph.facts().getFirst().hard());
       String systemPrompt = request.get().getFirst().content();
       String prompt = request.get().getLast().content();
+      assertTrue(systemPrompt.contains("Use exactly this object shape and field names"));
+      assertTrue(systemPrompt.contains("\"character.alice\""));
+      assertTrue(systemPrompt.contains("Every entity requires type, name, aliases, and source"));
+      assertTrue(systemPrompt.contains("Every fact requires id, subject, predicate"));
       assertTrue(systemPrompt.contains("Treat interactions as events, not proof of an enduring interpersonal relationship"));
       assertTrue(systemPrompt.contains("Talking,\nflirting, kissing"));
       assertTrue(systemPrompt.contains("When in doubt, omit it"));

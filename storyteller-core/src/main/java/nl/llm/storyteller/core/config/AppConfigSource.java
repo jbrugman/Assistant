@@ -33,6 +33,11 @@ final class AppConfigSource {
     return Integer.parseInt(requiredString(key));
   }
 
+  int optionalInt(String key, int defaultValue) {
+    String value = optionalTrimmedString(key);
+    return value.isBlank() ? defaultValue : Integer.parseInt(value);
+  }
+
   double requiredDouble(String key) {
     return Double.parseDouble(requiredString(key));
   }

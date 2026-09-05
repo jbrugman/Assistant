@@ -72,6 +72,10 @@ public final class ManagedMlxServer implements AutoCloseable {
     return "http://127.0.0.1:" + port + "/v1/chat/completions";
   }
 
+  public long processId() {
+    return process.pid();
+  }
+
   private static int findAvailablePort() throws IOException {
     try (ServerSocket socket = new ServerSocket(0)) {
       return socket.getLocalPort();
