@@ -18,6 +18,24 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 ## Recommended setup
 See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
 
+Hosted OpenAI-compatible endpoints can use an optional bearer API key in `application.config`:
+
+```properties
+backend.type=openai-compatible
+backend.http.url=https://example.test/v1/chat/completions
+backend.http.apiKey=your-api-key
+```
+
+Leave `backend.http.apiKey` blank for local endpoints that do not require authentication. The key is sent as `Authorization: Bearer <key>` and applies to chat, validation, and background-memory requests. Because the configuration value is stored as plain text, keep local configuration files containing real keys out of version control.
+
+For an oMLX server using its default port and required API-key verification, use:
+
+```properties
+backend.type=openai-compatible
+backend.http.url=http://localhost:8000/v1/chat/completions
+backend.http.apiKey=your-omlx-api-key
+```
+
 ## Used Tools / Hardware
 
 - [Aider](https://github.com/Aider-AI/aider) for code generation and refactoring using a local llm-server
@@ -61,10 +79,10 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar target/storyteller-1.2.2-all.jar
+java -jar target/storyteller-1.2.3-all.jar
 ```
 
-The local default build version is `1.2.2`.
+The local default build version is `1.2.3`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.2.0` and then `v1.2.1`, `v1.2.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -200,7 +218,7 @@ Missing files and turns without matching entities preserve the existing behavior
 The graph ontology is closed at runtime but configurable before startup. The bundled catalog supports:
 
 - entity types `CHARACTER`, `ITEM`, `SKILL`, and `LOCATION`;
-- bundled predicates for possessions, skills, interpersonal relationships, cohabitation (`LIVES_WITH`), and residence (`LIVES`, `CHARACTER` to `LOCATION`);
+- bundled predicates for possessions, worn clothing (`WEARS`), skills, interpersonal relationships, cohabitation (`LIVES_WITH`), and residence (`LIVES`, `CHARACTER` to `LOCATION`);
 - positive and negative active facts, with absent facts resolving to `UNKNOWN`;
 - source metadata on both entities and facts, plus statuses, aliases, revision and schema metadata;
 - strict entity-reference, predicate-type, duplicate, and contradiction validation;
@@ -212,6 +230,8 @@ The graph ontology is closed at runtime but configurable before startup. The bun
 Predicate definitions are data-driven through `systemprompts/graph-predicates.json`. A local file with that name replaces the bundled catalog, so it must contain every predicate that should remain available. Each predicate configures its permitted subject and object entity types, temporal flag, and positive and negative prompt text. Facts store the stable predicate ID as a string, so adding a predicate requires no Java enum or formatter change. The same catalog drives graph validation, prompt rendering, and the allowed-predicate instructions for `/graph -fill`.
 
 The bundled relationship predicates are `LOVES`, `TRUSTS`, `HATES`, `PROTECTIVE_OF`, `FRIENDS_WITH`, `TRAINS_WITH`, `FEELS_SAFE_WITH`, and `LIVES_WITH`. `LIVES_WITH` connects two characters; `LIVES` connects a character to a `LOCATION`, such as a villa, penthouse, or house. Relationship facts are directional unless both directions are explicitly present.
+
+`WEARS` connects a `CHARACTER` to an `ITEM` and is temporal. Multiple garments are represented as separate item entities and facts, rather than an array-valued fact. For example, a blue pair of jeans and a shirt produce two `ITEM` entities and two `WEARS` facts. On a clothing change, automatic extraction returns the character's complete resulting outfit. That snapshot replaces only the character's previous `TURNBASED` `WEARS` facts; manual and fixed-protagonist clothing remains protected. Automatically generated garment entities are removed when the replacement leaves them unreferenced.
 
 Example custom predicate:
 
@@ -247,6 +267,8 @@ Facts reference the configured predicate by its string ID. `sourceTurn` is optio
 Every entity also has a `source`. Fixed-protagonist generation assigns `FIXED_PROTAGONIST`; automatic extraction from completed story turns assigns `TURNBASED` to every generated entity and fact. TURNBASED facts are always normalized to `hard=false` and therefore carry less weight than hard manual or fixed-protagonist facts.
 
 Automatic graph extraction runs after every `graph.turnBased.batchTurns` completed turns. The default is `3`. Only that latest batch of complete user-assistant turns is sent for extraction, and the resulting candidate is merged atomically. Existing non-TURNBASED entities and facts are protected from replacement or contradiction.
+
+Turn-based relationship extraction is deliberately conservative. An interaction such as talking, flirting, kissing, sex, cooperation, shared time, or momentary affection is not sufficient evidence for an enduring relationship such as `FRIENDS_WITH`, `LOVES`, or `TRUSTS`. The completed turns must explicitly establish the relationship; otherwise the extractor omits it.
 
 The CLI provides four graph management commands. They are local control commands and are never recorded as story turns:
 
@@ -404,6 +426,12 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.2.3
+- Added optional `backend.http.apiKey` configuration for bearer authentication with hosted OpenAI-compatible endpoints.
+- Made turn-based relationship extraction conservative so interactions such as talking, flirting, kissing, sex, cooperation, or momentary affection do not automatically become enduring relationship facts.
+- Added the temporal `WEARS` predicate for clothing, represented as separate `ITEM` entities and facts per garment.
+- Added outfit snapshot replacement so a character's obsolete `TURNBASED` clothing is removed after changing clothes, while manual and fixed-protagonist graph data remains protected.
 
 ### 1.2.2
 - Added configurable automatic knowledge-graph updates from every `graph.turnBased.batchTurns` completed story turns, defaulting to three.

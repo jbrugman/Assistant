@@ -14,6 +14,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OpenAiCompatibleHttpClientTest {
     @Test
     @DisplayName("""
+        Given an API key for an OpenAI-compatible endpoint,
+        When the HTTP request is built,
+        Then it should contain the API key as a bearer authorization header
+        """)
+    void shouldAddConfiguredApiKeyAsBearerToken() throws Exception {
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "https://example.test/v1/chat/completions", "test-model", true, "secret-api-key"
+        );
+
+        var request = client.buildRequest(List.of(new Message("user", "hello")), Map.of(), 30);
+
+        assertEquals("Bearer secret-api-key", request.headers().firstValue("Authorization").orElseThrow());
+    }
+
+    @Test
+    @DisplayName("""
+        Given no API key for a local OpenAI-compatible endpoint,
+        When the HTTP request is built,
+        Then it should omit the authorization header
+        """)
+    void shouldOmitAuthorizationHeaderWhenApiKeyIsBlank() throws Exception {
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "test-model", true, ""
+        );
+
+        var request = client.buildRequest(List.of(new Message("user", "hello")), Map.of(), 30);
+
+        assertTrue(request.headers().firstValue("Authorization").isEmpty());
+    }
+
+    @Test
+    @DisplayName("""
         Given a configured chat model name,
         When the request payload is built,
         Then the payload should contain that explicit model value

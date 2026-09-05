@@ -86,7 +86,13 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertEquals(FactSource.TURNBASED, graph.facts().getFirst().source());
       assertEquals(3, graph.facts().getFirst().sourceTurn());
       assertFalse(graph.facts().getFirst().hard());
+      String systemPrompt = request.get().getFirst().content();
       String prompt = request.get().getLast().content();
+      assertTrue(systemPrompt.contains("Treat interactions as events, not proof of an enduring interpersonal relationship"));
+      assertTrue(systemPrompt.contains("Talking,\nflirting, kissing"));
+      assertTrue(systemPrompt.contains("When in doubt, omit it"));
+      assertTrue(systemPrompt.contains("Represent clothing with WEARS from a CHARACTER to an ITEM"));
+      assertTrue(systemPrompt.contains("one ITEM entity and one\nWEARS fact per distinct garment"));
       assertTrue(prompt.contains("USER: Turn 1"));
       assertTrue(prompt.contains("ASSISTANT: Reply 3"));
     }
@@ -139,6 +145,47 @@ class TurnBasedKnowledgeGraphServiceTest {
     }
   }
 
+  @Test
+  @DisplayName("""
+    Given a turn-based shirt and an authoritative coat worn by a character,
+    When a later turn-based clothing snapshot contains only a sweater,
+    Then the shirt should disappear while the authoritative coat remains
+    """)
+  void replacesOnlyTurnBasedClothingForUpdatedCharacter() {
+    TestContext context = context();
+    EntityId valerie = new EntityId("character.valerie");
+    EntityId shirt = new EntityId("item.shirt");
+    EntityId coat = new EntityId("item.coat");
+    EntityId sweater = new EntityId("item.sweater");
+    Fact oldShirt = fact("fact.shirt", valerie, new PredicateId("WEARS"), shirt,
+      Polarity.POSITIVE, FactSource.TURNBASED, false);
+    Fact fixedCoat = fact("fact.coat", valerie, new PredicateId("WEARS"), coat,
+      Polarity.POSITIVE, FactSource.FIXED_PROTAGONIST, true);
+    KnowledgeGraphDocument current = new KnowledgeGraphDocument(1, 4, Map.of(
+      valerie.value(), new Entity(EntityType.CHARACTER, "Valerie", List.of(), FactSource.FIXED_PROTAGONIST),
+      shirt.value(), new Entity(EntityType.ITEM, "overhemd", List.of(), FactSource.TURNBASED),
+      coat.value(), new Entity(EntityType.ITEM, "jas", List.of(), FactSource.FIXED_PROTAGONIST)
+    ), List.of(oldShirt, fixedCoat));
+    KnowledgeGraphDocument candidate = new KnowledgeGraphDocument(1, 0, Map.of(
+      sweater.value(), new Entity(EntityType.ITEM, "trui", List.of(), FactSource.TURNBASED)
+    ), List.of(fact("fact.sweater", valerie, new PredicateId("WEARS"), sweater,
+      Polarity.POSITIVE, FactSource.TURNBASED, false)));
+    try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
+      TurnBasedKnowledgeGraphService service = service(context, (messages, options, timeout) -> "", queue, 3);
+
+      KnowledgeGraphDocument merged = service.merge(current, candidate, 6);
+
+      assertFalse(merged.entities().containsKey(shirt.value()));
+      assertTrue(merged.entities().containsKey(sweater.value()));
+      assertTrue(merged.facts().contains(fixedCoat));
+      assertFalse(merged.facts().contains(oldShirt));
+      assertTrue(merged.facts().stream().anyMatch(fact ->
+        WEARS_ID.equals(fact.predicate()) && sweater.equals(fact.object())));
+    }
+  }
+
+  private static final PredicateId WEARS_ID = new PredicateId("WEARS");
+
   private TestContext context() {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("knowledge-graph.json"));
     return new TestContext(
@@ -173,8 +220,20 @@ class TurnBasedKnowledgeGraphServiceTest {
     FactSource source,
     boolean hard
   ) {
+    return fact(id, subject, new PredicateId("POSSESSES"), object, polarity, source, hard);
+  }
+
+  private Fact fact(
+    String id,
+    EntityId subject,
+    PredicateId predicate,
+    EntityId object,
+    Polarity polarity,
+    FactSource source,
+    boolean hard
+  ) {
     return new Fact(
-      id, subject, new PredicateId("POSSESSES"), object, polarity,
+      id, subject, predicate, object, polarity,
       FactStatus.ACTIVE, source, null, hard
     );
   }

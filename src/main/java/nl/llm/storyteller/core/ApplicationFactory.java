@@ -65,10 +65,10 @@ public final class ApplicationFactory {
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
     String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
-      backendUrl, config.chatModel(), config.hideReasoningBlocks()
+      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey()
     );
     OpenAiCompatibleHttpClient validatorDelegate = new OpenAiCompatibleHttpClient(
-      backendUrl, config.validatorModel(), config.hideReasoningBlocks()
+      backendUrl, config.validatorModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey()
     );
     ResilientChatClient chatClient = new ResilientChatClient(
       chatDelegate,

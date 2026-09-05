@@ -3,11 +3,14 @@ package nl.llm.storyteller.core.graph.turnbasedservice;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.model.Entity;
+import nl.llm.storyteller.core.graph.model.EntityId;
 import nl.llm.storyteller.core.graph.model.Fact;
 import nl.llm.storyteller.core.graph.model.FactKey;
 import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
+import nl.llm.storyteller.core.graph.model.Polarity;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphJsonCodec;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
@@ -19,10 +22,15 @@ import nl.llm.storyteller.core.service.HistoryStore;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public final class TurnBasedKnowledgeGraphService {
+  private static final PredicateId WEARS = new PredicateId("WEARS");
+
   private final HistoryStore historyStore;
   private final ChatClient chatClient;
   private final KnowledgeGraphStore store;
@@ -121,6 +129,19 @@ public final class TurnBasedKnowledgeGraphService {
     });
 
     List<Fact> facts = new ArrayList<>(current.facts());
+    Set<EntityId> refreshedWearers = candidate.facts().stream()
+      .filter(fact -> WEARS.equals(fact.predicate()) && fact.polarity() == Polarity.POSITIVE)
+      .map(Fact::subject)
+      .collect(Collectors.toCollection(LinkedHashSet::new));
+    Set<EntityId> replacedGarments = facts.stream()
+      .filter(fact -> fact.source() == FactSource.TURNBASED)
+      .filter(fact -> WEARS.equals(fact.predicate()) && refreshedWearers.contains(fact.subject()))
+      .map(Fact::object)
+      .collect(Collectors.toCollection(LinkedHashSet::new));
+    facts.removeIf(fact -> fact.source() == FactSource.TURNBASED
+      && WEARS.equals(fact.predicate())
+      && refreshedWearers.contains(fact.subject()));
+
     for (Fact candidateFact : candidate.facts()) {
       Fact normalized = new Fact(
         candidateFact.id(),
@@ -145,6 +166,15 @@ public final class TurnBasedKnowledgeGraphService {
         && (fact.id().equals(normalized.id()) || sameKey(fact, key)));
       facts.add(normalized);
     }
+
+    replacedGarments.forEach(garment -> {
+      Entity entity = entities.get(garment.value());
+      boolean stillReferenced = facts.stream().anyMatch(fact ->
+        garment.equals(fact.subject()) || garment.equals(fact.object()));
+      if (entity != null && entity.source() == FactSource.TURNBASED && !stillReferenced) {
+        entities.remove(garment.value());
+      }
+    });
 
     return new KnowledgeGraphDocument(
       KnowledgeGraphDocument.CURRENT_SCHEMA_VERSION,
@@ -185,6 +215,16 @@ public final class TurnBasedKnowledgeGraphService {
       Every entity and fact must use source TURNBASED. Facts must use status ACTIVE, hard false,
       and one of these configured directional predicates: %s.
       Do not guess, infer uncertain information, or repeat unrelated facts from the current graph.
+      Treat interactions as events, not proof of an enduring interpersonal relationship. Talking,
+      flirting, kissing, having sex, cooperating, spending time together, or showing momentary
+      affection does not by itself establish LOVES, FRIENDS_WITH, TRUSTS, FEELS_SAFE_WITH,
+      PROTECTIVE_OF, or another relationship predicate. Emit such a relationship only when the
+      supplied turns explicitly establish that relationship as a fact. When in doubt, omit it.
+      Represent clothing with WEARS from a CHARACTER to an ITEM. Create one ITEM entity and one
+      WEARS fact per distinct garment or outfit description; never put an array or multiple garments
+      in a single fact object. When the supplied turns change a character's clothing, return the
+      character's complete resulting outfit as WEARS facts, including unchanged garments that remain
+      worn. Omission from that resulting set means a previous TURNBASED garment is no longer worn.
       Turn-based data is generated context with lower authority than manual or fixed-protagonist data.
       """.formatted(predicates.modelInstructions());
   }

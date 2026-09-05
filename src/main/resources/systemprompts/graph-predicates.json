@@ -1,6 +1,7 @@
 {
   "predicates": {
     "POSSESSES": { "subjectType": "CHARACTER", "objectType": "ITEM", "temporal": true, "positiveText": "possesses", "negativeText": "does not possess" },
+    "WEARS": { "subjectType": "CHARACTER", "objectType": "ITEM", "temporal": true, "positiveText": "wears", "negativeText": "does not wear" },
     "CAN_PERFORM": { "subjectType": "CHARACTER", "objectType": "SKILL", "temporal": false, "positiveText": "can perform", "negativeText": "cannot perform" },
     "LOVES": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "loves", "negativeText": "does not love" },
     "TRUSTS": { "subjectType": "CHARACTER", "objectType": "CHARACTER", "temporal": false, "positiveText": "trusts", "negativeText": "does not trust" },
