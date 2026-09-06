@@ -22,24 +22,47 @@ fixed-protagonist constraints. It can be repeated with different models, quantiz
 Specify a model after `/benchmark`, or omit it to use the model already loaded by the backend. The validation,
 cache-buster, and knowledge-graph switches can be enabled independently so their effects can be compared.
 
-The first results below were measured with the official Gemma 4 26B A4B model available through LM Studio,
-using its 6-bit MLX variant:
+The initial results below include the official Gemma 4 26B A4B model available through LM Studio using its 6-bit MLX
+variant, and Gemma 4 12B QAT running on an RTX 3080 Ti with speculative decoding enabled. These results are preliminary
+observations from individual runs rather than definitive performance claims.
 
-| Configuration | Facts retained | Validation probes | Total time |
-|---|---:|---:|---:|
-| All features disabled | 20% (1/5) | 0/4 | 1m 09s |
-| Cache-buster only | 20% (1/5) | 0/4 | 1m 48s |
-| Knowledge graph only | 100% (5/5) | 0/4 | 3m 19s |
-| Knowledge graph and validation | 100% (5/5) | 4/4 | 4m 30s |
+| Model and runtime | Validation | Cache-buster | Knowledge graph | Facts retained | Validation probes | Total time |
+|:---|:---:|:---:|:---:|---:|---:|---:|
+| Gemma 4 26B A4B, MLX 6-bit | Off | Off | Off | 20% (1/5) | — | 1m 09s |
+| Gemma 4 26B A4B, MLX 6-bit | Off | Off | On | 100% (5/5) | — | 3m 19s |
+| Gemma 4 26B A4B, MLX 6-bit | Off | On | Off | 20% (1/5) | — | 1m 48s |
+| Gemma 4 26B A4B, MLX 6-bit | On | Off | On | 100% (5/5) | 4/4 | 4m 30s |
+| Gemma 4 12B QAT, RTX 3080 Ti with speculative decoding | Off | Off | Off | 0% (0/5) | — | 0m 18s |
+| Gemma 4 12B QAT, RTX 3080 Ti with speculative decoding | Off | Off | On | 100% (5/5) | — | 1m 16s |
+| Gemma 4 12B QAT, RTX 3080 Ti with speculative decoding | Off | On | Off | 0% (0/5) | — | 0m 24s |
+| Gemma 4 12B QAT, RTX 3080 Ti with speculative decoding | On | Off | Off | 0% (0/5) | 2/4 | 0m 52s |
+| Gemma 4 12B QAT, RTX 3080 Ti with speculative decoding | On | Off | On | 100% (5/5) | 4/4 | 1m 44s |
 
-In these initial runs, cache-busting did not improve fact retention and only increased execution time. Knowledge-graph
-injection improved fact retention from 20% to 100%. Validation did not further increase the already perfect retention
-score, but it correctly repaired all four deliberate fixed-protagonist constraint violations without regressions. For
-this model and benchmark, the strongest configuration is therefore knowledge graph and validation enabled, with the
-cache-buster disabled. Cache-busting will not be removed based on this initial result: more representative tests across
-different models and scenarios are needed before making that decision. It can already be disabled through configuration
-when it provides no measurable benefit. In this comparison, disabling it also reduced the average turn time from 2.16
-seconds to 1.40 seconds while producing the same fact-retention score.
+In this fixed scenario, knowledge-graph injection was associated with substantially better fact retention. Retention
+increased from 20% to 100% for Gemma 4 26B A4B and from 0% to 100% for Gemma 4 12B QAT. These individual runs do not
+establish that the same improvement will occur with other models, stories, context sizes, hardware, or repeated runs.
+
+Validation checks explicit rules and fixed-protagonist constraints; it does not recover historical facts that are no
+longer present in the model context. It therefore did not improve fact retention when the knowledge graph was disabled.
+With knowledge-graph injection enabled, validation corrected all four deliberate constraint violations for both models.
+In the separate Gemma 4 12B run without knowledge-graph injection, only two of four validation probes produced usable
+corrections. More repeated tests are required before attributing that difference to the knowledge-graph context.
+
+The matched cache-buster comparisons showed no quality improvement. For Gemma 4 26B A4B, retention remained at 20%
+while total time increased from 1m 09s to 1m 48s. For Gemma 4 12B QAT, retention remained at 0% while total time
+increased from 18 to 24 seconds. This evidence is limited to two models and one fixed scenario, so cache-busting remains
+available pending broader testing. The provisional recommendation is to disable it with `cacheBuster.enabled=false`.
+
+The Gemma 4 12B QAT runs on the RTX 3080 Ti were also considerably faster than the Gemma 4 26B A4B MLX runs on the
+Mac. For example, the configuration with validation disabled, cache-busting disabled, and knowledge-graph injection
+enabled completed in 1m 16s on the RTX 3080 Ti versus 3m 19s on the Mac. This is not a direct hardware benchmark:
+the model sizes, quantizations, inference runtimes, and use of speculative decoding differ. It does show that the tested
+12B setup on the RTX 3080 Ti delivered substantially shorter benchmark times in practice.
+
+The benchmark reports total wall-clock time and average turn time, but not model generation speed. The generic
+OpenAI-compatible response does not provide enough portable timing information to distinguish prompt evaluation,
+time to first token, token generation, and request overhead reliably. Use the backend's own generation timing for a
+hardware tok/s measurement.
 
 ## Recommended setup
 See: https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide
@@ -490,6 +513,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.3
+- Improved benchmark validation so rule violations are replaced with corrected story text, and expanded the documented benchmark comparison across validation, cache-buster, and knowledge-graph configurations.
 
 ### 1.3.2
 - Prevented `/graph -fill` and automatic turn-based knowledge-graph extraction from overwriting each other's updates.
