@@ -17,6 +17,12 @@
           <input id="title" name="title" maxlength="255" autocomplete="off" autofocus>
           <button type="submit">Start a story</button>
         </form>
+        <div class="start-divider"><span>or</span></div>
+        <form method="post" action="/import" enctype="multipart/form-data" class="stack import-form">
+          <label for="bundle">Import CLI session <span>(ZIP)</span></label>
+          <input id="bundle" name="bundle" type="file" accept=".zip,application/zip" required>
+          <button type="submit" class="secondary-action">Import session</button>
+        </form>
       </section>
     </main>
   </body>

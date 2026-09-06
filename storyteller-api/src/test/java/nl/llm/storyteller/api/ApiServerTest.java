@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ApiServerTest {
@@ -188,9 +189,44 @@ class ApiServerTest {
     assertTrue(story.body().contains("response-maximized"));
     assertTrue(story.body().contains("single-column"));
     assertTrue(story.body().contains("event.shiftKey"));
-    assertTrue(story.body().contains("submitButton.disabled = true"));
+    assertTrue(story.body().contains("continueButton.disabled = true"));
+    assertTrue(story.body().contains("undoButton.disabled = true"));
+    assertTrue(story.body().contains("formaction=\"/story/undo\""));
     assertTrue(story.body().contains("Stop story"));
     assertTrue(story.body().contains("permanently deleted"));
+    assertTrue(story.body().contains("Infinite"));
+
+    HttpResponse<String> undone = client.send(
+      HttpRequest.newBuilder(uri("/story/undo"))
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.noBody())
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> undoneStory = client.send(
+      HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+
+    assertEquals(303, undone.statusCode());
+    assertFalse(undoneStory.body().contains("A door opens in the old library."));
+    assertTrue(undoneStory.body().contains("data-undo-available=\"false\""));
+
+    HttpResponse<String> infinite = client.send(
+      HttpRequest.newBuilder(uri("/story/infinite"))
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.noBody())
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> infiniteStory = client.send(
+      HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+
+    assertEquals(303, infinite.statusCode());
+    assertTrue(infinite.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=2147483647"));
+    assertTrue(infiniteStory.body().contains("Use timeout"));
 
     HttpResponse<String> stopped = client.send(
       HttpRequest.newBuilder(uri("/story/stop"))

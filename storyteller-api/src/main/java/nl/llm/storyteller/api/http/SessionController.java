@@ -32,7 +32,7 @@ public final class SessionController {
       ? new CreateSessionRequest(null)
       : context.bodyAsClass(CreateSessionRequest.class);
     SessionRecord session = sessionService.create(request.title());
-    cookieService.write(context, session.sessionId());
+    cookieService.write(context, session.sessionId(), session.infinite());
     context.status(HttpStatus.CREATED).json(SessionResponse.from(session));
   }
 
@@ -50,7 +50,7 @@ public final class SessionController {
       return;
     }
 
-    cookieService.write(context, sessionId);
+    cookieService.write(context, sessionId, session.get().infinite());
     context.json(SessionResponse.from(session.get()));
   }
 

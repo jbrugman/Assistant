@@ -1,14 +1,18 @@
 package nl.llm.storyteller.api.persistence;
 
 import static nl.llm.storyteller.api.persistence.SessionQueries.DELETE_EXPIRED_SESSIONS;
+import static nl.llm.storyteller.api.persistence.SessionQueries.DELETE_EXPIRED_SESSION_FACTS;
 import static nl.llm.storyteller.api.persistence.SessionQueries.DELETE_SESSION;
+import static nl.llm.storyteller.api.persistence.SessionQueries.DELETE_SESSION_FACTS;
 import static nl.llm.storyteller.api.persistence.SessionQueries.INSERT_KNOWLEDGE_GRAPH;
-import static nl.llm.storyteller.api.persistence.SessionQueries.INSERT_SESSION;
 import static nl.llm.storyteller.api.persistence.SessionQueries.INSERT_SESSION_CONFIGURATION;
 import static nl.llm.storyteller.api.persistence.SessionQueries.INSERT_SESSION_MEMORY;
 import static nl.llm.storyteller.api.persistence.SessionQueries.INSERT_TURN_STATE;
 import static nl.llm.storyteller.api.persistence.SessionQueries.SELECT_SESSION;
 import static nl.llm.storyteller.api.persistence.SessionQueries.UPDATE_ACCESS;
+import static nl.llm.storyteller.api.persistence.SessionQueries.UPDATE_INFINITE;
+import static nl.llm.storyteller.api.persistence.SessionPersistenceSupport.insertSession;
+import static nl.llm.storyteller.api.persistence.SessionPersistenceSupport.insertSessionId;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -73,42 +77,41 @@ public final class JdbcSessionRepository implements SessionRepository {
   }
 
   @Override
+  public boolean setInfinite(String sessionId, boolean infinite, Instant expiresAt) {
+    try (Connection connection = database.openConnection();
+         PreparedStatement statement = connection.prepareStatement(UPDATE_INFINITE)) {
+      statement.setBoolean(1, infinite);
+      statement.setTimestamp(2, Timestamp.from(expiresAt));
+      statement.setString(3, sessionId);
+      return statement.executeUpdate() == 1;
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not change session expiration.", ex);
+    }
+  }
+
+  @Override
   public void delete(String sessionId) {
-    executeDeleteCount(DELETE_SESSION, statement -> statement.setString(1, sessionId));
+    deleteWithDependencies(
+      DELETE_SESSION_FACTS,
+      DELETE_SESSION,
+      statement -> statement.setString(1, sessionId)
+    );
   }
 
   @Override
   public int deleteExpired(Instant expiredBefore) {
-    return executeDeleteCount(
+    return deleteWithDependencies(
+      DELETE_EXPIRED_SESSION_FACTS,
       DELETE_EXPIRED_SESSIONS,
       statement -> statement.setTimestamp(1, Timestamp.from(expiredBefore))
     );
   }
 
-  private void insertSession(Connection connection, SessionRecord session) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(INSERT_SESSION)) {
-      statement.setString(1, session.sessionId());
-      statement.setString(2, session.title());
-      statement.setTimestamp(3, Timestamp.from(session.createdAt()));
-      statement.setTimestamp(4, Timestamp.from(session.updatedAt()));
-      statement.setTimestamp(5, Timestamp.from(session.lastAccessedAt()));
-      statement.setTimestamp(6, Timestamp.from(session.expiresAt()));
-      statement.executeUpdate();
-    }
-  }
-
   private void insertDefaults(Connection connection, String sessionId) throws SQLException {
-    executeInsert(connection, INSERT_SESSION_CONFIGURATION, sessionId);
-    executeInsert(connection, INSERT_SESSION_MEMORY, sessionId);
-    executeInsert(connection, INSERT_TURN_STATE, sessionId);
-    executeInsert(connection, INSERT_KNOWLEDGE_GRAPH, sessionId);
-  }
-
-  private void executeInsert(Connection connection, String sql, String sessionId) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(sql)) {
-      statement.setString(1, sessionId);
-      statement.executeUpdate();
-    }
+    insertSessionId(connection, INSERT_SESSION_CONFIGURATION, sessionId);
+    insertSessionId(connection, INSERT_SESSION_MEMORY, sessionId);
+    insertSessionId(connection, INSERT_TURN_STATE, sessionId);
+    insertSessionId(connection, INSERT_KNOWLEDGE_GRAPH, sessionId);
   }
 
   private SessionRecord readSession(ResultSet resultSet) throws SQLException {
@@ -118,17 +121,32 @@ public final class JdbcSessionRepository implements SessionRepository {
       resultSet.getTimestamp("created_at").toInstant(),
       resultSet.getTimestamp("updated_at").toInstant(),
       resultSet.getTimestamp("last_accessed_at").toInstant(),
-      resultSet.getTimestamp("expires_at").toInstant()
+      resultSet.getTimestamp("expires_at").toInstant(),
+      resultSet.getBoolean("infinite")
     );
   }
 
-  private int executeDeleteCount(String sql, StatementBinder binder) {
-    try (Connection connection = database.openConnection();
-         PreparedStatement statement = connection.prepareStatement(sql)) {
-      binder.bind(statement);
-      return statement.executeUpdate();
+  private int deleteWithDependencies(String dependencySql, String sessionSql, StatementBinder binder) {
+    try (Connection connection = database.openConnection()) {
+      connection.setAutoCommit(false);
+      try {
+        executeDelete(connection, dependencySql, binder);
+        int deleted = executeDelete(connection, sessionSql, binder);
+        connection.commit();
+        return deleted;
+      } catch (SQLException ex) {
+        rollback(connection, ex);
+        throw ex;
+      }
     } catch (SQLException ex) {
       throw new DatabaseException("Could not delete session data.", ex);
+    }
+  }
+
+  private int executeDelete(Connection connection, String sql, StatementBinder binder) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+      binder.bind(statement);
+      return statement.executeUpdate();
     }
   }
 

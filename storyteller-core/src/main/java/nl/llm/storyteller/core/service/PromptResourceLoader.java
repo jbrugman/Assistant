@@ -1,6 +1,5 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.FileSupport;
 
 public final class PromptResourceLoader {

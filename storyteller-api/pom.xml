@@ -140,6 +140,7 @@
               <buildArgs>
                 <buildArg>-H:IncludeResources=systemprompts/.*</buildArg>
                 <buildArg>-H:IncludeResources=db/.*</buildArg>
+                <buildArg>-H:IncludeResources=public/.*</buildArg>
                 <buildArg>-H:IncludeResources=application.config</buildArg>
                 <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                 <buildArg>-H:+SharedArenaSupport</buildArg>

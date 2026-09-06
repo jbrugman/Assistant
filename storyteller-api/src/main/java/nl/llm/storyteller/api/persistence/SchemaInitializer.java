@@ -39,6 +39,7 @@ public final class SchemaInitializer {
       Set<String> existingSchemaTables = new HashSet<>(existingTables);
       existingSchemaTables.retainAll(EXPECTED_TABLES);
       if (existingSchemaTables.equals(EXPECTED_TABLES)) {
+        addInfiniteSessionColumnIfMissing(connection);
         return;
       }
       if (!existingSchemaTables.isEmpty()) {
@@ -47,6 +48,17 @@ public final class SchemaInitializer {
       executeSchema(connection, loadSchema());
     } catch (SQLException ex) {
       throw new DatabaseException("Could not initialize the API database schema.", ex);
+    }
+  }
+
+  private void addInfiniteSessionColumnIfMissing(Connection connection) throws SQLException {
+    try (ResultSet columns = connection.getMetaData().getColumns(null, null, "STORY_SESSION", "INFINITE")) {
+      if (columns.next()) {
+        return;
+      }
+    }
+    try (var statement = connection.createStatement()) {
+      statement.execute("ALTER TABLE story_session ADD COLUMN infinite BOOLEAN DEFAULT FALSE NOT NULL");
     }
   }
 

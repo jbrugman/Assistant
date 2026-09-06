@@ -8,7 +8,8 @@ public record SessionResponse(
   String createdAt,
   String updatedAt,
   String lastAccessedAt,
-  String expiresAt
+  String expiresAt,
+  boolean infinite
 ) {
   public static SessionResponse from(SessionRecord session) {
     return new SessionResponse(
@@ -17,7 +18,8 @@ public record SessionResponse(
       session.createdAt().toString(),
       session.updatedAt().toString(),
       session.lastAccessedAt().toString(),
-      session.expiresAt().toString()
+      session.expiresAt().toString(),
+      session.infinite()
     );
   }
 }

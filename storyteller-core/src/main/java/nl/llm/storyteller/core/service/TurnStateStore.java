@@ -15,6 +15,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static nl.llm.storyteller.core.service.TurnStateJsonCodec.PROTAGONISTS;
+import static nl.llm.storyteller.core.service.TurnStateJsonCodec.ROUND_NUMBER;
+import static nl.llm.storyteller.core.service.TurnStateJsonCodec.STARTED;
+import static nl.llm.storyteller.core.service.TurnStateJsonCodec.TRIGGER_WORD;
+import static nl.llm.storyteller.core.service.TurnStateJsonCodec.TURNS_THIS_ROUND;
+
 public final class TurnStateStore {
   private final Path path;
 
@@ -29,17 +35,17 @@ public final class TurnStateStore {
 
     try {
       JsonNode data = JsonSupport.OBJECT_MAPPER.readTree(Files.readString(path, StandardCharsets.UTF_8));
-      String triggerWord = data.path("trigger_word").asText("");
-      boolean started = data.path("started").asBoolean(false);
-      int roundNumber = data.path("round_number").asInt(0);
+      String triggerWord = data.path(TRIGGER_WORD).asText("");
+      boolean started = data.path(STARTED).asBoolean(false);
+      int roundNumber = data.path(ROUND_NUMBER).asInt(0);
 
       List<String> protagonists = JsonSupport.OBJECT_MAPPER.convertValue(
-        data.path("protagonists"),
+        data.path(PROTAGONISTS),
         JsonSupport.OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class)
       );
 
       Map<String, Integer> turnsThisRound = new LinkedHashMap<>();
-      JsonNode turnsNode = data.path("turns_this_round");
+      JsonNode turnsNode = data.path(TURNS_THIS_ROUND);
       if (turnsNode.isObject()) {
         Iterator<String> fieldNames = turnsNode.fieldNames();
         while (fieldNames.hasNext()) {
@@ -57,19 +63,12 @@ public final class TurnStateStore {
   }
 
   public synchronized void save(TurnState state) {
-    Map<String, Object> data = new LinkedHashMap<>();
-    data.put("trigger_word", state.triggerWord());
-    data.put("started", state.started());
-    data.put("round_number", state.roundNumber());
-    data.put("protagonists", state.protagonists());
-    data.put("turns_this_round", state.turnsThisRound());
-
     try {
       Path parent = path.getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
-      JsonSupport.OBJECT_MAPPER.writeValue(path.toFile(), data);
+      JsonSupport.OBJECT_MAPPER.writeValue(path.toFile(), TurnStateJsonCodec.toJson(state));
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }

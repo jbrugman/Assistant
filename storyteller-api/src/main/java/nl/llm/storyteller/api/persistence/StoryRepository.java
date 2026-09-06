@@ -11,4 +11,6 @@ public interface StoryRepository {
   List<Message> loadRecentMessages(String sessionId, int maximumMessages);
 
   StoryTurnRecord appendTurn(String sessionId, String userInput, String assistantResponse, Instant updatedAt);
+
+  boolean undoLastTurn(String sessionId, Instant updatedAt);
 }

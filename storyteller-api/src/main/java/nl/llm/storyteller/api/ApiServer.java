@@ -5,11 +5,13 @@ import io.javalin.http.staticfiles.Location;
 import io.javalin.rendering.template.JavalinJte;
 import gg.jte.ContentType;
 import gg.jte.TemplateEngine;
+import nl.llm.storyteller.api.bundle.SessionBundleService;
 import nl.llm.storyteller.api.http.ApiErrorHandler;
 import nl.llm.storyteller.api.http.SessionController;
 import nl.llm.storyteller.api.http.StoryController;
 import nl.llm.storyteller.api.persistence.Database;
 import nl.llm.storyteller.api.persistence.JdbcStoryRepository;
+import nl.llm.storyteller.api.persistence.JdbcSessionBundleRepository;
 import nl.llm.storyteller.api.persistence.JdbcSessionRepository;
 import nl.llm.storyteller.api.persistence.SchemaInitializer;
 import nl.llm.storyteller.api.session.SessionCookieService;
@@ -79,8 +81,11 @@ public final class ApiServer implements AutoCloseable {
       sessionService,
       storyTurnService
     );
+    SessionBundleService bundleService = new SessionBundleService(
+      new JdbcSessionBundleRepository(database), config.sessionInactivityTimeout()
+    );
     WebController webController = new WebController(
-      sessionService, cookieService, storyRepository, storyTurnService
+      sessionService, cookieService, storyRepository, storyTurnService, bundleService
     );
     Javalin server = Javalin.create(javalinConfig -> {
       javalinConfig.startup.showJavalinBanner = false;

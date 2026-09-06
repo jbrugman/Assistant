@@ -31,6 +31,7 @@ final class TerminalStoryteller {
   private static final String EXPORT_ALL_OPTION = "-all";
   private static final String EXPORT_INTRO_OPTION = "-intro";
   private static final String EXPORT_CLEAN_OPTION = "-clean";
+  private static final String EXPORT_ZIP_OPTION = "-zip";
   private static final String CONTINUE_STORY_WIDGET = "continue-story";
   private static final String RESET_WIDGET = "reset-behavior";
   private static final String UNDO_WIDGET = "undo-last-turn";
@@ -44,10 +45,6 @@ final class TerminalStoryteller {
 
   TerminalStoryteller(Terminal terminal, ApplicationContext context) {
     this(terminal, context, new ClipboardImageReader(), new BenchmarkRunner());
-  }
-
-  TerminalStoryteller(Terminal terminal, ApplicationContext context, ClipboardImageReader clipboardImageReader) {
-    this(terminal, context, clipboardImageReader, new BenchmarkRunner());
   }
 
   TerminalStoryteller(
@@ -210,9 +207,16 @@ final class TerminalStoryteller {
     if (!userInput.startsWith(EXPORT_COMMAND)) {
       return false;
     }
+    if ((EXPORT_COMMAND + " " + EXPORT_ZIP_OPTION).equalsIgnoreCase(userInput.trim())) {
+      exportSessionBundle();
+      return true;
+    }
     StoryExportService.ExportMode exportMode = parseExportMode(userInput);
     if (exportMode == null) {
-      renderer.printError("Export command error", "Use /export, /export -intro, /export -clean, or /export -all.");
+      renderer.printError(
+        "Export command error",
+        "Use /export, /export -intro, /export -clean, /export -all, or /export -zip."
+      );
       return true;
     }
     try {
@@ -222,6 +226,15 @@ final class TerminalStoryteller {
       renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
     }
     return true;
+  }
+
+  private void exportSessionBundle() {
+    try {
+      var path = context.storyExportService().exportSessionBundle(context.config());
+      renderer.printMessage("Session ZIP exported to " + path.getFileName());
+    } catch (RuntimeException ex) {
+      renderer.printError(context.config().processHistoryErrorText(), ex.getMessage());
+    }
   }
 
   private void handleBenchmarkCommand(String userInput) {

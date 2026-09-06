@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SessionServiceTest {
   private static final Instant NOW = Instant.parse("2026-09-05T10:15:30Z");
@@ -57,7 +58,8 @@ class SessionServiceTest {
       createdAt,
       createdAt,
       createdAt,
-      NOW.plusSeconds(60)
+      NOW.plusSeconds(60),
+      false
     );
     repository.create(stored);
     SessionService service = service(repository);
@@ -83,7 +85,8 @@ class SessionServiceTest {
       NOW.minusSeconds(7200),
       NOW.minusSeconds(7200),
       NOW.minusSeconds(7200),
-      NOW
+      NOW,
+      false
     );
     repository.create(expired);
     SessionService service = service(repository);
@@ -108,6 +111,24 @@ class SessionServiceTest {
     service.delete(session.sessionId());
 
     assertFalse(repository.findById(session.sessionId()).isPresent());
+  }
+
+  @Test
+  @DisplayName("""
+    Given an active session with inactivity expiration,
+    When infinite retention is enabled,
+    Then expiration should be disabled until it is toggled off again
+    """)
+  void shouldToggleInfiniteRetention() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+
+    SessionRecord infinite = service.toggleInfinite(session.sessionId()).orElseThrow();
+    SessionRecord finite = service.toggleInfinite(session.sessionId()).orElseThrow();
+
+    assertTrue(infinite.infinite());
+    assertFalse(finite.infinite());
   }
 
   private SessionService service(SessionRepository repository) {
@@ -144,7 +165,26 @@ class SessionServiceTest {
         session.createdAt(),
         session.updatedAt(),
         accessedAt,
-        expiresAt
+        expiresAt,
+        session.infinite()
+      ));
+      return true;
+    }
+
+    @Override
+    public boolean setInfinite(String sessionId, boolean infinite, Instant expiresAt) {
+      SessionRecord session = sessions.get(sessionId);
+      if (session == null) {
+        return false;
+      }
+      sessions.put(sessionId, new SessionRecord(
+        session.sessionId(),
+        session.title(),
+        session.createdAt(),
+        session.updatedAt(),
+        session.lastAccessedAt(),
+        expiresAt,
+        infinite
       ));
       return true;
     }
@@ -157,7 +197,7 @@ class SessionServiceTest {
     @Override
     public int deleteExpired(Instant expiredBefore) {
       int originalSize = sessions.size();
-      sessions.values().removeIf(session -> !session.expiresAt().isAfter(expiredBefore));
+      sessions.values().removeIf(session -> !session.infinite() && !session.expiresAt().isAfter(expiredBefore));
       return originalSize - sessions.size();
     }
   }

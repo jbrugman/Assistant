@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static nl.llm.storyteller.api.persistence.StoryQueries.INSERT_MESSAGE;
+import static nl.llm.storyteller.api.persistence.StoryQueries.DELETE_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_LAST_MESSAGE_INDEX;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_RECENT_MESSAGES;
@@ -74,6 +75,61 @@ public final class JdbcStoryRepository implements StoryRepository {
       return appendInTransaction(connection, sessionId, userInput, assistantResponse, updatedAt);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not append story turn for session " + sessionId + ".", ex);
+    }
+  }
+
+  @Override
+  public boolean undoLastTurn(String sessionId, Instant updatedAt) {
+    try (Connection connection = database.openConnection()) {
+      connection.setAutoCommit(false);
+      return undoInTransaction(connection, sessionId, updatedAt);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not undo the last story turn for session " + sessionId + ".", ex);
+    }
+  }
+
+  private boolean undoInTransaction(Connection connection, String sessionId, Instant updatedAt)
+    throws SQLException {
+    try {
+      List<Integer> messageIndexes = lastCompleteTurnIndexes(connection, sessionId);
+      if (messageIndexes.isEmpty()) {
+        connection.rollback();
+        return false;
+      }
+      for (int messageIndex : messageIndexes) {
+        deleteMessage(connection, sessionId, messageIndex);
+      }
+      updateSession(connection, sessionId, updatedAt);
+      connection.commit();
+      return true;
+    } catch (SQLException ex) {
+      rollback(connection, ex);
+      throw ex;
+    }
+  }
+
+  private List<Integer> lastCompleteTurnIndexes(Connection connection, String sessionId) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(SELECT_RECENT_MESSAGES)) {
+      statement.setString(1, sessionId);
+      statement.setInt(2, 2);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (!resultSet.next() || !"assistant".equals(resultSet.getString("message_role"))) {
+          return List.of();
+        }
+        int assistantIndex = resultSet.getInt("message_index");
+        if (!resultSet.next() || !"user".equals(resultSet.getString("message_role"))) {
+          return List.of();
+        }
+        return List.of(assistantIndex, resultSet.getInt("message_index"));
+      }
+    }
+  }
+
+  private void deleteMessage(Connection connection, String sessionId, int messageIndex) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(DELETE_MESSAGE)) {
+      statement.setString(1, sessionId);
+      statement.setInt(2, messageIndex);
+      statement.executeUpdate();
     }
   }
 

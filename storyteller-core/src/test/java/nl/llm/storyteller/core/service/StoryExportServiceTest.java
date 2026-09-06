@@ -1,5 +1,6 @@
 package nl.llm.storyteller.core.service;
 
+import nl.llm.storyteller.core.TestAppConfigFactory;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
 import org.junit.jupiter.api.DisplayName;
@@ -9,8 +10,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -150,11 +155,49 @@ class StoryExportServiceTest {
         assertEquals("There is no story history to export yet.", error.getMessage());
     }
 
+    @Test
+    @DisplayName("""
+        Given a persisted CLI story and derived memory files,
+        When a session ZIP export is requested,
+        Then the archive should contain the portable files accepted by the web importer
+        """)
+    void shouldExportPortableSessionZip() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-session-export");
+        var config = TestAppConfigFactory.load(baseDirectory);
+        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
+        historyStore.save(history(
+            new Message("user", "Open the door."),
+            new Message("assistant", "The door opens.")
+        ));
+        Files.writeString(config.summaryFile(), "Existing summary");
+        StoryExportService exportService = new StoryExportService(historyStore, baseDirectory, fixedClock());
+
+        Path archive = exportService.exportSessionBundle(config);
+        Set<String> entries = zipEntries(archive);
+
+        assertEquals("story-session-20260728-101530.zip", archive.getFileName().toString());
+        assertTrue(entries.contains("manifest.json"));
+        assertTrue(entries.contains("history.json"));
+        assertTrue(entries.contains("summary.md"));
+        assertFalse(entries.contains("recent-summary.md"));
+    }
+
+    private Set<String> zipEntries(Path archive) throws Exception {
+        Set<String> entries = new HashSet<>();
+        try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                entries.add(entry.getName());
+            }
+        }
+        return entries;
+    }
+
     private HistoryState history(Message... messages) {
         return new HistoryState(List.of(messages), 0, 0, 0);
     }
 
     private Clock fixedClock() {
-        return Clock.fixed(Instant.parse("2026-07-28T10:15:30Z"), ZoneId.systemDefault());
+        return Clock.fixed(Instant.parse("2026-07-28T10:15:30Z"), ZoneOffset.UTC);
     }
 }

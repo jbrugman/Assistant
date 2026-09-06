@@ -10,6 +10,8 @@ public interface SessionRepository {
 
   boolean refreshAccess(String sessionId, Instant accessedAt, Instant expiresAt);
 
+  boolean setInfinite(String sessionId, boolean infinite, Instant expiresAt);
+
   void delete(String sessionId);
 
   int deleteExpired(Instant expiredBefore);

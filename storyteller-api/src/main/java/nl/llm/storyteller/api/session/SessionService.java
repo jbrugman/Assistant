@@ -43,7 +43,8 @@ public final class SessionService {
       now,
       now,
       now,
-      now.plus(inactivityTimeout)
+      now.plus(inactivityTimeout),
+      false
     );
     repository.create(session);
     return session;
@@ -61,7 +62,7 @@ public final class SessionService {
 
     Instant now = clock.instant();
     SessionRecord session = stored.get();
-    if (!session.expiresAt().isAfter(now)) {
+    if (!session.infinite() && !session.expiresAt().isAfter(now)) {
       repository.delete(sessionId);
       return Optional.empty();
     }
@@ -76,7 +77,30 @@ public final class SessionService {
       session.createdAt(),
       session.updatedAt(),
       now,
-      refreshedExpiry
+      refreshedExpiry,
+      session.infinite()
+    ));
+  }
+
+  public Optional<SessionRecord> toggleInfinite(String sessionId) {
+    Optional<SessionRecord> active = findActive(sessionId);
+    if (active.isEmpty()) {
+      return Optional.empty();
+    }
+    SessionRecord session = active.get();
+    boolean infinite = !session.infinite();
+    Instant expiresAt = clock.instant().plus(inactivityTimeout);
+    if (!repository.setInfinite(sessionId, infinite, expiresAt)) {
+      return Optional.empty();
+    }
+    return Optional.of(new SessionRecord(
+      session.sessionId(),
+      session.title(),
+      session.createdAt(),
+      session.updatedAt(),
+      session.lastAccessedAt(),
+      expiresAt,
+      infinite
     ));
   }
 

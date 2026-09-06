@@ -69,6 +69,10 @@ public final class StoryTurnService {
     return new StoryTurnResult(stored.userMessageIndex(), stored.assistantMessageIndex(), response);
   }
 
+  public synchronized boolean undoLastTurn(String sessionId) {
+    return repository.undoLastTurn(sessionId, clock.instant());
+  }
+
   private String validate(String userInput, String draftResponse) throws InterruptedException {
     if (!config.validationEnabled()) {
       return responseGuard.validate("", "", draftResponse);

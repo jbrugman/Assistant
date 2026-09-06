@@ -23,6 +23,20 @@ textarea {
   font: inherit;
 }
 
+.header-action {
+  border: 1px solid #625448;
+  border-radius: 10px;
+  color: #d7a879;
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.4rem 0.7rem;
+  text-decoration: none;
+}
+
+.header-action:hover {
+  background: #302923;
+}
+
 .start-page,
 .story-page {
   width: min(900px, calc(100% - 2rem));
@@ -82,6 +96,32 @@ h1 {
   display: grid;
   gap: 0.8rem;
   margin-top: 2rem;
+}
+
+.start-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #827972;
+  margin: 1.4rem 0 0;
+}
+
+.start-divider::before,
+.start-divider::after {
+  height: 1px;
+  background: #37312d;
+  content: "";
+  flex: 1;
+}
+
+.import-form {
+  margin-top: 1.4rem;
+}
+
+.secondary-action {
+  border: 1px solid #625448;
+  background: transparent;
+  color: #d7a879;
 }
 
 label span {
@@ -165,6 +205,7 @@ button:disabled {
 .session-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.65rem;
 }
 
@@ -174,6 +215,18 @@ button:disabled {
   color: #e09a91;
   font-size: 0.78rem;
   padding: 0.4rem 0.7rem;
+}
+
+.infinite-session {
+  border: 1px solid #46523d;
+  background: transparent;
+  color: #a9c493;
+  font-size: 0.78rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.infinite-session[aria-pressed="true"] {
+  background: #293323;
 }
 
 .stop-story:hover {
@@ -271,6 +324,10 @@ button:disabled {
   margin-bottom: 0.55rem;
 }
 
+.exchange .message-role {
+  display: none;
+}
+
 .message-content {
   line-height: 1.7;
   white-space: pre-wrap;
@@ -280,6 +337,21 @@ button:disabled {
   display: grid;
   gap: 0.55rem;
   padding: 0.75rem;
+}
+
+.composer-actions {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.undo-story {
+  border: 1px solid #625448;
+  background: transparent;
+  color: #d7a879;
+}
+
+.undo-story:hover:not(:disabled) {
+  background: #302923;
 }
 
 textarea {
@@ -322,6 +394,10 @@ textarea {
 
   .exchange-prompt {
     border-bottom: 1px solid #37312d;
+  }
+
+  .exchange .message-role {
+    display: block;
   }
 }
 
@@ -391,4 +467,8 @@ textarea {
 .story-page.single-column .exchange-prompt {
   border-right: 0;
   border-bottom: 1px solid #37312d;
+}
+
+.story-page.single-column .exchange .message-role {
+  display: block;
 }

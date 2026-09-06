@@ -5,6 +5,7 @@ CREATE TABLE story_session (
   updated_at TIMESTAMP NOT NULL,
   last_accessed_at TIMESTAMP NOT NULL,
   expires_at TIMESTAMP NOT NULL,
+  infinite BOOLEAN DEFAULT FALSE NOT NULL,
   PRIMARY KEY (session_id)
 );
 
