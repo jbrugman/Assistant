@@ -1,6 +1,5 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.SummaryPromptInput;

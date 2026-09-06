@@ -19,6 +19,12 @@
         </div>
         <div class="session-actions">
           <span class="session-status">Session active</span>
+          <form method="post" action="/story/infinite">
+            <button type="submit" class="infinite-session" aria-pressed="${page.session().infinite()}">
+              ${page.session().infinite() ? "Use timeout" : "Infinite"}
+            </button>
+          </form>
+          <a class="header-action export-session" href="/export">Export</a>
           <form method="post" action="/story/stop"
                 onsubmit="return confirm('Stop this story? The session and all stored story data will be permanently deleted.')">
             <button type="submit" class="stop-story">Stop story</button>
@@ -60,7 +66,12 @@
       <form id="composer" method="post" action="/story/turns" class="composer">
         <label for="prompt">What happens next?</label>
         <textarea id="prompt" name="prompt" rows="3" maxlength="100000" required autofocus></textarea>
-        <button type="submit">Continue story</button>
+        <div class="composer-actions">
+          <button id="undo-story" type="submit" formaction="/story/undo" formnovalidate
+                  class="undo-story"
+                  data-undo-available="${page.exchanges().isEmpty() ? "false" : "true"}">Undo</button>
+          <button id="continue-story" type="submit">Continue story</button>
+        </div>
       </form>
     </main>
     <script>
@@ -98,7 +109,9 @@
 
       const composer = document.getElementById("composer");
       const prompt = document.getElementById("prompt");
-      const submitButton = composer.querySelector("button[type='submit']");
+      const continueButton = document.getElementById("continue-story");
+      const undoButton = document.getElementById("undo-story");
+      undoButton.disabled = undoButton.dataset.undoAvailable !== "true";
       let submitting = false;
 
       composer.addEventListener("submit", event => {
@@ -109,14 +122,19 @@
         submitting = true;
         composer.setAttribute("aria-busy", "true");
         prompt.readOnly = true;
-        submitButton.disabled = true;
-        submitButton.textContent = "Writing…";
+        continueButton.disabled = true;
+        undoButton.disabled = true;
+        if (event.submitter === continueButton) {
+          continueButton.textContent = "Writing…";
+        } else {
+          undoButton.textContent = "Undoing…";
+        }
       });
 
       prompt.addEventListener("keydown", event => {
         if (event.key === "Enter" && event.shiftKey) {
           event.preventDefault();
-          composer.requestSubmit();
+          composer.requestSubmit(continueButton);
         }
       });
     </script>

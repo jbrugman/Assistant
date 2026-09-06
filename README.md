@@ -147,6 +147,27 @@ mvn -pl storyteller-api -am exec:java \
 The CLI and API are separate applications with separate entry points. Both depend on `storyteller-core`; neither application contains the other. The API module also owns its own `application.config`.
 
 Screenshots of the server-rendered web interface are available in [`docs/webpages`](docs/webpages/).
+The web interface can disable inactivity expiration for the active story with **Infinite** and restore the configured
+session timeout with **Use timeout**.
+The start page can import a CLI-compatible session ZIP containing `history.json` and any available summary,
+canonical-state, turn-state, and knowledge-graph files. **Export** downloads the active web session in the same portable
+format, including a versioned manifest that preserves the story title.
+
+#### Session ZIP import and export
+
+Use `/export -zip` in the CLI to create a portable `story-session-<timestamp>.zip`. The same format can also be
+downloaded from an active story in the web interface by selecting **Export**. The archive contains:
+
+- `manifest.json` with the bundle format version and story title
+- `history.json` with all user and assistant messages and the three memory cursors
+- `turn-state.json`
+- `knowledge-graph.json`
+- `summary.md`, `recent-summary.md`, and `canonical-state.yaml` when those values exist
+
+To restore it, stop or leave the current web session, select the ZIP under **Import CLI session (ZIP)** on the start
+page, and submit the form. Import validates the complete archive, creates a new database session with a new ID, and
+then opens that session. It does not overwrite an existing session. The other CLI `/export` modes continue to produce
+Markdown files.
 
 After creating a session, submit a story prompt through `POST /v1/sessions/{sessionId}/turns` with a JSON body such as
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
@@ -526,6 +547,11 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.5
+- Added an optional infinite-session mode that keeps a story out of inactivity cleanup until the normal timeout is restored.
+- Added an Undo control that atomically removes the latest prompt and response from the active web story.
+- Added `/export -zip` to the CLI and transactional session ZIP import/export to the web application for transferring history and derived memory between them.
 
 ### 1.3.4
 - Added a responsive server-rendered web interface for starting, continuing, and permanently stopping story sessions on mobile, tablet, and desktop.

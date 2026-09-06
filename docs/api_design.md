@@ -177,6 +177,7 @@ Recommended cookie behavior:
 - cookie value: a random, opaque session reference or signed session reference
 - local default: host-only cookie for `localhost`, `Path=/`, `HttpOnly`, `SameSite=Lax`, and no `Secure` flag because the local API uses HTTP
 - expiry: sliding `Max-Age` aligned with the configured session inactivity timeout; renew it after a valid session access
+- infinite sessions: use a long-lived cookie while server-side inactivity expiration is disabled; the database remains authoritative
 - server-side data: history, summaries, canonical state, prompt overrides, and metadata remain in the API database
 - browser behavior: a frontend can call a current-session endpoint without persisting a session id in JavaScript storage
 - expired session: `GET /v1/session` returns `410` and clears the cookie; a missing cookie returns `404`
@@ -195,6 +196,7 @@ Confirmed behavior:
 
 - each session has `createdAt`, `updatedAt`, `lastAccessedAt`, and `expiresAt`
 - inactivity extends or refreshes `expiresAt`
+- a user can explicitly make a session infinite, which disables inactivity cleanup until normal expiration is restored
 - the default inactivity expiry is `60` minutes and should be configurable by the local operator
 - expired sessions are cleaned up by a background job and again during application startup
 - cleanup deletes the session and all owned runtime state in one transaction
@@ -239,6 +241,7 @@ CREATE TABLE story_session (
   updated_at TIMESTAMP NOT NULL,
   last_accessed_at TIMESTAMP NOT NULL,
   expires_at TIMESTAMP NOT NULL,
+  infinite BOOLEAN DEFAULT FALSE NOT NULL,
   PRIMARY KEY (session_id)
 );
 
@@ -378,23 +381,25 @@ Recommended distinction:
 
 A session bundle should contain everything needed to continue a story on a later day in a new live session.
 
-Recommended contents:
+The first implemented bundle format contains:
 
-- `manifest.json`
-- `history.json`
-- `summary.md`
-- `recent-summary.md`
-- `canonical-state.yaml`
-- `session-config.json`
-- prompt override snapshots when present
-- effective rules snapshot when present
-- effective fixed protagonists snapshot when present
+- optional `manifest.json` with bundle version and story title; API exports always include it
+- required `history.json`, including the three CLI history cursors
+- optional `summary.md`
+- optional `recent-summary.md`
+- optional `canonical-state.yaml`
+- optional `turn-state.json`; export always includes the current turn state
+- optional `knowledge-graph.json`; export always includes the current graph, including an empty graph
 
-Recommended behavior:
+The server rejects unknown paths, duplicate entries, incomplete message pairs, invalid cursors, invalid graph data,
+archives larger than 32 MB, and archives that expand beyond 64 MB. Import validates the complete archive before opening
+one database transaction. It creates a new live session with a new server-generated `sessionId`; it never replaces the
+current or an existing session. A valid manifest title becomes the initial title; bundles without a manifest use the
+source ZIP filename. The imported session starts with the normal inactivity timeout and can subsequently be made infinite.
 
-- download bundle from a live session
-- cleanup can remove the live session later
-- import bundle creates a new live session with a new `sessionId`
+The server-rendered routes are `POST /import` for multipart upload and `GET /export` for downloading the active session.
+Future JSON API equivalents may use the resource-oriented paths documented below. Session configuration and prompt
+override snapshots can be added to a later bundle-format version once those values are mutable through the API.
 
 ## Confirmed Configuration Model
 
@@ -543,14 +548,16 @@ server-owned core prompt resources, calls the configured OpenAI-compatible backe
 assistant pair in one database transaction. A failed backend call does not append either message. Session prompt
 inspection and override endpoints are deliberately deferred; the endpoint uses the server's effective core prompts.
 
-Summary, canonical-state, knowledge-graph, reset, and undo parity remain subsequent API slices. Their absence must not
+Summary, canonical-state, knowledge-graph, reset, and full CLI undo-and-retry parity remain subsequent API slices. Their absence must not
 cause this first turn endpoint to read or write the CLI's file-backed runtime state.
 
 The initial server-rendered interface is delivered by the same API application but isolated under `api.web`. Its story
 workspace shows prompts and responses side by side above a full-width input area. The layout remains responsive across
 desktop, tablet, and mobile viewports in both portrait and landscape orientations; narrow portrait screens stack each
 prompt above its response. HTML controllers call the same application services as the JSON controllers and never call
-the server's own HTTP API.
+the server's own HTTP API. Its initial Undo action atomically removes the latest complete user and assistant pair from
+`story_message`; restoring the removed prompt for editing and reconciling future derived-memory state belong to the
+full undo-and-retry API slice.
 
 ### `POST /v1/sessions/{sessionId}/reset`
 
@@ -776,7 +783,7 @@ The first local API should stay small and use the decisions already made in this
 - return story exports as direct Markdown responses; add downloadable file handles only when needed
 - treat the documented undo result and derived-memory freshness metadata as the initial contract
 
-Session-bundle import/export, session listing, model inspection, health endpoints, and pagination remain later additions. They are not prerequisites for the initial local frontend.
+Session listing, model inspection, health endpoints, and pagination remain later additions. They are not prerequisites for the initial local frontend.
 
 The next implementation step is to convert this minimal slice into:
 

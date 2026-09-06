@@ -28,6 +28,10 @@ final class StoryQueries {
     SET updated_at = ?
     WHERE session_id = ?
     """;
+  static final String DELETE_MESSAGE = """
+    DELETE FROM story_message
+    WHERE session_id = ? AND message_index = ?
+    """;
 
   private StoryQueries() {
   }

@@ -1,7 +1,5 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.config.LlamaServerConfig;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;

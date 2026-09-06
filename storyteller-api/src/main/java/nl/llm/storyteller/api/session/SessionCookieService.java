@@ -6,6 +6,7 @@ import java.time.Duration;
 
 public final class SessionCookieService {
   static final String COOKIE_NAME = "storyteller_session";
+  private static final long INFINITE_MAX_AGE_SECONDS = Integer.MAX_VALUE;
 
   private final long maxAgeSeconds;
 
@@ -19,6 +20,13 @@ public final class SessionCookieService {
 
   public void write(Context context, String sessionId) {
     context.header("Set-Cookie", cookieValue(sessionId, maxAgeSeconds));
+  }
+
+  public void write(Context context, String sessionId, boolean infinite) {
+    context.header("Set-Cookie", cookieValue(
+      sessionId,
+      infinite ? INFINITE_MAX_AGE_SECONDS : maxAgeSeconds
+    ));
   }
 
   public void clear(Context context) {

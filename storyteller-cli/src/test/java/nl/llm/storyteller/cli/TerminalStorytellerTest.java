@@ -53,7 +53,7 @@ class TerminalStorytellerTest {
     assertTrue(output.contains("Image command error"));
     assertTrue(output.contains("Use /image <instruction> after copying an image to the clipboard."));
     assertTrue(output.contains("Export command error"));
-    assertTrue(output.contains("Use /export, /export -intro, /export -clean, or /export -all."));
+    assertTrue(output.contains("Use /export, /export -intro, /export -clean, /export -all, or /export -zip."));
   }
 
   @Test

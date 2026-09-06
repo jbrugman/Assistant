@@ -43,7 +43,8 @@ class JdbcSessionRepositoryTest {
       now,
       now,
       now,
-      now.plusSeconds(3600)
+      now.plusSeconds(3600),
+      false
     );
 
     repository.create(session);
@@ -69,7 +70,8 @@ class JdbcSessionRepositoryTest {
       now.minusSeconds(7200),
       now.minusSeconds(7200),
       now.minusSeconds(7200),
-      now.minusSeconds(3600)
+      now.minusSeconds(3600),
+      false
     );
     repository.create(session);
 
@@ -94,7 +96,8 @@ class JdbcSessionRepositoryTest {
       created,
       created,
       created,
-      created.plusSeconds(3600)
+      created.plusSeconds(3600),
+      false
     );
     repository.create(session);
     Instant accessed = created.plusSeconds(600);

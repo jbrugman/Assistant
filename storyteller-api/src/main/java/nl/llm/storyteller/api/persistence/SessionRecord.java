@@ -8,5 +8,6 @@ public record SessionRecord(
   Instant createdAt,
   Instant updatedAt,
   Instant lastAccessedAt,
-  Instant expiresAt
+  Instant expiresAt,
+  boolean infinite
 ) { }
