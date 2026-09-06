@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -175,7 +175,7 @@ class StoryExportServiceTest {
         Path archive = exportService.exportSessionBundle(config);
         Set<String> entries = zipEntries(archive);
 
-        assertEquals("story-session-20260728-121530.zip", archive.getFileName().toString());
+        assertEquals("story-session-20260728-101530.zip", archive.getFileName().toString());
         assertTrue(entries.contains("manifest.json"));
         assertTrue(entries.contains("history.json"));
         assertTrue(entries.contains("summary.md"));
@@ -198,6 +198,6 @@ class StoryExportServiceTest {
     }
 
     private Clock fixedClock() {
-        return Clock.fixed(Instant.parse("2026-07-28T10:15:30Z"), ZoneId.systemDefault());
+        return Clock.fixed(Instant.parse("2026-07-28T10:15:30Z"), ZoneOffset.UTC);
     }
 }
