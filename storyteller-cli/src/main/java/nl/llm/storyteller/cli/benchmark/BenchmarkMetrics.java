@@ -9,32 +9,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class BenchmarkMetrics implements ChatRequestMetrics, StoryTurnObserver, KnowledgeGraphUpdateObserver {
-  private long completionTokens;
-  private long requestNanos;
-  private boolean tokenUsageAvailable = true;
   private int validationRequests;
   private TurnResponses lastTurn;
   private final List<String> graphFailures = new ArrayList<>();
 
   @Override
   public synchronized void recordRequest(String purpose, long tokens, Duration duration) {
-    requestNanos += duration.toNanos();
     if ("validation".equals(purpose)) {
       validationRequests++;
     }
-    if (tokens < 0) {
-      tokenUsageAvailable = false;
-    } else {
-      completionTokens += tokens;
-    }
-  }
-
-  synchronized Long completionTokens() {
-    return tokenUsageAvailable ? completionTokens : null;
-  }
-
-  synchronized Duration requestDuration() {
-    return Duration.ofNanos(requestNanos);
   }
 
   synchronized int validationRequests() {

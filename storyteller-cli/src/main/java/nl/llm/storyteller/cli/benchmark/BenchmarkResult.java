@@ -10,8 +10,6 @@ public record BenchmarkResult(
   int passedProbes,
   int entityErrors,
   int stateErrors,
-  Long completionTokens,
-  Duration generationDuration,
   Long peakServerMemoryBytes,
   int validationRequests,
   int validationReplacements,
@@ -43,7 +41,6 @@ public record BenchmarkResult(
 
       Total time:      %s
       Avg turn:        %.2fs
-      Generation:      %s
 
       Validator requests:  %d
       Validation replacements: %d
@@ -60,7 +57,7 @@ public record BenchmarkResult(
       """.formatted(
       BenchmarkRunner.displayModel(options), options.turns(), onOff(options.validation()), onOff(options.cacheBuster()),
       onOff(options.knowledgeGraph()), formatDuration(duration), duration.toMillis() / 1000.0 / options.turns(),
-      tokensPerSecond(), validationRequests, validationReplacements, validationImprovements, validationRegressions,
+      validationRequests, validationReplacements, validationImprovements, validationRegressions,
       passedValidationProbes, validationProbes, validationRetries(), passedProbes, probes,
       entityErrors, stateErrors, factsRetainedPercentage(),
       graphUpdateFailures, memoryLine(), auditReport
@@ -69,13 +66,6 @@ public record BenchmarkResult(
 
   private int validationRetries() {
     return options.validation() ? Math.max(0, validationRequests - options.turns()) : 0;
-  }
-
-  private String tokensPerSecond() {
-    if (completionTokens == null || generationDuration.isZero()) {
-      return "n/a (backend returned no token usage)";
-    }
-    return "%.1f tok/s".formatted(completionTokens / (generationDuration.toNanos() / 1_000_000_000.0));
   }
 
   private String memoryLine() {

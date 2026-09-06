@@ -3,6 +3,7 @@ package nl.llm.storyteller.cli.benchmark;
 import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.config.AppConfigLoader;
+import nl.llm.storyteller.core.service.PromptResourceLoader;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -48,6 +49,7 @@ final class BenchmarkWorkspace implements AutoCloseable {
     write(prompts.resolve("turn-single.md"), "%s");
     write(prompts.resolve("turn-party.md"), "%s");
     write(prompts.resolve("cache-buster.md"), "Ignore deterministic cache-buster token: %s");
+    copyValidationPrompts(sourceContext, directory);
 
     Properties properties = new Properties();
     copyBackend(sourceContext, options, properties);
@@ -127,6 +129,13 @@ final class BenchmarkWorkspace implements AutoCloseable {
     properties.setProperty("backend.http.apiKey", source.openAiCompatibleApiKey());
     properties.setProperty("model.chat", options.model());
     properties.setProperty("model.validator", options.model());
+  }
+
+  private static void copyValidationPrompts(ApplicationContext sourceContext, Path directory) throws IOException {
+    PromptResourceLoader prompts = new PromptResourceLoader(sourceContext.config());
+    Path systemPrompts = Files.createDirectories(directory.resolve("systemprompts"));
+    write(systemPrompts.resolve("validationsystemprompt.md"), prompts.loadValidationSystemPrompt());
+    write(systemPrompts.resolve("validationrequesttemplate.md"), prompts.loadValidationRequestTemplate());
   }
 
   private static String activeBackendUrl(ApplicationContext context) {

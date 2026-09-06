@@ -22,7 +22,10 @@ final class ValidationDecisionSchema {
   private static Map<String, Object> schema() {
     Map<String, Object> properties = new LinkedHashMap<>();
     properties.put("decision", Map.of("type", "string", "enum", List.of("ALLOW", "REPLACE")));
-    properties.put("response", Map.of("type", "string"));
+    properties.put("response", Map.of(
+      "type", "string",
+      "description", "Empty for ALLOW; the complete corrected candidate response for REPLACE."
+    ));
 
     return Map.of(
       "type", "object",

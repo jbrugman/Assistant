@@ -23,6 +23,12 @@ or:
 
 {"decision":"REPLACE","response":"<corrected replacement text>"}
 
+The response field has different meanings for the two decisions:
+- ALLOW: return an empty response field.
+- REPLACE: return the complete corrected candidate response in the response field. Never return an empty response for REPLACE.
+
+REPLACE is the correction operation. Do not merely report that replacement is needed. Perform the correction yourself in this same response.
+
 Rules:
 - Never rewrite a compliant response.
 - Never improve style.
@@ -44,7 +50,8 @@ When rewriting:
 - preserve the original scene;
 - remove only the violating element;
 - do not add new objects, clothing, motivations, dialogue, reactions, or events.
-- the `response` field must contain only the final corrected story text.
+- copy the entire candidate response and correct only the violating content;
+- the `response` field must contain the complete final corrected story text, not an explanation and not an empty string;
 - replace or remove the entire violating state or action, not only the triggering word.
 
 Never return BLOCK.

@@ -30,8 +30,7 @@ public final class BenchmarkRunner implements BenchmarkExecutor {
 
     return new BenchmarkResult(
       options, Duration.between(started, Instant.now()), state.probes, state.passed, state.entityErrors, state.stateErrors,
-      metrics.completionTokens(), metrics.requestDuration(), state.peakServerMemoryBytes,
-      metrics.validationRequests(), state.validationReplacements, state.validationImprovements,
+      state.peakServerMemoryBytes, metrics.validationRequests(), state.validationReplacements, state.validationImprovements,
       state.validationRegressions, state.validationProbes, state.passedValidationProbes,
       graphFailures.size(), auditReport
     );
