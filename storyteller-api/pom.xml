@@ -23,6 +23,10 @@
       <artifactId>javalin</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.javalin</groupId>
+      <artifactId>javalin-rendering-jte</artifactId>
+    </dependency>
+    <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
     </dependency>
@@ -47,6 +51,35 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>gg.jte</groupId>
+        <artifactId>jte-maven-plugin</artifactId>
+        <dependencies>
+          <dependency>
+            <groupId>gg.jte</groupId>
+            <artifactId>jte-native-resources</artifactId>
+            <version>${jte.version}</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <sourceDirectory>${project.basedir}/src/main/resources/templates</sourceDirectory>
+          <contentType>Html</contentType>
+          <targetResourceDirectory>${project.build.outputDirectory}</targetResourceDirectory>
+          <extensions>
+            <extension>
+              <className>gg.jte.nativeimage.NativeResourcesExtension</className>
+            </extension>
+          </extensions>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

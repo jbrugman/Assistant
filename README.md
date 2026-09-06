@@ -128,18 +128,31 @@ So the behavior is:
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-1.3.2-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.3-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, H2, or the API implementation. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-1.3.2-all.jar
+java -jar storyteller-api/target/storyteller-api-1.3.3-all.jar
+```
+
+Alternatively, start the API directly through Maven from the project root:
+
+```bash
+mvn -pl storyteller-api -am exec:java \
+  -Dexec.mainClass=nl.llm.storyteller.api.ApiApplication
 ```
 
 The CLI and API are separate applications with separate entry points. Both depend on `storyteller-core`; neither application contains the other. The API module also owns its own `application.config`.
 
-The local default build version is `1.3.2`.
+Screenshots of the server-rendered web interface are available in [`docs/webpages`](docs/webpages/).
+
+After creating a session, submit a story prompt through `POST /v1/sessions/{sessionId}/turns` with a JSON body such as
+`{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
+assistant message indices. Session-specific prompt inspection and overrides are not exposed yet.
+
+The local default build version is `1.3.3`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.3.0` and then `v1.3.1`, `v1.3.2`, and so on.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
 Merges of Dependabot pull requests and pull requests whose source branch is `norelease` or starts with `norelease/` still run CI, but intentionally skip release publication.
@@ -181,7 +194,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-1.3.2-all.jar
+java -jar storyteller-cli/target/storyteller-cli-1.3.3-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -514,8 +527,13 @@ Not yet.
 
 ## Changelog
 
+### 1.3.4
+- Added a responsive server-rendered web interface for starting, continuing, and permanently stopping story sessions on mobile, tablet, and desktop.
+- Added adjustable single/dual-column and normal/maximized reading layouts, automatic positioning at the latest exchange, and duplicate-submit protection while a response is being generated.
+
 ### 1.3.3
 - Improved benchmark validation so rule violations are replaced with corrected story text, and expanded the documented benchmark comparison across validation, cache-buster, and knowledge-graph configurations.
+- Added the first story interaction endpoint to the API, with session-owned database history and atomic persistence of completed user and assistant turns.
 
 ### 1.3.2
 - Prevented `/graph -fill` and automatic turn-based knowledge-graph extraction from overwriting each other's updates.

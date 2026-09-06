@@ -1,13 +1,24 @@
 package nl.llm.storyteller.api;
 
 import io.javalin.Javalin;
+import io.javalin.http.staticfiles.Location;
+import io.javalin.rendering.template.JavalinJte;
+import gg.jte.ContentType;
+import gg.jte.TemplateEngine;
 import nl.llm.storyteller.api.http.ApiErrorHandler;
 import nl.llm.storyteller.api.http.SessionController;
+import nl.llm.storyteller.api.http.StoryController;
 import nl.llm.storyteller.api.persistence.Database;
+import nl.llm.storyteller.api.persistence.JdbcStoryRepository;
 import nl.llm.storyteller.api.persistence.JdbcSessionRepository;
 import nl.llm.storyteller.api.persistence.SchemaInitializer;
 import nl.llm.storyteller.api.session.SessionCookieService;
 import nl.llm.storyteller.api.session.SessionService;
+import nl.llm.storyteller.api.story.StoryTurnService;
+import nl.llm.storyteller.api.web.WebController;
+import nl.llm.storyteller.core.config.AppConfig;
+import nl.llm.storyteller.core.service.ChatClient;
+import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -24,6 +35,27 @@ public final class ApiServer implements AutoCloseable {
   }
 
   public static ApiServer create(ApiConfig config) {
+    AppConfig coreConfig = AppConfig.load();
+    return create(
+      config,
+      coreConfig,
+      new OpenAiCompatibleHttpClient(
+        coreConfig.openAiCompatibleUrl(), coreConfig.chatModel(), coreConfig.hideReasoningBlocks(),
+        coreConfig.openAiCompatibleApiKey()
+      ),
+      new OpenAiCompatibleHttpClient(
+        coreConfig.openAiCompatibleUrl(), coreConfig.validatorModel(), coreConfig.hideReasoningBlocks(),
+        coreConfig.openAiCompatibleApiKey()
+      )
+    );
+  }
+
+  static ApiServer create(
+    ApiConfig config,
+    AppConfig coreConfig,
+    ChatClient chatClient,
+    ChatClient validationClient
+  ) {
     createDatabaseDirectory(config.databasePath());
     Database database = new Database(
       config.databaseUrl(),
@@ -37,13 +69,26 @@ public final class ApiServer implements AutoCloseable {
       config.sessionInactivityTimeout()
     );
     sessionService.deleteExpired();
-    SessionController sessionController = new SessionController(
+    SessionCookieService cookieService = new SessionCookieService(config.sessionInactivityTimeout());
+    SessionController sessionController = new SessionController(sessionService, cookieService);
+    JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
+    StoryTurnService storyTurnService = new StoryTurnService(
+      storyRepository, coreConfig, chatClient, validationClient
+    );
+    StoryController storyController = new StoryController(
       sessionService,
-      new SessionCookieService(config.sessionInactivityTimeout())
+      storyTurnService
+    );
+    WebController webController = new WebController(
+      sessionService, cookieService, storyRepository, storyTurnService
     );
     Javalin server = Javalin.create(javalinConfig -> {
       javalinConfig.startup.showJavalinBanner = false;
+      javalinConfig.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
+      javalinConfig.staticFiles.add("/public", Location.CLASSPATH);
       sessionController.register(javalinConfig);
+      storyController.register(javalinConfig);
+      webController.register(javalinConfig);
       ApiErrorHandler.register(javalinConfig);
     });
     return new ApiServer(config, server);

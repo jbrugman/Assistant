@@ -529,14 +529,28 @@ Why it is needed:
 
 Typical request:
 
-- user input text
-- optional small per-turn overrides if explicitly supported
+- JSON object `{ "prompt": "..." }`
+- `prompt` is required, must contain non-whitespace text, and is bounded by the application service before the model is called
+- no per-turn configuration or prompt overrides in the first implementation
 
 Typical response:
 
-- assistant response
-- message ids or turn indices
-- optional lightweight state metadata
+- JSON object containing `sessionId`, `userMessageIndex`, `assistantMessageIndex`, and `response`
+- the complete assistant response after normal response sanitization and, when enabled, validation
+
+The first implementation loads recent messages for the selected session from `story_message`, combines them with the
+server-owned core prompt resources, calls the configured OpenAI-compatible backend, and stores the completed user and
+assistant pair in one database transaction. A failed backend call does not append either message. Session prompt
+inspection and override endpoints are deliberately deferred; the endpoint uses the server's effective core prompts.
+
+Summary, canonical-state, knowledge-graph, reset, and undo parity remain subsequent API slices. Their absence must not
+cause this first turn endpoint to read or write the CLI's file-backed runtime state.
+
+The initial server-rendered interface is delivered by the same API application but isolated under `api.web`. Its story
+workspace shows prompts and responses side by side above a full-width input area. The layout remains responsive across
+desktop, tablet, and mobile viewports in both portrait and landscape orientations; narrow portrait screens stack each
+prompt above its response. HTML controllers call the same application services as the JSON controllers and never call
+the server's own HTTP API.
 
 ### `POST /v1/sessions/{sessionId}/reset`
 

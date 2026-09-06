@@ -94,6 +94,22 @@ class SessionServiceTest {
     assertFalse(repository.findById(expired.sessionId()).isPresent());
   }
 
+  @Test
+  @DisplayName("""
+    Given an active session,
+    When the session is deleted,
+    Then it should no longer be available
+    """)
+  void shouldDeleteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+
+    service.delete(session.sessionId());
+
+    assertFalse(repository.findById(session.sessionId()).isPresent());
+  }
+
   private SessionService service(SessionRepository repository) {
     return new SessionService(
       repository,

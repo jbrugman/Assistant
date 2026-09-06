@@ -84,6 +84,13 @@ public final class SessionService {
     repository.deleteExpired(clock.instant());
   }
 
+  public void delete(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return;
+    }
+    repository.delete(sessionId);
+  }
+
   private String normalizeTitle(String title) {
     if (title == null || title.isBlank()) {
       return null;
