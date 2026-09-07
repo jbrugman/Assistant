@@ -1,4 +1,5 @@
 target/
+/storyteller-api/jte-classes/
 
 # IDE
 .idea/
