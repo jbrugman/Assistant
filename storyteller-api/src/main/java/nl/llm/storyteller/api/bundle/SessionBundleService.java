@@ -35,6 +35,7 @@ import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import static nl.llm.storyteller.api.input.TextInputNormalizer.optionalSingleLine;
 import static nl.llm.storyteller.core.service.TurnStateJsonCodec.PROTAGONISTS;
 import static nl.llm.storyteller.core.service.TurnStateJsonCodec.ROUND_NUMBER;
 import static nl.llm.storyteller.core.service.TurnStateJsonCodec.STARTED;
@@ -168,7 +169,7 @@ public final class SessionBundleService {
 
   private String normalizedEntryName(ZipEntry entry) {
     String name = entry.getName();
-    if (name.equals(MACOS_METADATA_DIRECTORY) || name.startsWith(MACOS_METADATA_DIRECTORY)) {
+    if (name.startsWith(MACOS_METADATA_DIRECTORY)) {
       return null;
     }
     if (entry.isDirectory() && MEMORY_DIRECTORY.equals(name)) {
@@ -381,10 +382,10 @@ public final class SessionBundleService {
       if (title == null || title.isNull()) {
         return null;
       }
-      if (!title.isTextual() || title.textValue().length() > MAX_NAME_LENGTH) {
+      if (!title.isTextual()) {
         throw new IllegalArgumentException("manifest.json contains an invalid title.");
       }
-      return title.textValue().trim();
+      return optionalSingleLine(title.textValue(), "Session title", MAX_NAME_LENGTH);
     } catch (JsonProcessingException ex) {
       throw new IllegalArgumentException("Invalid JSON in manifest.json: " + ex.getOriginalMessage(), ex);
     }
@@ -441,7 +442,8 @@ public final class SessionBundleService {
     if (manifestTitle != null && !manifestTitle.isBlank()) {
       return manifestTitle;
     }
-    String title = filename == null ? IMPORTED_STORY : filename.trim();
+    String title = optionalSingleLine(filename, "ZIP filename", MAX_NAME_LENGTH);
+    title = title == null ? IMPORTED_STORY : title;
     if (title.toLowerCase(Locale.ROOT).endsWith(".zip")) {
       title = title.substring(0, title.length() - 4);
     }

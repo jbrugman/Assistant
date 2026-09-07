@@ -548,6 +548,11 @@ Not yet.
 
 ## Changelog
 
+### 1.3.6
+- Added incremental web story loading: the newest five exchanges are rendered initially and older exchanges load in five-exchange pages when scrolling upward.
+- Added centralized server-side normalization and validation for web and JSON API text input.
+- Added shared crash-safe file writing for persistent CLI state and exports using flushed temporary files and atomic replacement.
+
 ### 1.3.5
 - Added an optional infinite-session mode that keeps a story out of inactivity cleanup until the normal timeout is restored.
 - Added an Undo control that atomically removes the latest prompt and response from the active web story.

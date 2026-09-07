@@ -1,12 +1,12 @@
 package nl.llm.storyteller.core.service;
 
+import nl.llm.storyteller.core.AtomicFileWriter;
 import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.Message;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,7 +56,12 @@ public final class StoryExportService {
       throw new IllegalStateException("There is no story history to export yet.");
     }
     Path output = baseDir.resolve("story-session-" + FILE_TIMESTAMP.format(LocalDateTime.now(clock)) + ".zip");
-    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(output), StandardCharsets.UTF_8)) {
+    AtomicFileWriter.write(output, temporaryPath -> writeSessionBundle(temporaryPath, config));
+    return output;
+  }
+
+  private void writeSessionBundle(Path path, AppConfig config) throws IOException {
+    try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(path), StandardCharsets.UTF_8)) {
       writeManifest(zip);
       writeRequiredFile(zip, config.historyFile());
       writeOptionalFile(zip, "summary.md", config.summaryFile());
@@ -64,9 +69,6 @@ public final class StoryExportService {
       writeOptionalFile(zip, "canonical-state.yaml", config.canonicalStateFile());
       writeOptionalFile(zip, "turn-state.json", config.turnStateFile());
       writeOptionalFile(zip, "knowledge-graph.json", config.knowledgeGraphFile());
-      return output;
-    } catch (IOException ex) {
-      throw new UncheckedIOException("Could not export session bundle to " + output + ".", ex);
     }
   }
 

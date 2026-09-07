@@ -15,6 +15,8 @@ import nl.llm.storyteller.core.service.ValidationPromptBuilder;
 import java.io.IOException;
 import java.time.Clock;
 
+import static nl.llm.storyteller.api.input.TextInputNormalizer.requiredMultiline;
+
 public final class StoryTurnService {
   private static final int MAX_PROMPT_LENGTH = 100_000;
 
@@ -83,13 +85,6 @@ public final class StoryTurnService {
   }
 
   private String normalizePrompt(String prompt) {
-    if (prompt == null || prompt.isBlank()) {
-      throw new IllegalArgumentException("Prompt must not be blank.");
-    }
-    String normalized = prompt.trim();
-    if (normalized.length() > MAX_PROMPT_LENGTH) {
-      throw new IllegalArgumentException("Prompt must not exceed 100000 characters.");
-    }
-    return normalized;
+    return requiredMultiline(prompt, "Prompt", MAX_PROMPT_LENGTH);
   }
 }
