@@ -32,7 +32,8 @@
         </div>
       </header>
 
-      <section id="conversation" class="conversation" aria-live="polite">
+      <section id="conversation" class="conversation" aria-live="polite"
+               data-has-older="${page.hasOlder()}">
         <div class="conversation-heading">
           <span>Prompt</span>
           <span class="response-heading">
@@ -50,7 +51,7 @@
           </div>
         @endif
         @for(StoryExchange exchange : page.exchanges())
-          <article class="exchange">
+          <article class="exchange" data-message-index="${exchange.messageIndex()}">
             <div class="exchange-prompt">
               <p class="message-role">Prompt</p>
               <div class="message-content">${exchange.prompt()}</div>
@@ -89,6 +90,33 @@
         conversation.scrollTop = latestTop;
       };
       scrollToLatestExchange();
+
+      let loadingHistory = false;
+      let hasOlderHistory = conversation.dataset.hasOlder === "true";
+      conversation.addEventListener("scroll", async () => {
+        if (conversation.scrollTop > 80 || loadingHistory || !hasOlderHistory) {
+          return;
+        }
+        const oldestExchange = conversation.querySelector(".exchange");
+        if (!oldestExchange) {
+          return;
+        }
+        loadingHistory = true;
+        const previousHeight = conversation.scrollHeight;
+        try {
+          const response = await fetch("/story/history?before=" + oldestExchange.dataset.messageIndex);
+          if (!response.ok) {
+            throw new Error("History request failed with HTTP " + response.status);
+          }
+          const template = document.createElement("template");
+          template.innerHTML = await response.text();
+          heading.after(template.content);
+          hasOlderHistory = response.headers.get("X-Story-Has-More") === "true";
+          conversation.scrollTop += conversation.scrollHeight - previousHeight;
+        } finally {
+          loadingHistory = false;
+        }
+      });
 
       const responseWidthToggle = document.getElementById("response-width-toggle");
       const responseLayoutToggle = document.getElementById("response-layout-toggle");

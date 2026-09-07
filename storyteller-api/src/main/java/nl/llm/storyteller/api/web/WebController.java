@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class WebController {
+  private static final int STORY_PAGE_MESSAGES = 10;
   private final SessionService sessionService;
   private final SessionCookieService cookieService;
   private final StoryRepository storyRepository;
@@ -42,6 +43,7 @@ public final class WebController {
     config.routes.post("/import", this::importSession);
     config.routes.get("/export", this::exportSession);
     config.routes.get("/story", this::story);
+    config.routes.get("/story/history", this::storyHistory);
     config.routes.post("/story/turns", this::createTurn);
     config.routes.post("/story/undo", this::undoTurn);
     config.routes.post("/story/infinite", this::toggleInfinite);
@@ -104,8 +106,39 @@ public final class WebController {
     }
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.render("story.jte", Map.of(
-      "page", StoryPage.from(session.get(), storyRepository.loadMessages(session.get().sessionId()))
+      "page", StoryPage.from(session.get(), storyRepository.loadMessagesBefore(
+        session.get().sessionId(), Integer.MAX_VALUE, STORY_PAGE_MESSAGES
+      ))
     ));
+  }
+
+  private void storyHistory(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      context.status(HttpStatus.UNAUTHORIZED);
+      return;
+    }
+    int before = parseBeforeMessageIndex(context.queryParam("before"));
+    StoryPage page = StoryPage.from(session.get(), storyRepository.loadMessagesBefore(
+      session.get().sessionId(), before, STORY_PAGE_MESSAGES
+    ));
+    int oldest = page.exchanges().isEmpty() ? 0 : page.exchanges().getFirst().messageIndex();
+    context.header("X-Story-Has-More", Boolean.toString(page.hasOlder()));
+    context.header("X-Story-Oldest-Message", Integer.toString(oldest));
+    cookieService.write(context, session.get().sessionId(), session.get().infinite());
+    context.render("story-exchanges.jte", Map.of("exchanges", page.exchanges()));
+  }
+
+  private int parseBeforeMessageIndex(String value) {
+    try {
+      int before = Integer.parseInt(value == null ? "" : value);
+      if (before < 1) {
+        throw new NumberFormatException();
+      }
+      return before;
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException("Query parameter 'before' must be a positive message index.", ex);
+    }
   }
 
   private void createTurn(Context context) throws Exception {

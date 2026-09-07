@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import static nl.llm.storyteller.api.input.TextInputNormalizer.optionalSingleLine;
+
 public final class SessionService {
   private static final int MAX_TITLE_LENGTH = 255;
 
@@ -116,13 +118,6 @@ public final class SessionService {
   }
 
   private String normalizeTitle(String title) {
-    if (title == null || title.isBlank()) {
-      return null;
-    }
-    String normalized = title.trim();
-    if (normalized.length() > MAX_TITLE_LENGTH) {
-      throw new IllegalArgumentException("Session title must not exceed 255 characters.");
-    }
-    return normalized;
+    return optionalSingleLine(title, "Session title", MAX_TITLE_LENGTH);
   }
 }

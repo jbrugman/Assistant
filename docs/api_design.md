@@ -401,6 +401,11 @@ The server-rendered routes are `POST /import` for multipart upload and `GET /exp
 Future JSON API equivalents may use the resource-oriented paths documented below. Session configuration and prompt
 override snapshots can be added to a later bundle-format version once those values are mutable through the API.
 
+The story page initially renders the latest five complete prompt/response exchanges. When the conversation is scrolled
+to the top, `GET /story/history?before=<messageIndex>` returns the preceding five exchanges as an HTML fragment. The
+browser prepends that fragment while preserving the current scroll position. This pagination applies only to the web
+view; model context assembly and CLI history behavior are unchanged.
+
 ## Confirmed Configuration Model
 
 The API should not accept unrestricted raw application configuration input.

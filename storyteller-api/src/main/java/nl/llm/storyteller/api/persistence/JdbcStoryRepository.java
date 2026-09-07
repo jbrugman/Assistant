@@ -9,17 +9,25 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static nl.llm.storyteller.api.persistence.StoryQueries.INSERT_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.DELETE_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_LAST_MESSAGE_INDEX;
+import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES_BEFORE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_RECENT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.UPDATE_SESSION_AFTER_TURN;
 
 public final class JdbcStoryRepository implements StoryRepository {
+  private static final String MESSAGE_INDEX = "message_index";
+  private static final String MESSAGE_ROLE = "message_role";
+  private static final String CONTENT = "content";
+  private static final String LAST_MESSAGE_INDEX = "last_message_index";
+  private static final String USER = "user";
+  private static final String ASSISTANT = "assistant";
+  private static final String LOAD_MESSAGES_ERROR = "Could not load story messages for session ";
+
   private final Database database;
 
   public JdbcStoryRepository(Database database) {
@@ -35,7 +43,7 @@ public final class JdbcStoryRepository implements StoryRepository {
         return readMessages(resultSet);
       }
     } catch (SQLException ex) {
-      throw new DatabaseException("Could not load story messages for session " + sessionId + ".", ex);
+      throw new DatabaseException(LOAD_MESSAGES_ERROR + sessionId + ".", ex);
     }
   }
 
@@ -46,19 +54,45 @@ public final class JdbcStoryRepository implements StoryRepository {
       statement.setString(1, sessionId);
       statement.setInt(2, maximumMessages);
       try (ResultSet resultSet = statement.executeQuery()) {
-        List<Message> messages = new ArrayList<>(readMessages(resultSet));
-        Collections.reverse(messages);
-        return List.copyOf(messages);
+        List<Message> messages = readMessages(resultSet);
+        return List.copyOf(messages.reversed());
       }
     } catch (SQLException ex) {
-      throw new DatabaseException("Could not load story messages for session " + sessionId + ".", ex);
+      throw new DatabaseException(LOAD_MESSAGES_ERROR + sessionId + ".", ex);
+    }
+  }
+
+  @Override
+  public List<StoryMessageRecord> loadMessagesBefore(
+    String sessionId,
+    int beforeMessageIndex,
+    int maximumMessages
+  ) {
+    try (Connection connection = database.openConnection();
+         PreparedStatement statement = connection.prepareStatement(SELECT_MESSAGES_BEFORE)) {
+      statement.setString(1, sessionId);
+      statement.setInt(2, beforeMessageIndex);
+      statement.setInt(3, maximumMessages);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        List<StoryMessageRecord> messages = new ArrayList<>();
+        while (resultSet.next()) {
+          messages.add(new StoryMessageRecord(
+            resultSet.getInt(MESSAGE_INDEX),
+            resultSet.getString(MESSAGE_ROLE),
+            resultSet.getString(CONTENT)
+          ));
+        }
+        return List.copyOf(messages.reversed());
+      }
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not load story message page for session " + sessionId + ".", ex);
     }
   }
 
   private List<Message> readMessages(ResultSet resultSet) throws SQLException {
     List<Message> messages = new ArrayList<>();
     while (resultSet.next()) {
-      messages.add(new Message(resultSet.getString("message_role"), resultSet.getString("content")));
+      messages.add(new Message(resultSet.getString(MESSAGE_ROLE), resultSet.getString(CONTENT)));
     }
     return List.copyOf(messages);
   }
@@ -113,14 +147,14 @@ public final class JdbcStoryRepository implements StoryRepository {
       statement.setString(1, sessionId);
       statement.setInt(2, 2);
       try (ResultSet resultSet = statement.executeQuery()) {
-        if (!resultSet.next() || !"assistant".equals(resultSet.getString("message_role"))) {
+        if (!resultSet.next() || !ASSISTANT.equals(resultSet.getString(MESSAGE_ROLE))) {
           return List.of();
         }
-        int assistantIndex = resultSet.getInt("message_index");
-        if (!resultSet.next() || !"user".equals(resultSet.getString("message_role"))) {
+        int assistantIndex = resultSet.getInt(MESSAGE_INDEX);
+        if (!resultSet.next() || !USER.equals(resultSet.getString(MESSAGE_ROLE))) {
           return List.of();
         }
-        return List.of(assistantIndex, resultSet.getInt("message_index"));
+        return List.of(assistantIndex, resultSet.getInt(MESSAGE_INDEX));
       }
     }
   }
@@ -142,9 +176,9 @@ public final class JdbcStoryRepository implements StoryRepository {
   ) throws SQLException {
     try {
       int userMessageIndex = nextMessageIndex(connection, sessionId);
-      insertMessage(connection, sessionId, userMessageIndex, "user", userInput);
+      insertMessage(connection, sessionId, userMessageIndex, USER, userInput);
       int assistantMessageIndex = userMessageIndex + 1;
-      insertMessage(connection, sessionId, assistantMessageIndex, "assistant", assistantResponse);
+      insertMessage(connection, sessionId, assistantMessageIndex, ASSISTANT, assistantResponse);
       updateSession(connection, sessionId, updatedAt);
       connection.commit();
       return new StoryTurnRecord(userMessageIndex, assistantMessageIndex);
@@ -159,7 +193,7 @@ public final class JdbcStoryRepository implements StoryRepository {
       statement.setString(1, sessionId);
       try (ResultSet resultSet = statement.executeQuery()) {
         resultSet.next();
-        int lastIndex = resultSet.getInt("last_message_index");
+        int lastIndex = resultSet.getInt(LAST_MESSAGE_INDEX);
         return resultSet.wasNull() ? 0 : lastIndex + 1;
       }
     }

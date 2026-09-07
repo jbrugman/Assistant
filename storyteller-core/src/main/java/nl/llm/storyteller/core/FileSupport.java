@@ -61,14 +61,6 @@ public final class FileSupport {
     String normalized = content == null ? "" : content.trim();
     String output = normalized.isEmpty() ? "" : normalized + System.lineSeparator();
 
-    try {
-      Path parent = path.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      Files.writeString(path, output, StandardCharsets.UTF_8);
-    } catch (IOException ex) {
-      throw new UncheckedIOException(ex);
-    }
+    AtomicFileWriter.write(path, output.getBytes(StandardCharsets.UTF_8));
   }
 }

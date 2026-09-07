@@ -2,6 +2,7 @@ package nl.llm.storyteller.core.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.core.AtomicFileWriter;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
@@ -66,11 +67,7 @@ public final class HistoryStore {
     data.put("canonical_state_cursor", state.canonicalStateCursor());
 
     try {
-      Path parent = path.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      JsonSupport.OBJECT_MAPPER.writeValue(path.toFile(), data);
+      AtomicFileWriter.write(path, JsonSupport.OBJECT_MAPPER.writeValueAsBytes(data));
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }

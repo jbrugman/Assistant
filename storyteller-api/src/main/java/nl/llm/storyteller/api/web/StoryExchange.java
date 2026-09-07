@@ -1,4 +1,3 @@
 package nl.llm.storyteller.api.web;
 
-public record StoryExchange(String prompt, String response) {
-}
+public record StoryExchange(int messageIndex, String prompt, String response) { }

@@ -2,6 +2,7 @@ package nl.llm.storyteller.core.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.core.AtomicFileWriter;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.model.TurnState;
 
@@ -64,11 +65,7 @@ public final class TurnStateStore {
 
   public synchronized void save(TurnState state) {
     try {
-      Path parent = path.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      JsonSupport.OBJECT_MAPPER.writeValue(path.toFile(), TurnStateJsonCodec.toJson(state));
+      AtomicFileWriter.write(path, JsonSupport.OBJECT_MAPPER.writeValueAsBytes(TurnStateJsonCodec.toJson(state)));
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
