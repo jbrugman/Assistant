@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AppConfigLoaderTest {
     @ParameterizedTest
-    @ValueSource(strings = {"graph.enabled", "cacheBuster.enabled", "validation.enabled"})
+    @ValueSource(strings = {"graph.enabled", "validation.enabled"})
     @DisplayName("""
         Given a disabled core processing feature,
         When the application config is loaded,
@@ -30,7 +30,6 @@ class AppConfigLoaderTest {
 
         boolean enabled = switch (key) {
             case "graph.enabled" -> config.graphEnabled();
-            case "cacheBuster.enabled" -> config.cacheBusterEnabled();
             case "validation.enabled" -> config.validationEnabled();
             default -> throw new IllegalArgumentException(key);
         };
@@ -100,10 +99,8 @@ class AppConfigLoaderTest {
         assertTrue(config.openAiCompatibleApiKey().isBlank());
         assertTrue(config.commandHelpText().contains("/image <instruction>"));
         assertTrue(config.commandHelpText().contains("/graph -reset"));
-        assertEquals(3, config.graphTurnBasedBatchTurns());
+    assertEquals(3, config.graphTurnBasedBatchTurns());
         assertTrue(config.graphEnabled());
-        assertEquals(5, config.cacheBusterInterval());
-        assertTrue(config.cacheBusterEnabled());
         assertEquals("auto", config.validationOutputMode());
         assertEquals(
             baseDirectory.resolve("systemprompts/systemprompt.md").normalize(),
@@ -131,7 +128,6 @@ class AppConfigLoaderTest {
             model.chat=test-chat-model
             file.systemPrompt=overrides/story.md
             chat.maxRecentTurns=3
-            cacheBuster.interval=0
             """);
 
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
@@ -140,7 +136,6 @@ class AppConfigLoaderTest {
         assertEquals("test-api-key", config.openAiCompatibleApiKey());
         assertEquals("test-chat-model", config.chatModel());
         assertEquals(3, config.maxRecentTurns());
-        assertEquals(0, config.cacheBusterInterval());
         assertEquals(
             baseDirectory.resolve("overrides/story.md").normalize(),
             config.systemPromptFile()

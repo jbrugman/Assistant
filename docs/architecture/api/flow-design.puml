@@ -1,0 +1,48 @@
+@startuml
+title Storyteller API and Web - Flow Design
+
+start
+:Receive HTTP or HTTPS request in Javalin;
+:Resolve opaque session cookie or API session id;
+if (active session exists?) then (yes)
+else (no)
+  :Return API error or redirect to start page;
+  stop
+endif
+
+if (story turn?) then (yes)
+  :Normalize prompt and validate optional image;
+  :Load session-owned system prompt,\nfixed protagonists, rules and canonical state from H2;
+  :Load recent messages from H2;
+  if (old exchanges selected?) then (yes)
+    :Verify maximum 3 and outside recent context;
+    :Load complete exchanges from H2;
+    :Mark them explicitly as earlier story excerpts;
+  endif
+  :Build messages with Core prompt builder;
+  :Attach optional image to current user message;
+  :Request draft from model backend;
+  if (validation enabled?) then (yes)
+    :Validate using session rules\nand fixed protagonists;
+    :Use ALLOW draft or REPLACE text;
+  else (no)
+    :Sanitize and use draft;
+  endif
+  :Store prompt, response and optional image in H2;
+  :Schedule serialized summary and\ncanonical-state refreshes in H2;
+  :Render updated JTE page or return JSON;
+elseif (history page?) then (yes)
+  :Load one older page of exchanges from H2;
+  :Render JTE fragment for infinite scrolling;
+elseif (settings?) then (yes)
+  :Load or update session prompts\nand canonical state;
+  :Validate fixed protagonists YAML before save;
+elseif (memory history?) then (yes)
+  :Render mid-term and long-term\nsummaries read-only from H2;
+elseif (import or export?) then (yes)
+  :Read or create session ZIP including\noptional prompts and images;
+else (session action)
+  :Create, undo, keep indefinitely,\nor permanently delete session;
+endif
+stop
+@enduml

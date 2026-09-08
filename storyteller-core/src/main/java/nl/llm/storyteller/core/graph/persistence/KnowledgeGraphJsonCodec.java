@@ -22,62 +22,81 @@ import java.util.Map;
 
 /** Reflection-free JSON codec, including native-image builds. */
 public final class KnowledgeGraphJsonCodec {
+  private static final String ALIASES = "aliases";
+  private static final String ENTITIES = "entities";
+  private static final String FACTS = "facts";
+  private static final String HARD = "hard";
+  private static final String ID = "id";
+  private static final String NAME = "name";
+  private static final String OBJECT = "object";
+  private static final String POLARITY = "polarity";
+  private static final String PREDICATE = "predicate";
+  private static final String REVISION = "revision";
+  private static final String SCHEMA_VERSION = "schemaVersion";
+  private static final String SOURCE = "source";
+  private static final String SOURCE_TURN = "sourceTurn";
+  private static final String STATUS = "status";
+  private static final String SUBJECT = "subject";
+  private static final String TYPE = "type";
+
   public KnowledgeGraphDocument fromJson(String json) throws JsonProcessingException {
     JsonNode root = JsonSupport.OBJECT_MAPPER.readTree(json);
     Map<String, Entity> entities = new LinkedHashMap<>();
-    root.path("entities").fields().forEachRemaining(entry -> {
+    root.path(ENTITIES).properties().forEach(entry -> {
       JsonNode node = entry.getValue();
       List<String> aliases = new ArrayList<>();
-      node.path("aliases").forEach(alias -> aliases.add(alias.asText()));
-      FactSource source = enumValue(FactSource.class, node, "source");
+      node.path(ALIASES).forEach(alias -> aliases.add(alias.asText()));
+      FactSource source = enumValue(FactSource.class, node, SOURCE);
       entities.put(entry.getKey(), new Entity(
-        enumValue(EntityType.class, node, "type"),
-        node.path("name").asText(),
+        enumValue(EntityType.class, node, TYPE),
+        node.path(NAME).asText(),
         aliases,
         source == null ? FactSource.MANUAL : source
       ));
     });
 
     List<Fact> facts = new ArrayList<>();
-    root.path("facts").forEach(node -> facts.add(new Fact(
-      node.path("id").asText(),
-      entityId(node, "subject"),
-      predicateId(node, "predicate"),
-      entityId(node, "object"),
-      enumValue(Polarity.class, node, "polarity"),
-      enumValue(FactStatus.class, node, "status"),
-      enumValue(FactSource.class, node, "source"),
-      node.path("sourceTurn").isIntegralNumber() ? node.path("sourceTurn").intValue() : null,
-      node.path("hard").asBoolean(false)
+    root.path(FACTS).forEach(node -> facts.add(new Fact(
+      node.path(ID).asText(),
+      entityId(node, SUBJECT),
+      predicateId(node),
+      entityId(node, OBJECT),
+      enumValue(Polarity.class, node, POLARITY),
+      enumValue(FactStatus.class, node, STATUS),
+      enumValue(FactSource.class, node, SOURCE),
+      node.path(SOURCE_TURN).isIntegralNumber() ? node.path(SOURCE_TURN).intValue() : null,
+      node.path(HARD).asBoolean(false)
     )));
-    return new KnowledgeGraphDocument(root.path("schemaVersion").asInt(), root.path("revision").asLong(), entities, facts);
+    return new KnowledgeGraphDocument(
+      root.path(SCHEMA_VERSION).asInt(), root.path(REVISION).asLong(), entities, facts
+    );
   }
 
   public ObjectNode toJson(KnowledgeGraphDocument document) {
     ObjectNode root = JsonSupport.OBJECT_MAPPER.createObjectNode();
-    root.put("schemaVersion", document.schemaVersion());
-    root.put("revision", document.revision());
-    ObjectNode entities = root.putObject("entities");
+    root.put(SCHEMA_VERSION, document.schemaVersion());
+    root.put(REVISION, document.revision());
+    ObjectNode entities = root.putObject(ENTITIES);
     document.entities().forEach((id, entity) -> {
       ObjectNode node = entities.putObject(id);
-      putEnum(node, "type", entity.type());
-      node.put("name", entity.name());
-      ArrayNode aliases = node.putArray("aliases");
+      putEnum(node, TYPE, entity.type());
+      node.put(NAME, entity.name());
+      ArrayNode aliases = node.putArray(ALIASES);
       entity.aliases().forEach(aliases::add);
-      putEnum(node, "source", entity.source());
+      putEnum(node, SOURCE, entity.source());
     });
-    ArrayNode facts = root.putArray("facts");
+    ArrayNode facts = root.putArray(FACTS);
     document.facts().forEach(fact -> {
       ObjectNode node = facts.addObject();
-      node.put("id", fact.id());
-      putEntityId(node, "subject", fact.subject());
-      if (fact.predicate() == null) node.putNull("predicate"); else node.put("predicate", fact.predicate().value());
-      putEntityId(node, "object", fact.object());
-      putEnum(node, "polarity", fact.polarity());
-      putEnum(node, "status", fact.status());
-      putEnum(node, "source", fact.source());
-      if (fact.sourceTurn() == null) node.putNull("sourceTurn"); else node.put("sourceTurn", fact.sourceTurn());
-      node.put("hard", fact.hard());
+      node.put(ID, fact.id());
+      putEntityId(node, SUBJECT, fact.subject());
+      if (fact.predicate() == null) node.putNull(PREDICATE); else node.put(PREDICATE, fact.predicate().value());
+      putEntityId(node, OBJECT, fact.object());
+      putEnum(node, POLARITY, fact.polarity());
+      putEnum(node, STATUS, fact.status());
+      putEnum(node, SOURCE, fact.source());
+      if (fact.sourceTurn() == null) node.putNull(SOURCE_TURN); else node.put(SOURCE_TURN, fact.sourceTurn());
+      node.put(HARD, fact.hard());
     });
     return root;
   }
@@ -87,8 +106,8 @@ public final class KnowledgeGraphJsonCodec {
     return value.isTextual() ? new EntityId(value.asText()) : null;
   }
 
-  private PredicateId predicateId(JsonNode node, String field) {
-    JsonNode value = node.path(field);
+  private PredicateId predicateId(JsonNode node) {
+    JsonNode value = node.path(KnowledgeGraphJsonCodec.PREDICATE);
     return value.isTextual() ? new PredicateId(value.asText()) : null;
   }
 
@@ -97,7 +116,7 @@ public final class KnowledgeGraphJsonCodec {
     if (value.isBlank()) return null;
     try {
       return Enum.valueOf(type, value);
-    } catch (IllegalArgumentException ex) {
+    } catch (IllegalArgumentException _) {
       return null;
     }
   }

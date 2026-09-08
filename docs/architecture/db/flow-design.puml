@@ -1,0 +1,48 @@
+@startuml
+title Storyteller Database - Persistence Flow
+
+skinparam shadowing false
+
+start
+:Open the configured H2 database;
+:SchemaInitializer applies db/schema.sql;
+
+if (CLI startup?) then (yes)
+  if (fixed CLI session exists?) then (yes)
+    :Create JDBC ApplicationStorage adapters;
+  else (no)
+    :Load any legacy file-backed CLI state;
+    :Create the infinite CLI session and all state
+    in one database transaction;
+    :Create JDBC ApplicationStorage adapters;
+  endif
+elseif (session ZIP import?) then (yes)
+  :Validate and decode the complete bundle;
+  :Generate a new session ID;
+  :Insert session, prompts, messages, memory,
+  turn state, graph, and images in one transaction;
+  if (any insert fails?) then (yes)
+    :Roll back the complete import;
+    stop
+  endif
+else (normal operation)
+  :Resolve the requested session;
+endif
+
+if (completed story turn?) then (yes)
+  :Insert user prompt and assistant response;
+  :Update the session timestamp;
+  :Commit both messages as one transaction;
+elseif (derived-memory update?) then (yes)
+  :Verify the expected source cursor;
+  :Update summary or canonical state and cursor;
+elseif (graph or turn-state update?) then (yes)
+  :Replace the session-owned structured state
+  inside a transaction;
+else (read or export)
+  :Load only the requested session-owned state;
+endif
+
+:Return the stored result to CLI or API;
+stop
+@enduml

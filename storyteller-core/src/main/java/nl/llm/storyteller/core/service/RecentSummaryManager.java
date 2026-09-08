@@ -10,7 +10,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   private final RecentSummaryPromptBuilder recentSummaryPromptBuilder;
 
   public RecentSummaryManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -19,12 +19,12 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   ) {
     this(
       historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
-      new DerivedMemoryTaskQueue(), true
+      new FileTextMemory(config.recentSummaryFile()), new DerivedMemoryTaskQueue(), true
     );
   }
 
   public RecentSummaryManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -32,25 +32,41 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
     DerivedMemoryTaskQueue taskQueue
   ) {
-    this(historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder, taskQueue, false);
+    this(historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
+      new FileTextMemory(config.recentSummaryFile()), taskQueue, false);
   }
 
-  private RecentSummaryManager(
-    HistoryStore historyStore,
+  public RecentSummaryManager(
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
+    TextMemory memory,
+    DerivedMemoryTaskQueue taskQueue
+  ) {
+    this(historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
+      memory, taskQueue, false);
+  }
+
+  private RecentSummaryManager(
+    StoryHistory historyStore,
+    ChatClient client,
+    nl.llm.storyteller.core.config.AppConfig config,
+    PromptResourceLoader promptResourceLoader,
+    PromptTemplateService promptTemplateService,
+    RecentSummaryPromptBuilder recentSummaryPromptBuilder,
+    TextMemory memory,
     DerivedMemoryTaskQueue taskQueue,
     boolean ownsTaskQueue
   ) {
-    super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
+    super(historyStore, client, config, promptResourceLoader, promptTemplateService, memory, taskQueue, ownsTaskQueue);
     this.recentSummaryPromptBuilder = recentSummaryPromptBuilder;
   }
 
   public String loadRecentSummary() {
-    return loadMemory(config.recentSummaryFile());
+    return loadMemory();
   }
 
   public void startUpdateIfNeeded() {
@@ -99,11 +115,6 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   @Override
   protected int currentCursor(HistoryState state) {
     return state.recentSummaryCursor();
-  }
-
-  @Override
-  protected java.nio.file.Path targetFile() {
-    return config.recentSummaryFile();
   }
 
   @Override

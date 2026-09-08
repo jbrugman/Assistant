@@ -1,0 +1,126 @@
+@startuml
+!pragma layout smetana
+title Storyteller Database - Relational Schema
+
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 55
+hide methods
+hide stereotypes
+
+entity story_session {
+  * session_id : VARCHAR(36) <<PK>>
+  --
+  title : VARCHAR(255)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+  last_accessed_at : TIMESTAMP
+  expires_at : TIMESTAMP
+  infinite : BOOLEAN
+}
+
+entity session_configuration {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  --
+  temperature : DECIMAL(4,3)
+  top_p : DECIMAL(4,3)
+  validation_enabled : BOOLEAN
+}
+
+entity session_prompt_override {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * override_name : VARCHAR(64) <<PK>>
+  --
+  override_content : VARCHAR(1000000)
+}
+
+entity story_message {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * message_index : INTEGER <<PK>>
+  --
+  message_role : VARCHAR(16)
+  content : VARCHAR(1000000)
+  image_media_type : VARCHAR(64)
+  image_content : BLOB
+}
+
+entity session_memory {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  --
+  summary_content : VARCHAR(1000000)
+  recent_summary_content : VARCHAR(1000000)
+  canonical_state_content : VARCHAR(1000000)
+  summary_cursor : INTEGER
+  recent_summary_cursor : INTEGER
+  canonical_state_cursor : INTEGER
+}
+
+entity turn_state {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  --
+  trigger_word : VARCHAR(255)
+  started : BOOLEAN
+  round_number : INTEGER
+}
+
+entity turn_protagonist {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * protagonist_index : INTEGER <<PK>>
+  --
+  protagonist_name : VARCHAR(255)
+  turns_this_round : INTEGER
+}
+
+entity knowledge_graph {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  --
+  schema_version : INTEGER
+  revision : BIGINT
+}
+
+entity knowledge_entity {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * entity_id : VARCHAR(255) <<PK>>
+  --
+  entity_type : VARCHAR(64)
+  entity_name : VARCHAR(255)
+  entity_source : VARCHAR(64)
+}
+
+entity knowledge_entity_alias {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * entity_id : VARCHAR(255) <<PK, FK>>
+  * alias_index : INTEGER <<PK>>
+  --
+  alias_name : VARCHAR(255)
+}
+
+entity knowledge_fact {
+  * session_id : VARCHAR(36) <<PK, FK>>
+  * fact_id : VARCHAR(255) <<PK>>
+  --
+  subject_entity_id : VARCHAR(255) <<FK>>
+  predicate_id : VARCHAR(255)
+  object_entity_id : VARCHAR(255) <<FK>>
+  polarity : VARCHAR(32)
+  fact_status : VARCHAR(32)
+  fact_source : VARCHAR(64)
+  source_turn : INTEGER
+  is_hard : BOOLEAN
+}
+
+story_session ||--o| session_configuration
+story_session ||--o{ session_prompt_override
+story_session ||--o{ story_message
+story_session ||--o| session_memory
+story_session ||--o| turn_state
+turn_state ||--o{ turn_protagonist
+story_session ||--o| knowledge_graph
+knowledge_graph ||--o{ knowledge_entity
+knowledge_graph ||--o{ knowledge_fact
+knowledge_entity ||--o{ knowledge_entity_alias
+knowledge_entity ||--o{ knowledge_fact : subject
+knowledge_entity ||--o{ knowledge_fact : object
+@enduml

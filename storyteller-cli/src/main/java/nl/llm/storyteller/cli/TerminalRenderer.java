@@ -1,6 +1,6 @@
 package nl.llm.storyteller.cli;
 
-import nl.llm.storyteller.core.service.HistoryStore;
+import nl.llm.storyteller.core.service.StoryHistory;
 import org.jline.terminal.Terminal;
 
 import java.io.PrintWriter;
@@ -44,7 +44,7 @@ final class TerminalRenderer {
     output.flush();
   }
 
-  void printLastPersistedTurn(nl.llm.storyteller.core.config.AppConfig config, HistoryStore.LastTurn lastTurn) {
+  void printLastPersistedTurn(nl.llm.storyteller.core.config.AppConfig config, StoryHistory.LastTurn lastTurn) {
     if (!lastTurn.isPresent()) {
       printMessage(config.noLastTurnText());
       return;

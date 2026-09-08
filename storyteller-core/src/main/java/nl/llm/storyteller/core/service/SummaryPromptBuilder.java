@@ -23,8 +23,12 @@ public final class SummaryPromptBuilder {
   }
 
   public List<Message> build(SummaryPromptInput input) {
+    return build(input, promptResourceLoader.loadFixedProtagonists());
+  }
+
+  public List<Message> build(SummaryPromptInput input, String fixedProtagonists) {
     List<Message> messages = new ArrayList<>();
-    messages.add(new Message(SYSTEM, buildSystemMessage()));
+    messages.add(new Message(SYSTEM, buildSystemMessage(fixedProtagonists)));
     messages.add(
       new Message(
         USER,
@@ -37,10 +41,10 @@ public final class SummaryPromptBuilder {
     return messages;
   }
 
-  private String buildSystemMessage() {
+  private String buildSystemMessage(String fixedProtagonists) {
     List<String> sections = new ArrayList<>();
     addIfPresent(sections, promptResourceLoader.loadSummarySystemPrompt());
-    addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext());
+    addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext(fixedProtagonists));
     return String.join("\n\n", sections);
   }
 

@@ -1,7 +1,8 @@
 package nl.llm.storyteller.api.session;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
-import nl.llm.storyteller.api.persistence.SessionRepository;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionRecord;
+import nl.llm.storyteller.db.SessionRepository;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -19,21 +20,34 @@ public final class SessionService {
   private final Clock clock;
   private final Duration inactivityTimeout;
   private final Supplier<String> idSupplier;
+  private final SessionPrompts defaultPrompts;
 
-  public SessionService(SessionRepository repository, Duration inactivityTimeout) {
-    this(repository, Clock.systemUTC(), inactivityTimeout, () -> UUID.randomUUID().toString());
+  public SessionService(
+    SessionRepository repository,
+    Duration inactivityTimeout,
+    SessionPrompts defaultPrompts
+  ) {
+    this(
+      repository,
+      Clock.systemUTC(),
+      inactivityTimeout,
+      () -> UUID.randomUUID().toString(),
+      defaultPrompts
+    );
   }
 
   SessionService(
     SessionRepository repository,
     Clock clock,
     Duration inactivityTimeout,
-    Supplier<String> idSupplier
+    Supplier<String> idSupplier,
+    SessionPrompts defaultPrompts
   ) {
     this.repository = repository;
     this.clock = clock;
     this.inactivityTimeout = inactivityTimeout;
     this.idSupplier = idSupplier;
+    this.defaultPrompts = defaultPrompts;
   }
 
   public SessionRecord create(String title) {
@@ -48,7 +62,7 @@ public final class SessionService {
       now.plus(inactivityTimeout),
       false
     );
-    repository.create(session);
+    repository.create(session, defaultPrompts);
     return session;
   }
 
@@ -104,6 +118,17 @@ public final class SessionService {
       expiresAt,
       infinite
     ));
+  }
+
+  public Optional<SessionRecord> resumeInfinite(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return Optional.empty();
+    }
+    Optional<SessionRecord> stored = repository.findById(sessionId.trim());
+    if (stored.isEmpty() || !stored.get().infinite()) {
+      return Optional.empty();
+    }
+    return findActive(stored.get().sessionId());
   }
 
   public void deleteExpired() {

@@ -1,8 +1,16 @@
 package nl.llm.storyteller.api.story;
 
-import nl.llm.storyteller.api.persistence.StoryRepository;
-import nl.llm.storyteller.api.persistence.StoryTurnRecord;
+import nl.llm.storyteller.db.PastStoryExchange;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionMemory;
+import nl.llm.storyteller.db.SessionMemoryRepository;
+import nl.llm.storyteller.db.SessionSettings;
+import nl.llm.storyteller.db.SessionSettingsRepository;
+import nl.llm.storyteller.db.StoryImage;
+import nl.llm.storyteller.db.StoryRepository;
+import nl.llm.storyteller.db.StoryTurnRecord;
 import nl.llm.storyteller.core.config.AppConfig;
+import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.StoryChatPromptInput;
 import nl.llm.storyteller.core.model.ValidationPromptInput;
 import nl.llm.storyteller.core.service.ChatClient;
@@ -14,13 +22,19 @@ import nl.llm.storyteller.core.service.ValidationPromptBuilder;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
 
 import static nl.llm.storyteller.api.input.TextInputNormalizer.requiredMultiline;
 
 public final class StoryTurnService {
   private static final int MAX_PROMPT_LENGTH = 100_000;
+  public static final int MAX_PAST_EXCHANGES = 3;
 
   private final StoryRepository repository;
+  private final SessionSettingsRepository settingsRepository;
+  private final SessionMemoryRepository memoryRepository;
+  private final SessionDerivedStateService derivedStateService;
   private final AppConfig config;
   private final ChatClient chatClient;
   private final ResponseGuard responseGuard;
@@ -30,15 +44,24 @@ public final class StoryTurnService {
 
   public StoryTurnService(
     StoryRepository repository,
+    SessionSettingsRepository settingsRepository,
+    SessionMemoryRepository memoryRepository,
+    SessionDerivedStateService derivedStateService,
     AppConfig config,
     ChatClient chatClient,
     ChatClient validationClient
   ) {
-    this(repository, config, chatClient, validationClient, Clock.systemUTC());
+    this(
+      repository, settingsRepository, memoryRepository, derivedStateService,
+      config, chatClient, validationClient, Clock.systemUTC()
+    );
   }
 
   StoryTurnService(
     StoryRepository repository,
+    SessionSettingsRepository settingsRepository,
+    SessionMemoryRepository memoryRepository,
+    SessionDerivedStateService derivedStateService,
     AppConfig config,
     ChatClient chatClient,
     ChatClient validationClient,
@@ -47,6 +70,9 @@ public final class StoryTurnService {
     PromptResourceLoader resources = new PromptResourceLoader(config);
     PromptTemplateService templates = new PromptTemplateService(resources);
     this.repository = repository;
+    this.settingsRepository = settingsRepository;
+    this.memoryRepository = memoryRepository;
+    this.derivedStateService = derivedStateService;
     this.config = config;
     this.chatClient = chatClient;
     this.responseGuard = new ResponseGuard(validationClient, config);
@@ -57,34 +83,103 @@ public final class StoryTurnService {
 
   public synchronized StoryTurnResult execute(String sessionId, String prompt)
     throws IOException, InterruptedException {
+    return execute(sessionId, prompt, null, List.of());
+  }
+
+  public synchronized StoryTurnResult execute(String sessionId, String prompt, StoryImage image)
+    throws IOException, InterruptedException {
+    return execute(sessionId, prompt, image, List.of());
+  }
+
+  public synchronized StoryTurnResult execute(
+    String sessionId,
+    String prompt,
+    StoryImage image,
+    List<Integer> pastMessageIndexes
+  ) throws IOException, InterruptedException {
     String userInput = normalizePrompt(prompt);
+    SessionSettings settings = settingsRepository.load(sessionId);
+    SessionPrompts prompts = settings.prompts();
+    SessionMemory memory = memoryRepository.load(sessionId);
+    String relevantPastStory = relevantPastStory(sessionId, pastMessageIndexes);
     var recentMessages = repository.loadRecentMessages(sessionId, config.maxRecentTurns() * 2);
+    List<Message> messages = new ArrayList<>(storyPromptBuilder.build(new StoryChatPromptInput(
+      userInput, memory.canonicalState(), memory.summary(), memory.recentSummary(), "",
+      relevantPastStory, recentMessages, ""
+    ), prompts.systemPrompt(), prompts.fixedProtagonists()));
+    if (image != null) {
+      Message userMessage = messages.getLast();
+      messages.set(messages.size() - 1, Message.withImage(
+        userMessage.role(), userMessage.content(), image.dataUrl()
+      ));
+    }
     String draftResponse = chatClient.chat(
-      storyPromptBuilder.build(new StoryChatPromptInput(
-        userInput, "", "", "", "", recentMessages, ""
-      )),
+      messages,
       config.chatOptions(),
       config.requestTimeoutSeconds()
     );
-    String response = validate(userInput, draftResponse);
-    StoryTurnRecord stored = repository.appendTurn(sessionId, userInput, response, clock.instant());
+    String response = validate(userInput, draftResponse, prompts);
+    StoryTurnRecord stored = repository.appendTurn(sessionId, userInput, response, image, clock.instant());
+    derivedStateService.requestUpdate(sessionId);
     return new StoryTurnResult(stored.userMessageIndex(), stored.assistantMessageIndex(), response);
   }
 
-  public synchronized boolean undoLastTurn(String sessionId) {
-    return repository.undoLastTurn(sessionId, clock.instant());
+  public int referenceBeforeMessageIndex(String sessionId) {
+    int lastMessageIndex = repository.lastMessageIndex(sessionId);
+    return Math.max(0, lastMessageIndex + 1 - config.maxRecentTurns() * 2);
   }
 
-  private String validate(String userInput, String draftResponse) throws InterruptedException {
+  public synchronized void undoLastTurn(String sessionId) {
+    repository.undoLastTurn(sessionId, clock.instant());
+  }
+
+  private String validate(String userInput, String draftResponse, SessionPrompts prompts)
+    throws InterruptedException {
     if (!config.validationEnabled()) {
       return responseGuard.validate("", "", draftResponse);
     }
     String systemPrompt = validationPromptBuilder.buildSystemPrompt();
-    String request = validationPromptBuilder.buildRequest(new ValidationPromptInput(userInput, draftResponse, ""));
+    String request = validationPromptBuilder.buildRequest(
+      new ValidationPromptInput(userInput, draftResponse, ""),
+      prompts.rules(),
+      prompts.fixedProtagonists()
+    );
     return responseGuard.validate(systemPrompt, request, draftResponse);
   }
 
   private String normalizePrompt(String prompt) {
     return requiredMultiline(prompt, "Prompt", MAX_PROMPT_LENGTH);
+  }
+
+  private String relevantPastStory(String sessionId, List<Integer> requestedIndexes) {
+    List<Integer> messageIndexes = requestedIndexes == null
+      ? List.of()
+      : requestedIndexes.stream().distinct().toList();
+    if (messageIndexes.size() > MAX_PAST_EXCHANGES) {
+      throw new IllegalArgumentException("Select at most three past exchanges.");
+    }
+    int referenceBefore = referenceBeforeMessageIndex(sessionId);
+    if (messageIndexes.stream().anyMatch(index -> index == null || index < 0 || index >= referenceBefore)) {
+      throw new IllegalArgumentException("Only exchanges outside the recent story context can be referenced.");
+    }
+    List<PastStoryExchange> exchanges = repository.loadPastExchanges(sessionId, messageIndexes);
+    if (exchanges.size() != messageIndexes.size()) {
+      throw new IllegalArgumentException("One or more selected past exchanges do not exist in this session.");
+    }
+    if (exchanges.isEmpty()) {
+      return "";
+    }
+    StringBuilder context = new StringBuilder("""
+      RELEVANT PAST STORY EXCERPTS
+
+      The following excerpts happened earlier in the story. The user selected them because they are relevant to the
+      current turn. Treat them as past events, not as events happening in the current scene.
+      """);
+    for (PastStoryExchange exchange : exchanges) {
+      context.append("\n\n[Earlier exchange, messages ")
+        .append(exchange.messageIndex()).append('-').append(exchange.messageIndex() + 1).append("]\nUSER:\n")
+        .append(exchange.prompt()).append("\n\nASSISTANT:\n").append(exchange.response());
+    }
+    return context.toString();
   }
 }

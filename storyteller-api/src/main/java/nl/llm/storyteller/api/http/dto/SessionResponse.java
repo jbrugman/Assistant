@@ -1,6 +1,6 @@
 package nl.llm.storyteller.api.http.dto;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
+import nl.llm.storyteller.db.SessionRecord;
 
 public record SessionResponse(
   String sessionId,

@@ -1,7 +1,8 @@
 package nl.llm.storyteller.api.session;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
-import nl.llm.storyteller.api.persistence.SessionRepository;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionRecord;
+import nl.llm.storyteller.db.SessionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SessionServiceTest {
   private static final Instant NOW = Instant.parse("2026-09-05T10:15:30Z");
+  private static final SessionPrompts DEFAULT_PROMPTS =
+    new SessionPrompts("System", "Fixed protagonists", "Rules");
 
   @ParameterizedTest
   @NullAndEmptySource
@@ -41,6 +44,7 @@ class SessionServiceTest {
     assertNull(created.title());
     assertEquals(NOW.plusSeconds(3600), created.expiresAt());
     assertEquals(created, repository.findById(created.sessionId()).orElseThrow());
+    assertEquals(DEFAULT_PROMPTS, repository.prompts);
   }
 
   @Test
@@ -61,7 +65,7 @@ class SessionServiceTest {
       NOW.plusSeconds(60),
       false
     );
-    repository.create(stored);
+    repository.create(stored, SessionPrompts.empty());
     SessionService service = service(repository);
 
     SessionRecord result = service.findActive(stored.sessionId()).orElseThrow();
@@ -88,7 +92,7 @@ class SessionServiceTest {
       NOW,
       false
     );
-    repository.create(expired);
+    repository.create(expired, SessionPrompts.empty());
     SessionService service = service(repository);
 
     Optional<SessionRecord> result = service.findActive(expired.sessionId());
@@ -131,21 +135,56 @@ class SessionServiceTest {
     assertFalse(finite.infinite());
   }
 
+  @Test
+  @DisplayName("""
+    Given an infinite session,
+    When it is resumed using its session id,
+    Then it should be returned with a refreshed access time
+    """)
+  void shouldResumeInfiniteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+    service.toggleInfinite(session.sessionId());
+
+    SessionRecord resumed = service.resumeInfinite("  " + session.sessionId() + "  ").orElseThrow();
+
+    assertTrue(resumed.infinite());
+    assertEquals(NOW, resumed.lastAccessedAt());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a session with inactivity expiration,
+    When another client tries to resume it by id,
+    Then it should not grant access
+    """)
+  void shouldNotResumeFiniteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+
+    assertTrue(service.resumeInfinite(session.sessionId()).isEmpty());
+  }
+
   private SessionService service(SessionRepository repository) {
     return new SessionService(
       repository,
       Clock.fixed(NOW, ZoneOffset.UTC),
       Duration.ofHours(1),
-      () -> "generated-session-id"
+      () -> "generated-session-id",
+      DEFAULT_PROMPTS
     );
   }
 
   private static final class InMemorySessionRepository implements SessionRepository {
     private final Map<String, SessionRecord> sessions = new LinkedHashMap<>();
+    private SessionPrompts prompts;
 
     @Override
-    public void create(SessionRecord session) {
+    public void create(SessionRecord session, SessionPrompts prompts) {
       sessions.put(session.sessionId(), session);
+      this.prompts = prompts;
     }
 
     @Override

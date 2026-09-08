@@ -3,27 +3,27 @@ package nl.llm.storyteller.core.graph.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import nl.llm.storyteller.core.graph.KnowledgeGraphJsonResponse;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
-import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
+import nl.llm.storyteller.core.graph.model.Entity;
+import nl.llm.storyteller.core.graph.model.EntityType;
 import nl.llm.storyteller.core.graph.model.Fact;
 import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.FactStatus;
-import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphJsonCodec;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphRepository;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.service.ChatClient;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Arrays;
 import java.util.stream.Collectors;
-import nl.llm.storyteller.core.graph.model.EntityType;
-import nl.llm.storyteller.core.graph.model.Entity;
 
 public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
   private final ChatClient chatClient;
-  private final KnowledgeGraphStore store;
+  private final KnowledgeGraphRepository store;
   private final ReadOnlyKnowledgeGraphService graphService;
   private final Map<String, Object> options;
   private final int timeoutSeconds;
@@ -32,7 +32,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
 
   public KnowledgeGraphGenerator(
     ChatClient chatClient,
-    KnowledgeGraphStore store,
+    KnowledgeGraphRepository store,
     ReadOnlyKnowledgeGraphService graphService,
     Map<String, Object> options,
     int timeoutSeconds
@@ -43,7 +43,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
 
   public KnowledgeGraphGenerator(
     ChatClient chatClient,
-    KnowledgeGraphStore store,
+    KnowledgeGraphRepository store,
     ReadOnlyKnowledgeGraphService graphService,
     Map<String, Object> options,
     int timeoutSeconds,

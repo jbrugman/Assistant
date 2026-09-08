@@ -1,0 +1,36 @@
+@startuml
+title Storyteller Core - Story and Derived-Memory Flow
+
+start
+:StorySessionService receives text or image turn;
+:PromptAssemblyService loads recent history,\nderived memory, turn state and graph facts;
+:Build story messages;
+:Send chat request through resilient client and backend guard;
+:Receive draft response;
+if (validation enabled?) then (yes)
+  :Build validation prompt with rules,\nfixed protagonists and relevant graph facts;
+  :Request validation decision;
+  if (ALLOW?) then (yes)
+    :Sanitize and use draft;
+  else (REPLACE)
+    :Sanitize and use replacement;
+  endif
+else (no)
+  :Sanitize and use draft;
+endif
+:Persist completed turn through StoryHistory;
+
+:Submit canonical-state, recent-summary\nand long-term-summary refreshes;
+if (graph batch reached?) then (yes)
+  :Submit TURNBASED graph extraction;
+endif
+
+note right
+All derived-memory and graph work uses the same
+single-threaded queue, so writes execute sequentially.
+Each manager checks whether its source is still current
+before committing through the injected persistence contracts.
+end note
+:Return final response without waiting\nfor background refreshes;
+stop
+@enduml

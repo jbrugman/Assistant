@@ -1,5 +1,7 @@
 package nl.llm.storyteller.api;
 
+import java.util.concurrent.CountDownLatch;
+
 public final class ApiApplication implements AutoCloseable {
   private final ApiServer server;
 
@@ -11,9 +13,8 @@ public final class ApiApplication implements AutoCloseable {
     return new ApiApplication(ApiServer.create(ApiConfig.load()));
   }
 
-  public ApiApplication start() {
+  public void start() {
     server.start();
-    return this;
   }
 
   @Override
@@ -21,9 +22,12 @@ public final class ApiApplication implements AutoCloseable {
     server.close();
   }
 
-  public static void main(String[] args) {
-    ApiApplication application = ApiApplication.create();
-    Runtime.getRuntime().addShutdownHook(new Thread(application::close, "storyteller-api-shutdown"));
-    application.start();
+  static void main() throws InterruptedException {
+    CountDownLatch shutdown = new CountDownLatch(1);
+    Runtime.getRuntime().addShutdownHook(new Thread(shutdown::countDown, "storyteller-api-shutdown"));
+    try (ApiApplication application = ApiApplication.create()) {
+      application.start();
+      shutdown.await();
+    }
   }
 }

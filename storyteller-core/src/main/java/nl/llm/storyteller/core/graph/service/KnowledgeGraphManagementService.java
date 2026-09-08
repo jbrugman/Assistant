@@ -2,16 +2,16 @@ package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
-import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphRepository;
 
 import java.util.LinkedHashMap;
 
 public final class KnowledgeGraphManagementService {
-  private final KnowledgeGraphStore store;
+  private final KnowledgeGraphRepository store;
   private final ReadOnlyKnowledgeGraphService graphService;
 
   public KnowledgeGraphManagementService(
-    KnowledgeGraphStore store,
+    KnowledgeGraphRepository store,
     ReadOnlyKnowledgeGraphService graphService
   ) {
     this.store = store;

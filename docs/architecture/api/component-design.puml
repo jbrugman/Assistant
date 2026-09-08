@@ -1,0 +1,82 @@
+@startuml
+!pragma layout smetana
+title Storyteller API and Web - Component Design
+
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "Browser / API client" as Client
+
+package "storyteller-api" #DBEAFE {
+  [ApiApplication]
+  [ApiServer / Javalin]
+  [REST Controllers]
+  [WebController]
+  [JTE Templates]
+  [SessionService]
+  [SessionSettingsService]
+  [SessionMemoryService]
+  [API StoryTurnService]
+  [SessionBundleService]
+  [TLS Material]
+}
+
+package "storyteller-db" #FCE7F3 {
+  [JDBC Repositories]
+  [SQL Schema]
+  [Session Records]
+}
+
+package "storyteller-core (reused)" #DCFCE7 {
+  [StoryChatPromptBuilder]
+  [ValidationPromptBuilder]
+  [ResponseGuard]
+  [OpenAiCompatibleHttpClient]
+}
+
+database "Shared H2 database" as H2
+cloud "OpenAI-compatible\nmodel backend" as Backend
+
+Client --> [ApiServer / Javalin] : HTTP / HTTPS
+[ApiApplication] --> [ApiServer / Javalin]
+[ApiServer / Javalin] --> [REST Controllers]
+[ApiServer / Javalin] --> [WebController]
+[ApiServer / Javalin] --> [TLS Material] : optional self-signed TLS
+[WebController] --> [JTE Templates] : server-side rendering
+[REST Controllers] --> [SessionService]
+[REST Controllers] --> [API StoryTurnService]
+[WebController] --> [SessionService]
+[WebController] --> [SessionSettingsService]
+[WebController] --> [JDBC Repositories] : read-only history view
+[WebController] --> [API StoryTurnService]
+[WebController] --> [SessionBundleService] : ZIP import / export
+[SessionService] --> [JDBC Repositories]
+[SessionSettingsService] --> [JDBC Repositories]
+[API StoryTurnService] --> [SessionMemoryService] : schedule background refresh
+[SessionMemoryService] --> [JDBC Repositories]
+[SessionMemoryService] --> [OpenAiCompatibleHttpClient]
+[API StoryTurnService] --> [JDBC Repositories]
+[SessionBundleService] --> [JDBC Repositories]
+[JDBC Repositories] --> H2 : sessions, prompts, messages, images
+[JDBC Repositories] --> [SQL Schema]
+[API StoryTurnService] --> [StoryChatPromptBuilder]
+[API StoryTurnService] --> [ValidationPromptBuilder]
+[API StoryTurnService] --> [ResponseGuard]
+[API StoryTurnService] --> [OpenAiCompatibleHttpClient]
+[ResponseGuard] --> [OpenAiCompatibleHttpClient]
+[OpenAiCompatibleHttpClient] --> Backend
+
+note bottom of [API StoryTurnService]
+This is API-specific orchestration.
+It does not delegate to Core StorySessionService.
+Selected old exchanges (maximum 3) are included
+for one request as explicitly historical context.
+end note
+
+note bottom of [JDBC Repositories]
+Images are stored as BLOBs and are included in
+session ZIP exports under memory/images/.
+end note
+@enduml

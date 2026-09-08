@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,6 +100,37 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertTrue(systemPrompt.contains("one ITEM entity and one\nWEARS fact per distinct garment"));
       assertTrue(prompt.contains("USER: Turn 1"));
       assertTrue(prompt.contains("ASSISTANT: Reply 3"));
+    }
+  }
+
+  @Test
+  @DisplayName("""
+    Given an existing story whose graph has never received turn-based data,
+    When another turn is persisted beyond an absolute batch boundary,
+    Then the overdue turn-based graph update should still be requested
+    """)
+  void catchesUpGraphWithoutTurnBasedCursor() throws Exception {
+    TestContext context = context();
+    for (int turn = 1; turn <= 47; turn++) {
+      appendTurn(context.historyStore(), turn);
+    }
+    CountDownLatch requested = new CountDownLatch(1);
+    ChatClient client = (_, _, _) -> {
+      requested.countDown();
+      return """
+        {
+          "schemaVersion": 1,
+          "revision": 0,
+          "entities": {},
+          "facts": []
+        }
+        """;
+    };
+
+    try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
+      service(context, client, queue, 3).startUpdateIfNeeded();
+
+      assertTrue(requested.await(5, TimeUnit.SECONDS));
     }
   }
 

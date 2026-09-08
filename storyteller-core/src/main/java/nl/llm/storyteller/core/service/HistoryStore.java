@@ -17,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class HistoryStore {
+public final class HistoryStore implements StoryHistory {
   private final Path path;
   private final Path legacyPath;
 
@@ -234,9 +234,4 @@ public final class HistoryStore {
     }
   }
 
-  public record LastTurn(String userInput, String assistantResponse) {
-    public boolean isPresent() {
-      return (userInput != null && !userInput.isBlank()) || (assistantResponse != null && !assistantResponse.isBlank());
-    }
-  }
 }

@@ -9,8 +9,23 @@ public record ApiConfig(
   Path databasePath,
   String databaseUsername,
   String databasePassword,
-  Duration sessionInactivityTimeout
+  Duration sessionInactivityTimeout,
+  ApiTlsConfig tls
 ) {
+  public ApiConfig(
+    String host,
+    int port,
+    Path databasePath,
+    String databaseUsername,
+    String databasePassword,
+    Duration sessionInactivityTimeout
+  ) {
+    this(
+      host, port, databasePath, databaseUsername, databasePassword, sessionInactivityTimeout,
+      ApiTlsConfig.disabled(databasePath.toAbsolutePath().normalize().resolveSibling("tls"))
+    );
+  }
+
   public ApiConfig {
     if (host == null || host.isBlank()) {
       throw new IllegalArgumentException("API host must not be blank.");
@@ -24,6 +39,9 @@ public record ApiConfig(
     if (sessionInactivityTimeout == null || sessionInactivityTimeout.isZero()
       || sessionInactivityTimeout.isNegative()) {
       throw new IllegalArgumentException("Session inactivity timeout must be positive.");
+    }
+    if (tls == null) {
+      throw new IllegalArgumentException("API TLS configuration must not be null.");
     }
     databaseUsername = databaseUsername == null ? "" : databaseUsername;
     databasePassword = databasePassword == null ? "" : databasePassword;

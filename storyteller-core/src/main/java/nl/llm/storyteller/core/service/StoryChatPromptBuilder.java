@@ -22,22 +22,39 @@ public final class StoryChatPromptBuilder {
   }
 
   public List<Message> build(StoryChatPromptInput input) {
+    return build(
+      input,
+      promptResourceLoader.loadSystemPrompt(),
+      promptResourceLoader.loadFixedProtagonists()
+    );
+  }
+
+  public List<Message> build(
+    StoryChatPromptInput input,
+    String systemPrompt,
+    String fixedProtagonists
+  ) {
     List<Message> messages = new ArrayList<>();
-    messages.add(new Message(SYSTEM, buildSystemMessage(input)));
+    messages.add(new Message(SYSTEM, buildSystemMessage(input, systemPrompt, fixedProtagonists)));
 
     messages.addAll(input.recentMessages());
     messages.add(new Message(USER, appendInlineInstruction(input.userInput(), input.extraSystemInstruction())));
     return messages;
   }
 
-  private String buildSystemMessage(StoryChatPromptInput input) {
+  private String buildSystemMessage(
+    StoryChatPromptInput input,
+    String systemPrompt,
+    String fixedProtagonists
+  ) {
     List<String> sections = new ArrayList<>();
-    addIfPresent(sections, promptResourceLoader.loadSystemPrompt());
-    addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext());
+    addIfPresent(sections, systemPrompt);
+    addIfPresent(sections, promptTemplateService.buildFixedProtagonistsContext(fixedProtagonists));
     addIfPresent(sections, promptTemplateService.buildCanonicalStateContext(input.canonicalState()));
     addIfPresent(sections, promptTemplateService.buildSummaryContext(input.summary()));
     addIfPresent(sections, promptTemplateService.buildRecentSummaryContext(input.recentSummary()));
     addIfPresent(sections, input.knowledgeGraphFacts());
+    addIfPresent(sections, input.relevantPastStory());
     return String.join("\n\n", sections);
   }
 

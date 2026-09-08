@@ -8,7 +8,10 @@ public final class PromptTemplateService {
   }
 
   public String buildFixedProtagonistsContext() {
-    String raw = promptResourceLoader.loadFixedProtagonists();
+    return buildFixedProtagonistsContext(promptResourceLoader.loadFixedProtagonists());
+  }
+
+  public String buildFixedProtagonistsContext(String raw) {
     if (raw.isBlank()) {
       return "";
     }

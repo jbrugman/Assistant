@@ -18,14 +18,14 @@ public final class TurnManager {
   private final PromptResourceLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
   private final GameModeDefinitionParser gameModeDefinitionParser;
-  private final TurnStateStore turnStateStore;
+  private final TurnStateRepository turnStateStore;
 
   public TurnManager(
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     GameModeDefinitionParser gameModeDefinitionParser,
-    TurnStateStore turnStateStore
+    TurnStateRepository turnStateStore
   ) {
     this.config = config;
     this.promptResourceLoader = promptResourceLoader;

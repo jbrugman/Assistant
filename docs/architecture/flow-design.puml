@@ -1,0 +1,19 @@
+@startuml
+title Storyteller - Simplified Story Flow
+
+start
+:Receive story input from CLI or API client;
+:Load the adapter's session context;
+:Use Core prompt builders to assemble model messages;
+:Send request to the OpenAI-compatible backend;
+:Receive draft response;
+if (validation enabled?) then (yes)
+  :Validate draft against rules and fixed protagonists;
+  :Use ALLOW draft or REPLACE text;
+else (no)
+  :Sanitize and use draft;
+endif
+:Persist the completed turn through the active adapter;
+:Return response to terminal or HTTP client;
+stop
+@enduml

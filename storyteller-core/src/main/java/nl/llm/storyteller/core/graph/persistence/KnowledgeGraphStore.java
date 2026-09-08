@@ -10,10 +10,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.function.UnaryOperator;
 import java.util.Objects;
+import java.util.function.UnaryOperator;
 
-public final class KnowledgeGraphStore {
+public final class KnowledgeGraphStore implements KnowledgeGraphRepository {
   private final Path path;
   private final KnowledgeGraphValidator validator;
   private final KnowledgeGraphJsonCodec codec = new KnowledgeGraphJsonCodec();

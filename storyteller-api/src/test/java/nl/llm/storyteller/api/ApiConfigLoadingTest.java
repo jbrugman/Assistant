@@ -29,6 +29,9 @@ class ApiConfigLoadingTest {
     assertEquals("sa", apiConfig.databaseUsername());
     assertEquals("", apiConfig.databasePassword());
     assertEquals(Duration.ofMinutes(60), apiConfig.sessionInactivityTimeout());
+    assertEquals(true, apiConfig.tls().enabled());
+    assertEquals(7443, apiConfig.tls().port());
+    assertEquals(temporaryDirectory.resolve("memory/tls"), apiConfig.tls().directory());
   }
 
   @Test

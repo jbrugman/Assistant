@@ -109,8 +109,9 @@ public final class AppConfig {
       || graphTurnBasedBatchTurns() < 1) {
       throw new IllegalArgumentException("Batch sizes must all be at least 1.");
     }
-    if (cacheBusterInterval() < 0) {
-      throw new IllegalArgumentException("cacheBuster.interval must be 0 or greater.");
+    if (!"openai-compatible".equalsIgnoreCase(graphGenerationTransport())
+      && !"lmstudio-native".equalsIgnoreCase(graphGenerationTransport())) {
+      throw new IllegalArgumentException("graph.generation.transport must be openai-compatible or lmstudio-native.");
     }
   }
 
@@ -276,12 +277,12 @@ public final class AppConfig {
     return files.turnStateFile();
   }
 
-  public Path knowledgeGraphFile() {
-    return files.knowledgeGraphFile();
+  public Path databasePath() {
+    return files.databasePath();
   }
 
-  public Path resetCacheBusterTemplateFile() {
-    return files.resetCacheBusterTemplateFile();
+  public Path knowledgeGraphFile() {
+    return files.knowledgeGraphFile();
   }
 
   public int maxRecentTurns() {
@@ -312,16 +313,8 @@ public final class AppConfig {
     return conversation.graphEnabled();
   }
 
-  public int cacheBusterInterval() {
-    return conversation.cacheBusterInterval();
-  }
-
-  public boolean cacheBusterEnabled() {
-    return conversation.cacheBusterEnabled();
-  }
-
-  public String cacheBusterTokenPrefix() {
-    return runtimeText.cacheBusterTokenPrefix();
+  public String graphGenerationTransport() {
+    return conversation.graphGenerationTransport();
   }
 
   public boolean turnBasedModeEnabled() {
@@ -518,7 +511,7 @@ public final class AppConfig {
         source.requiredPath("file.legacyHistory"),
         source.requiredPath("file.turnState"),
         source.requiredPath("file.knowledgeGraph"),
-        source.requiredPath("file.resetCacheBusterTemplate")
+        source.requiredPath("database.path")
       ),
       new ConversationConfig(
         source.requiredInt("chat.maxRecentTurns"),
@@ -528,8 +521,7 @@ public final class AppConfig {
         source.requiredInt("canonicalState.batchMessages"),
         source.requiredInt("graph.turnBased.batchTurns"),
         source.requiredBoolean("graph.enabled"),
-        source.requiredInt("cacheBuster.interval"),
-        source.requiredBoolean("cacheBuster.enabled"),
+        source.requiredString("graph.generation.transport"),
         source.requiredBoolean("game.turnBasedModeEnabled"),
         source.requiredInt("game.turnPenaltySingleLowHp"),
         source.requiredInt("game.turnPenaltySingleHighHp")
@@ -553,7 +545,6 @@ public final class AppConfig {
         source.requiredBoolean("validation.enabled"),
         source.requiredString("validation.outputMode"),
         source.requiredBoolean("response.hideReasoningBlocks"),
-        source.optionalTrimmedString("cacheBuster.tokenPrefix"),
         source.requiredString("response.validationFailClosedMessage"),
         source.requiredString("command.continueStory"),
         source.requiredString("command.resetStory"),
@@ -663,7 +654,7 @@ public final class AppConfig {
     Path legacyHistoryFile,
     Path turnStateFile,
     Path knowledgeGraphFile,
-    Path resetCacheBusterTemplateFile
+    Path databasePath
   ) {
   }
 
@@ -675,8 +666,7 @@ public final class AppConfig {
     int canonicalStateBatchMessages,
     int graphTurnBasedBatchTurns,
     boolean graphEnabled,
-    int cacheBusterInterval,
-    boolean cacheBusterEnabled,
+    String graphGenerationTransport,
     boolean turnBasedModeEnabled,
     int turnPenaltySingleLowHp,
     int turnPenaltySingleHighHp
@@ -710,7 +700,6 @@ public final class AppConfig {
     boolean validationEnabled,
     String validationOutputMode,
     boolean hideReasoningBlocks,
-    String cacheBusterTokenPrefix,
     String validationFailClosedMessage,
     String continueStoryCommand,
     String resetStoryCommand,

@@ -6,7 +6,7 @@ import io.javalin.http.HttpStatus;
 import nl.llm.storyteller.api.http.dto.CreateSessionRequest;
 import nl.llm.storyteller.api.http.dto.ErrorResponse;
 import nl.llm.storyteller.api.http.dto.SessionResponse;
-import nl.llm.storyteller.api.persistence.SessionRecord;
+import nl.llm.storyteller.db.SessionRecord;
 import nl.llm.storyteller.api.session.SessionCookieService;
 import nl.llm.storyteller.api.session.SessionService;
 

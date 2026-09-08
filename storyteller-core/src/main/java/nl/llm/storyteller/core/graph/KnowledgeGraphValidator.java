@@ -8,6 +8,7 @@ import nl.llm.storyteller.core.graph.model.FactStatus;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.nio.file.Path;
 
 public final class KnowledgeGraphValidator {
   private static final String ENTITY_PREFIX = "entity '";

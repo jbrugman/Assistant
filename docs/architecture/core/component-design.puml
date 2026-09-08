@@ -1,0 +1,75 @@
+@startuml
+!pragma layout smetana
+title Storyteller Core - Component Design
+
+top to bottom direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 45
+skinparam ranksep 55
+
+package "Runtime" #DCFCE7 {
+  [Configuration] as Config
+  [ApplicationFactory] as Factory
+  [ApplicationContext] as Context
+  [Managed Backend Services] as ManagedBackend
+
+  Config -right-> Factory
+  Factory -right-> Context : creates
+  Context -[hidden]right- ManagedBackend
+}
+
+package "Story Orchestration" #FEF3C7 {
+  [StorySessionService] as Session
+  [PromptAssemblyService] as Assembly
+  [StoryExportService] as Export
+
+  Session -right-> Assembly
+  Assembly -[hidden]right- Export
+}
+
+package "Core Services" #DBEAFE {
+  [Prompt Builders\nand Templates] as Prompting
+  [Response Validation\nand Sanitizing] as Validation
+  [Derived Memory\nand Knowledge Graph] as Memory
+  [Model Client\nand Backend Guard] as Model
+
+  Prompting -[hidden]right- Validation
+  Validation -[hidden]right- Memory
+  Memory -[hidden]right- Model
+}
+
+package "Persistence Boundary" #FCE7F3 {
+  [ApplicationStorage\n\nStoryHistory\nTextMemory\nTurnStateRepository\nKnowledgeGraphRepository] as Storage
+}
+
+package "Core File Adapters" #FFF1F2 {
+  [HistoryStore\nFileTextMemory\nTurnStateStore\nKnowledgeGraphStore] as FileAdapters
+  [AtomicFileWriter] as AtomicWriter
+
+  FileAdapters -right-> AtomicWriter
+}
+
+Factory -down-> Storage : injects
+Context -down-> Session
+Context -down-> Export
+Session -down-> Validation
+Assembly -down-> Prompting
+Assembly -down-> Memory
+Session -down-> Model
+Memory -down-> Model
+Assembly -down-> Storage
+Memory -down-> Storage
+Export -down-> Storage
+FileAdapters ..up.> Storage : implements contracts
+ManagedBackend -down-> Model
+
+note right of Storage
+Core orchestration depends only on storage contracts.
+storyteller-db provides the JDBC implementations.
+The file adapters remain for compatibility,
+legacy migration, and isolated workspaces.
+end note
+@enduml

@@ -1,6 +1,5 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.config.MlxServerConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

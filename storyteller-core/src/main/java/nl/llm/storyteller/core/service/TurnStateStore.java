@@ -22,7 +22,7 @@ import static nl.llm.storyteller.core.service.TurnStateJsonCodec.STARTED;
 import static nl.llm.storyteller.core.service.TurnStateJsonCodec.TRIGGER_WORD;
 import static nl.llm.storyteller.core.service.TurnStateJsonCodec.TURNS_THIS_ROUND;
 
-public final class TurnStateStore {
+public final class TurnStateStore implements TurnStateRepository {
   private final Path path;
 
   public TurnStateStore(Path path) {

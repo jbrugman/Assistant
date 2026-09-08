@@ -1,0 +1,37 @@
+@startuml
+!pragma layout smetana
+title Storyteller - System Component Design
+
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+
+actor "Terminal user" as TerminalUser
+actor "Browser user" as BrowserUser
+
+package "Storyteller" {
+  [CLI] as CLI
+  [API and Web] as API
+  [Core] as Core
+  [Database Module] as DB
+}
+
+database "Shared H2 database" as H2
+cloud "OpenAI-compatible\nmodel backend" as Backend
+
+TerminalUser --> CLI
+BrowserUser --> API : HTTP / HTTPS
+CLI --> Core
+CLI --> DB
+API --> Core : shared prompting, validation\nand model client
+API --> DB
+DB --> Core : shared domain records
+DB --> H2 : CLI and web sessions, prompts,\nmessages, memory, graph and images
+Core --> Backend : chat requests
+
+note bottom of API
+The server-rendered web interface is the default API client.
+Other clients can use the HTTP API independently.
+end note
+@enduml

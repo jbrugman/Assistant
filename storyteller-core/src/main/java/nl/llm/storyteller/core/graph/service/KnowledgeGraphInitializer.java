@@ -1,16 +1,16 @@
 package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
-import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphRepository;
 
 import java.util.List;
 import java.util.Map;
 
 public final class KnowledgeGraphInitializer {
-  private final KnowledgeGraphStore store;
+  private final KnowledgeGraphRepository store;
   private final ReadOnlyKnowledgeGraphService graphService;
 
-  public KnowledgeGraphInitializer(KnowledgeGraphStore store, ReadOnlyKnowledgeGraphService graphService) {
+  public KnowledgeGraphInitializer(KnowledgeGraphRepository store, ReadOnlyKnowledgeGraphService graphService) {
     this.store = store;
     this.graphService = graphService;
   }

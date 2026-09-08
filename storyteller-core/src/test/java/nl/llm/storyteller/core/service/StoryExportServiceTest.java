@@ -11,8 +11,8 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -179,6 +179,9 @@ class StoryExportServiceTest {
         assertTrue(entries.contains("manifest.json"));
         assertTrue(entries.contains("history.json"));
         assertTrue(entries.contains("summary.md"));
+        assertTrue(entries.contains("systemprompts/systemprompt.md"));
+        assertTrue(entries.contains("systemprompts/fixed_protagonists.yml"));
+        assertTrue(entries.contains("systemprompts/rules.md"));
         assertFalse(entries.contains("recent-summary.md"));
     }
 

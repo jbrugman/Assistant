@@ -13,3 +13,5 @@ history.json
 summary.md
 /application.config
 /systemprompts/application.config
+*.mv.db
+*.trace.db

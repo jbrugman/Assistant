@@ -19,6 +19,10 @@
       <artifactId>storyteller-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>nl.llm</groupId>
+      <artifactId>storyteller-db</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.javalin</groupId>
       <artifactId>javalin</artifactId>
     </dependency>
@@ -27,8 +31,16 @@
       <artifactId>javalin-rendering-jte</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
+      <groupId>io.javalin.community.ssl</groupId>
+      <artifactId>javalin-ssl</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -103,6 +115,10 @@
                     <exclude>META-INF/MANIFEST.MF</exclude>
                     <exclude>META-INF/LICENSE*</exclude>
                     <exclude>META-INF/NOTICE*</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/versions/*/OSGI-INF/MANIFEST.MF</exclude>
                   </excludes>
                 </filter>
               </filters>

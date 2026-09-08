@@ -1,12 +1,12 @@
 package nl.llm.storyteller.core;
 
+import nl.llm.storyteller.core.model.CanonicalStatePromptInput;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
-import nl.llm.storyteller.core.model.CanonicalStatePromptInput;
 import nl.llm.storyteller.core.model.RecentSummaryPromptInput;
 import nl.llm.storyteller.core.model.SummaryPromptInput;
-import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
+import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.PromptResourceLoader;

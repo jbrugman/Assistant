@@ -11,7 +11,7 @@ public final class SummaryManager extends DerivedMemoryManager {
   private final SummaryPromptBuilder summaryPromptBuilder;
 
   public SummaryManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -20,12 +20,12 @@ public final class SummaryManager extends DerivedMemoryManager {
   ) {
     this(
       historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
-      new DerivedMemoryTaskQueue(), true
+      new FileTextMemory(config.summaryFile()), new DerivedMemoryTaskQueue(), true
     );
   }
 
   public SummaryManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -33,25 +33,43 @@ public final class SummaryManager extends DerivedMemoryManager {
     SummaryPromptBuilder summaryPromptBuilder,
     DerivedMemoryTaskQueue taskQueue
   ) {
-    this(historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder, taskQueue, false);
+    this(
+      historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
+      new FileTextMemory(config.summaryFile()), taskQueue, false
+    );
   }
 
-  private SummaryManager(
-    HistoryStore historyStore,
+  public SummaryManager(
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     SummaryPromptBuilder summaryPromptBuilder,
+    TextMemory memory,
+    DerivedMemoryTaskQueue taskQueue
+  ) {
+    this(historyStore, client, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
+      memory, taskQueue, false);
+  }
+
+  private SummaryManager(
+    StoryHistory historyStore,
+    ChatClient client,
+    nl.llm.storyteller.core.config.AppConfig config,
+    PromptResourceLoader promptResourceLoader,
+    PromptTemplateService promptTemplateService,
+    SummaryPromptBuilder summaryPromptBuilder,
+    TextMemory memory,
     DerivedMemoryTaskQueue taskQueue,
     boolean ownsTaskQueue
   ) {
-    super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
+    super(historyStore, client, config, promptResourceLoader, promptTemplateService, memory, taskQueue, ownsTaskQueue);
     this.summaryPromptBuilder = summaryPromptBuilder;
   }
 
   public String loadSummary() {
-    return loadMemory(config.summaryFile());
+    return loadMemory();
   }
 
   public void startUpdateSummaryIfNeeded() {
@@ -90,11 +108,6 @@ public final class SummaryManager extends DerivedMemoryManager {
   @Override
   protected int currentCursor(HistoryState state) {
     return state.summaryCursor();
-  }
-
-  @Override
-  protected java.nio.file.Path targetFile() {
-    return config.summaryFile();
   }
 
   @Override

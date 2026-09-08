@@ -13,6 +13,6 @@ Section rules:
 
 General rules:
 - This layer is more concrete than the long-term summary, but more compact than raw turns.
-- Rewrite the entire recent summary from the supplied recent window each time.
+- Rewrite the entire recent summary from the supplied recent window each time, but use the existing recent summary as a reference for what to preserve.
 - Preserve explicit recent constraints faithfully.
 - Return only the new full recent summary in markdown.

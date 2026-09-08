@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
 
 public final class OpenAiCompatibleHttpClient implements ChatClient {
   private static final Pattern REASONING_PATTERN = Pattern.compile(
-    "<(?:think|thinking|reasoning)>.*?</(?:think|thinking|reasoning)>",
+    "<[^>]*(?:think|thinking|reasoning|channel)[^>]*>.*?"
+      + "(?:<[^>]*(?:think|thinking|reasoning|channel)[^>]*>|\\z)",
     Pattern.CASE_INSENSITIVE | Pattern.DOTALL
   );
 
@@ -133,7 +134,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     return payload;
   }
 
-  private String stripReasoningBlocks(String content) {
+  String stripReasoningBlocks(String content) {
     if (!hideReasoningBlocks || content == null || content.isBlank()) {
       return content;
     }
