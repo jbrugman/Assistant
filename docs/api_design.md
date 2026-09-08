@@ -217,7 +217,11 @@ Database-backed runtime state includes:
 - canonical state and knowledge-graph state
 - validated session configuration and prompt overrides
 
-Static application defaults, bundled prompt resources, model files, and explicitly generated story or session-bundle downloads remain files. Large binary inputs may also remain files, with only their metadata and stable reference stored in the database.
+Static application defaults and bundled prompt resources remain files. When an API session is created, the effective
+`systemprompt.md`, `fixed_protagonists.yml`, and `rules.md` contents are copied into
+`session_prompt_override`. From then on, API story generation and validation read these session-owned values from H2,
+not from disk. Model files and explicitly generated downloads remain files. Large binary inputs may also remain files,
+with only their metadata and stable reference stored in the database.
 
 Persistence rules:
 
@@ -390,6 +394,9 @@ The first implemented bundle format contains:
 - optional `canonical-state.yaml`
 - optional `turn-state.json`; export always includes the current turn state
 - optional `knowledge-graph.json`; export always includes the current graph, including an empty graph
+- optional `systemprompts/systemprompt.md`
+- optional `systemprompts/fixed_protagonists.yml`
+- optional `systemprompts/rules.md`
 
 The server rejects unknown paths, duplicate entries, incomplete message pairs, invalid cursors, invalid graph data,
 archives larger than 32 MB, and archives that expand beyond 64 MB. Import validates the complete archive before opening
@@ -398,13 +405,18 @@ current or an existing session. A valid manifest title becomes the initial title
 source ZIP filename. The imported session starts with the normal inactivity timeout and can subsequently be made infinite.
 
 The server-rendered routes are `POST /import` for multipart upload and `GET /export` for downloading the active session.
-Future JSON API equivalents may use the resource-oriented paths documented below. Session configuration and prompt
-override snapshots can be added to a later bundle-format version once those values are mutable through the API.
+API exports include all three session prompts. Imports accept them when present and use the current effective server
+defaults for each missing prompt, preserving compatibility with older CLI and API bundles. Future JSON API equivalents
+may use the resource-oriented paths documented below.
 
 The story page initially renders the latest five complete prompt/response exchanges. When the conversation is scrolled
 to the top, `GET /story/history?before=<messageIndex>` returns the preceding five exchanges as an HTML fragment. The
 browser prepends that fragment while preserving the current scroll position. This pagination applies only to the web
 view; model context assembly and CLI history behavior are unchanged.
+
+The default web interface exposes `GET /story/settings` and `POST /story/settings` for editing the active session's
+system prompt, fixed protagonists, and rules. The values are normalized, length-limited, updated transactionally, and
+used from the next story turn onward.
 
 ## Confirmed Configuration Model
 
@@ -556,8 +568,11 @@ inspection and override endpoints are deliberately deferred; the endpoint uses t
 Summary, canonical-state, knowledge-graph, reset, and full CLI undo-and-retry parity remain subsequent API slices. Their absence must not
 cause this first turn endpoint to read or write the CLI's file-backed runtime state.
 
-The initial server-rendered interface is delivered by the same API application but isolated under `api.web`. Its story
-workspace shows prompts and responses side by side above a full-width input area. The layout remains responsive across
+The bundled default browser interface is delivered by the same API application but isolated under `api.web`. Other
+clients may use the JSON API directly and are not constrained to its rendering technology. The decision to use
+server-side rendering with JTE for the bundled interface is recorded in
+[`ADR-004: Render the default web interface server-side with JTE`](webpages/webpage-design.md).
+Its story workspace shows prompts and responses side by side above a full-width input area. The layout remains responsive across
 desktop, tablet, and mobile viewports in both portrait and landscape orientations; narrow portrait screens stack each
 prompt above its response. HTML controllers call the same application services as the JSON controllers and never call
 the server's own HTTP API. Its initial Undo action atomically removes the latest complete user and assistant pair from

@@ -7,10 +7,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 final class ApiConfigLoader {
   private static final String CONFIG_RESOURCE = "/application.config";
+  private static final String OVERRIDE_FILE_NAME = "application.config";
   private static final String NATIVE_IMAGE_KIND_PROPERTY = "org.graalvm.nativeimage.kind";
   private static final String NATIVE_IMAGE_KIND_EXECUTABLE = "executable";
 
@@ -40,8 +43,21 @@ final class ApiConfigLoader {
       resolvePath(databaseBaseDirectory, required(properties, "api.database.path")),
       required(properties, "api.database.username"),
       properties.getProperty("api.database.password", "").trim(),
-      Duration.ofMinutes(Long.parseLong(required(properties, "api.sessionTimeoutMinutes")))
+      Duration.ofMinutes(Long.parseLong(required(properties, "api.sessionTimeoutMinutes"))),
+      new ApiTlsConfig(
+        Boolean.parseBoolean(required(properties, "api.tls.enabled")),
+        Integer.parseInt(required(properties, "api.tls.port")),
+        resolvePath(databaseBaseDirectory, required(properties, "api.tls.directory")),
+        commaSeparated(properties.getProperty("api.tls.subjectAlternativeNames", ""))
+      )
     );
+  }
+
+  private static List<String> commaSeparated(String value) {
+    return Arrays.stream(value.split(","))
+      .map(String::trim)
+      .filter(entry -> !entry.isEmpty())
+      .toList();
   }
 
   private static Properties loadBundledDefaults() {
@@ -88,15 +104,15 @@ final class ApiConfigLoader {
 
   private static Path findOverrideFile(Path baseDirectory) {
     if (!NATIVE_IMAGE_KIND_EXECUTABLE.equals(System.getProperty(NATIVE_IMAGE_KIND_PROPERTY))) {
-      return baseDirectory.resolve("application.config");
+      return baseDirectory.resolve(OVERRIDE_FILE_NAME);
     }
     String command = ProcessHandle.current().info().command().orElse(null);
     if (command == null || command.isBlank()) {
-      return baseDirectory.resolve("application.config");
+      return baseDirectory.resolve(OVERRIDE_FILE_NAME);
     }
     Path executableDirectory = Path.of(command).toAbsolutePath().normalize().getParent();
     return executableDirectory == null
-      ? baseDirectory.resolve("application.config")
-      : executableDirectory.resolve("application.config");
+      ? baseDirectory.resolve(OVERRIDE_FILE_NAME)
+      : executableDirectory.resolve(OVERRIDE_FILE_NAME);
   }
 }

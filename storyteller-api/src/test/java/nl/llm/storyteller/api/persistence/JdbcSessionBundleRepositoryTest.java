@@ -98,7 +98,8 @@ class JdbcSessionBundleRepositoryTest {
       "Recent",
       "location: Paris",
       new TurnState("go", true, 2, List.of("Alice"), java.util.Map.of("Alice", 1)),
-      new KnowledgeGraphDocument(1, 3, entities, List.of(fact))
+      new KnowledgeGraphDocument(1, 3, entities, List.of(fact)),
+      new SessionPrompts("System", "fixed_protagonists: []", "Rules")
     );
   }
 }

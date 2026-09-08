@@ -55,7 +55,8 @@ class SessionBundleWebTest {
       AppConfigLoader.load(temporaryDirectory, coreOverride),
       unusedClient,
       unusedClient
-    ).start();
+    );
+    server.start();
     HttpClient client = HttpClient.newHttpClient();
     byte[] archive = archive();
     String boundary = "storyteller-test-boundary";

@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -45,7 +47,8 @@ class ApiServerTest {
     Then it should return the same active session and renew the cookie
     """)
   void shouldCreateAndRetrieveCurrentSession() throws Exception {
-    server = ApiServer.create(config()).start();
+    server = ApiServer.create(config());
+    server.start();
     HttpClient client = HttpClient.newHttpClient();
     HttpRequest createRequest = HttpRequest.newBuilder(uri("/v1/sessions"))
       .header("Content-Type", "application/json")
@@ -77,7 +80,8 @@ class ApiServerTest {
     Then it should return a structured not-found response
     """)
   void shouldReturnNotFoundWithoutSessionCookie() throws Exception {
-    server = ApiServer.create(config()).start();
+    server = ApiServer.create(config());
+    server.start();
     HttpRequest request = HttpRequest.newBuilder(uri("/v1/session")).GET().build();
 
     HttpResponse<String> response = HttpClient.newHttpClient()
@@ -103,7 +107,8 @@ class ApiServerTest {
       AppConfigLoader.load(temporaryDirectory, coreOverride),
       chatClient,
       chatClient
-    ).start();
+    );
+    server.start();
     HttpClient client = HttpClient.newHttpClient();
     HttpResponse<String> created = client.send(
       HttpRequest.newBuilder(uri("/v1/sessions"))
@@ -138,14 +143,16 @@ class ApiServerTest {
     """)
   void shouldRenderAndUseStoryPage() throws Exception {
     Path coreOverride = temporaryDirectory.resolve("web-core.config");
-    Files.writeString(coreOverride, "validation.enabled=false\n");
-    RecordingChatClient chatClient = new RecordingChatClient(List.of("A door opens in the old library."));
+    Files.writeString(coreOverride, "validation.enabled=true\n");
+    RecordingChatClient storyClient = new RecordingChatClient(List.of("A door opens in the old library."));
+    RecordingChatClient validationClient = new RecordingChatClient(List.of("{\"decision\":\"ALLOW\"}"));
     server = ApiServer.create(
       config(),
       AppConfigLoader.load(temporaryDirectory, coreOverride),
-      chatClient,
-      chatClient
-    ).start();
+      storyClient,
+      validationClient
+    );
+    server.start();
     HttpClient client = HttpClient.newHttpClient();
 
     HttpResponse<String> start = client.send(
@@ -161,6 +168,37 @@ class ApiServerTest {
     );
     String cookie = created.headers().firstValue("Set-Cookie").orElseThrow();
     String cookiePair = cookie.substring(0, cookie.indexOf(';'));
+    HttpResponse<String> settings = client.send(
+      HttpRequest.newBuilder(uri("/story/settings"))
+        .header("Cookie", cookiePair)
+        .GET()
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> savedSettings = client.send(
+      HttpRequest.newBuilder(uri("/story/settings"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofString(settingsForm(
+          "Edited system",
+          "fixed_protagonists:\n  Valerie:\n    role: Edited protagonists",
+          "Edited rules"
+        )))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> rejectedSettings = client.send(
+      HttpRequest.newBuilder(uri("/story/settings"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofString(settingsForm(
+          "Should not be saved",
+          "fixed_protagonists:\n  Valerie:\n    role: [broken",
+          "Should not be saved"
+        )))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
     HttpResponse<String> submitted = client.send(
       HttpRequest.newBuilder(uri("/story/turns"))
         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -177,6 +215,13 @@ class ApiServerTest {
     assertEquals(200, start.statusCode());
     assertTrue(start.body().contains("Start a story"));
     assertEquals(303, created.statusCode());
+    assertEquals(200, settings.statusCode());
+    assertTrue(settings.body().contains("Story settings"));
+    assertEquals(303, savedSettings.statusCode());
+    assertEquals(200, rejectedSettings.statusCode());
+    assertTrue(rejectedSettings.body().contains("Invalid YAML at line"));
+    assertTrue(rejectedSettings.body().contains("Should not be saved"));
+    assertTrue(rejectedSettings.body().contains("setSelectionRange"));
     assertEquals(303, submitted.statusCode());
     assertEquals(200, story.statusCode());
     assertTrue(story.body().contains("The Library"));
@@ -195,6 +240,13 @@ class ApiServerTest {
     assertTrue(story.body().contains("Stop story"));
     assertTrue(story.body().contains("permanently deleted"));
     assertTrue(story.body().contains("Infinite"));
+    assertTrue(story.body().contains("Settings"));
+    String modelSystemPrompt = storyClient.requests().getFirst().getFirst().content();
+    assertTrue(modelSystemPrompt.contains("Edited system"));
+    assertTrue(modelSystemPrompt.contains("Edited protagonists"));
+    String validationRequest = validationClient.requests().getFirst().getLast().content();
+    assertTrue(validationRequest.contains("Edited rules"));
+    assertTrue(validationRequest.contains("Edited protagonists"));
 
     HttpResponse<String> undone = client.send(
       HttpRequest.newBuilder(uri("/story/undo"))
@@ -243,6 +295,16 @@ class ApiServerTest {
     assertEquals(303, stopped.statusCode());
     assertTrue(stopped.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=0"));
     assertEquals(303, deletedStory.statusCode());
+  }
+
+  private String settingsForm(String systemPrompt, String fixedProtagonists, String rules) {
+    return "systemPrompt=" + encode(systemPrompt)
+      + "&fixedProtagonists=" + encode(fixedProtagonists)
+      + "&rules=" + encode(rules);
+  }
+
+  private String encode(String value) {
+    return URLEncoder.encode(value, StandardCharsets.UTF_8);
   }
 
   private HttpResponse<String> submitTurn(HttpClient client, String sessionId, String prompt) throws Exception {

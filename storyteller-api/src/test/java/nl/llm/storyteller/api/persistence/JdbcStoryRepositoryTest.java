@@ -28,7 +28,7 @@ class JdbcStoryRepositoryTest {
     Instant now = Instant.parse("2026-09-07T08:00:00Z");
     sessionRepository.create(new SessionRecord(
       "paged-session", "Paged story", now, now, now, now.plusSeconds(3600), false
-    ));
+    ), SessionPrompts.empty());
     for (int turn = 0; turn < 7; turn++) {
       storyRepository.appendTurn("paged-session", "Prompt " + turn, "Response " + turn, now);
     }

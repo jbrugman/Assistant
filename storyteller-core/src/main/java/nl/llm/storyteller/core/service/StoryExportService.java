@@ -69,6 +69,14 @@ public final class StoryExportService {
       writeOptionalFile(zip, "canonical-state.yaml", config.canonicalStateFile());
       writeOptionalFile(zip, "turn-state.json", config.turnStateFile());
       writeOptionalFile(zip, "knowledge-graph.json", config.knowledgeGraphFile());
+      writePrompt(zip, "systemprompts/systemprompt.md", config.systemPromptFile(), config.baseDir());
+      writePrompt(
+        zip,
+        "systemprompts/fixed_protagonists.yml",
+        config.fixedProtagonistsFile(),
+        config.baseDir()
+      );
+      writePrompt(zip, "systemprompts/rules.md", config.rulesFile(), config.baseDir());
     }
   }
 
@@ -92,6 +100,14 @@ public final class StoryExportService {
     if (Files.isRegularFile(path)) {
       writeEntry(zip, name, Files.readAllBytes(path));
     }
+  }
+
+  private void writePrompt(ZipOutputStream zip, String name, Path path, Path resourceBaseDir) throws IOException {
+    writeEntry(
+      zip,
+      name,
+      FileSupport.readRequiredTextFileOrResource(path, resourceBaseDir).getBytes(StandardCharsets.UTF_8)
+    );
   }
 
   private void writeEntry(ZipOutputStream zip, String name, byte[] content) throws IOException {

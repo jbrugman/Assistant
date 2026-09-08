@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import nl.llm.storyteller.api.persistence.SessionRecord;
+import nl.llm.storyteller.api.persistence.SessionPrompts;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
@@ -50,6 +51,7 @@ public final class SessionBundleService {
   private static final int MAX_NAME_LENGTH = 255;
   private static final int BUFFER_SIZE = 8192;
   private static final String MEMORY_DIRECTORY = "memory/";
+  private static final String SYSTEM_PROMPTS_DIRECTORY = "systemprompts/";
   private static final String MACOS_METADATA_DIRECTORY = "__MACOSX/";
   private static final String MACOS_FINDER_METADATA = ".DS_Store";
   private static final String MACOS_APPLE_DOUBLE_PREFIX = "._";
@@ -64,6 +66,10 @@ public final class SessionBundleService {
   private static final String CANONICAL_STATE = "canonical-state.yaml";
   private static final String TURN_STATE = "turn-state.json";
   private static final String KNOWLEDGE_GRAPH = "knowledge-graph.json";
+  private static final String SYSTEM_PROMPT = SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.SYSTEM_PROMPT_NAME;
+  private static final String FIXED_PROTAGONISTS =
+    SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.FIXED_PROTAGONISTS_NAME;
+  private static final String RULES = SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.RULES_NAME;
   private static final String MESSAGES = "messages";
   private static final String ROLE = "role";
   private static final String CONTENT = "content";
@@ -74,7 +80,8 @@ public final class SessionBundleService {
   private static final String VERSION = "version";
   private static final String TITLE = "title";
   private static final Set<String> ALLOWED_ENTRIES = Set.of(
-    MANIFEST, HISTORY, SUMMARY, RECENT_SUMMARY, CANONICAL_STATE, TURN_STATE, KNOWLEDGE_GRAPH
+    MANIFEST, HISTORY, SUMMARY, RECENT_SUMMARY, CANONICAL_STATE, TURN_STATE, KNOWLEDGE_GRAPH,
+    SYSTEM_PROMPT, FIXED_PROTAGONISTS, RULES
   );
   private static final ObjectWriter PRETTY_JSON = JsonSupport.OBJECT_MAPPER.writerWithDefaultPrettyPrinter();
 
@@ -82,23 +89,30 @@ public final class SessionBundleService {
   private final Duration inactivityTimeout;
   private final Clock clock;
   private final Supplier<String> idSupplier;
+  private final SessionPrompts defaultPrompts;
   private final KnowledgeGraphJsonCodec graphCodec = new KnowledgeGraphJsonCodec();
   private final KnowledgeGraphValidator graphValidator = new KnowledgeGraphValidator();
 
-  public SessionBundleService(SessionBundleRepository repository, Duration inactivityTimeout) {
-    this(repository, inactivityTimeout, Clock.systemUTC(), () -> UUID.randomUUID().toString());
+  public SessionBundleService(
+    SessionBundleRepository repository,
+    Duration inactivityTimeout,
+    SessionPrompts defaultPrompts
+  ) {
+    this(repository, inactivityTimeout, Clock.systemUTC(), () -> UUID.randomUUID().toString(), defaultPrompts);
   }
 
   SessionBundleService(
     SessionBundleRepository repository,
     Duration inactivityTimeout,
     Clock clock,
-    Supplier<String> idSupplier
+    Supplier<String> idSupplier,
+    SessionPrompts defaultPrompts
   ) {
     this.repository = repository;
     this.inactivityTimeout = inactivityTimeout;
     this.clock = clock;
     this.idSupplier = idSupplier;
+    this.defaultPrompts = defaultPrompts;
   }
 
   public SessionRecord importArchive(InputStream input, long archiveSize, String filename) throws IOException {
@@ -141,7 +155,8 @@ public final class SessionBundleService {
       optionalText(entries, RECENT_SUMMARY),
       optionalText(entries, CANONICAL_STATE),
       parseTurnState(entries.get(TURN_STATE)),
-      graph
+      graph,
+      parsePrompts(entries)
     );
     return new ParsedBundle(bundle, manifestTitle(entries.get(MANIFEST)));
   }
@@ -172,7 +187,7 @@ public final class SessionBundleService {
     if (name.startsWith(MACOS_METADATA_DIRECTORY)) {
       return null;
     }
-    if (entry.isDirectory() && MEMORY_DIRECTORY.equals(name)) {
+    if (entry.isDirectory() && (MEMORY_DIRECTORY.equals(name) || SYSTEM_PROMPTS_DIRECTORY.equals(name))) {
       return null;
     }
     if (name.startsWith(MEMORY_DIRECTORY)) {
@@ -181,7 +196,9 @@ public final class SessionBundleService {
     if (MACOS_FINDER_METADATA.equals(name) || name.startsWith(MACOS_APPLE_DOUBLE_PREFIX)) {
       return null;
     }
-    if (name.isBlank() || name.contains("/") || name.contains("\\") || name.contains("..")) {
+    boolean promptEntry = name.startsWith(SYSTEM_PROMPTS_DIRECTORY);
+    if (name.isBlank() || name.contains("\\") || name.contains("..")
+      || (name.contains("/") && !promptEntry)) {
       throw new IllegalArgumentException("Unsafe session ZIP entry: " + entry.getName());
     }
     return name;
@@ -352,6 +369,9 @@ public final class SessionBundleService {
       writeOptionalEntry(zip, CANONICAL_STATE, bundle.canonicalState());
       writeEntry(zip, TURN_STATE, turnStateJson(bundle.turnState()));
       writeEntry(zip, KNOWLEDGE_GRAPH, prettyJson(graphCodec.toJson(bundle.knowledgeGraph())));
+      writeEntry(zip, SYSTEM_PROMPT, bundle.prompts().systemPrompt());
+      writeEntry(zip, FIXED_PROTAGONISTS, bundle.prompts().fixedProtagonists());
+      writeEntry(zip, RULES, bundle.prompts().rules());
     }
     return output.toByteArray();
   }
@@ -428,6 +448,19 @@ public final class SessionBundleService {
   private String optionalText(Map<String, byte[]> entries, String name) {
     byte[] value = entries.get(name);
     return value == null ? null : text(value, name);
+  }
+
+  private SessionPrompts parsePrompts(Map<String, byte[]> entries) {
+    return new SessionPrompts(
+      promptText(entries, SYSTEM_PROMPT, defaultPrompts.systemPrompt()),
+      promptText(entries, FIXED_PROTAGONISTS, defaultPrompts.fixedProtagonists()),
+      promptText(entries, RULES, defaultPrompts.rules())
+    );
+  }
+
+  private String promptText(Map<String, byte[]> entries, String name, String defaultValue) {
+    byte[] value = entries.get(name);
+    return value == null ? defaultValue : text(value, name);
   }
 
   private String text(byte[] value, String name) {

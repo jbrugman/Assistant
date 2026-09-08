@@ -38,9 +38,49 @@ textarea {
 }
 
 .start-page,
-.story-page {
+.story-page,
+.settings-page {
   width: min(900px, calc(100% - 2rem));
   margin: 0 auto;
+}
+
+.settings-page {
+  padding: 1.25rem 0 2rem;
+}
+
+.settings-form {
+  display: grid;
+  gap: 0.8rem;
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.settings-form textarea {
+  min-height: 12rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.45;
+}
+
+.settings-form textarea[aria-invalid="true"] {
+  border-color: #b84a3b;
+  box-shadow: 0 0 0 3px rgb(184 74 59 / 16%);
+}
+
+.settings-error {
+  margin: -0.25rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border-left: 3px solid #b84a3b;
+  background: #fff0ed;
+  color: #7c261b;
+  font-size: 0.92rem;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .start-page {

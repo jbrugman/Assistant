@@ -1,6 +1,7 @@
 package nl.llm.storyteller.api;
 
 import io.javalin.Javalin;
+import io.javalin.community.ssl.SslPlugin;
 import io.javalin.http.staticfiles.Location;
 import io.javalin.rendering.template.JavalinJte;
 import gg.jte.ContentType;
@@ -12,15 +13,19 @@ import nl.llm.storyteller.api.http.StoryController;
 import nl.llm.storyteller.api.persistence.Database;
 import nl.llm.storyteller.api.persistence.JdbcStoryRepository;
 import nl.llm.storyteller.api.persistence.JdbcSessionBundleRepository;
+import nl.llm.storyteller.api.persistence.JdbcSessionPromptRepository;
 import nl.llm.storyteller.api.persistence.JdbcSessionRepository;
 import nl.llm.storyteller.api.persistence.SchemaInitializer;
+import nl.llm.storyteller.api.persistence.SessionPrompts;
 import nl.llm.storyteller.api.session.SessionCookieService;
+import nl.llm.storyteller.api.session.SessionPromptService;
 import nl.llm.storyteller.api.session.SessionService;
 import nl.llm.storyteller.api.story.StoryTurnService;
 import nl.llm.storyteller.api.web.WebController;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
+import nl.llm.storyteller.core.service.PromptResourceLoader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -66,31 +71,66 @@ public final class ApiServer implements AutoCloseable {
     );
     new SchemaInitializer(database).initialize();
 
+    PromptResourceLoader promptResources = new PromptResourceLoader(coreConfig);
+    SessionPrompts defaultPrompts = new SessionPrompts(
+      promptResources.loadSystemPrompt(),
+      promptResources.loadFixedProtagonists(),
+      promptResources.loadRulesPrompt()
+    );
+    JdbcSessionPromptRepository promptRepository = new JdbcSessionPromptRepository(database);
+    promptRepository.initializeMissing(defaultPrompts);
     SessionService sessionService = new SessionService(
       new JdbcSessionRepository(database),
-      config.sessionInactivityTimeout()
+      config.sessionInactivityTimeout(),
+      defaultPrompts
     );
     sessionService.deleteExpired();
-    SessionCookieService cookieService = new SessionCookieService(config.sessionInactivityTimeout());
+    SessionCookieService cookieService = new SessionCookieService(
+      config.sessionInactivityTimeout(), config.tls().enabled()
+    );
     SessionController sessionController = new SessionController(sessionService, cookieService);
     JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
     StoryTurnService storyTurnService = new StoryTurnService(
-      storyRepository, coreConfig, chatClient, validationClient
+      storyRepository, promptRepository, coreConfig, chatClient, validationClient
     );
     StoryController storyController = new StoryController(
       sessionService,
       storyTurnService
     );
     SessionBundleService bundleService = new SessionBundleService(
-      new JdbcSessionBundleRepository(database), config.sessionInactivityTimeout()
+      new JdbcSessionBundleRepository(database), config.sessionInactivityTimeout(), defaultPrompts
     );
     WebController webController = new WebController(
-      sessionService, cookieService, storyRepository, storyTurnService, bundleService
+      sessionService,
+      cookieService,
+      storyRepository,
+      storyTurnService,
+      bundleService,
+      new SessionPromptService(promptRepository)
     );
+    ApiTlsMaterial tlsMaterial = config.tls().enabled() ? ApiTlsMaterial.prepare(config.tls()) : null;
     Javalin server = Javalin.create(javalinConfig -> {
       javalinConfig.startup.showJavalinBanner = false;
+      if (tlsMaterial != null) {
+        javalinConfig.registerPlugin(new SslPlugin(ssl -> {
+          ssl.host = config.host();
+          ssl.insecure = true;
+          ssl.insecurePort = config.port();
+          ssl.secure = true;
+          ssl.securePort = config.tls().port();
+          ssl.redirect = false;
+          ssl.keystoreFromPath(tlsMaterial.keyStore().toString(), "");
+        }));
+      }
       javalinConfig.fileRenderer(new JavalinJte(TemplateEngine.createPrecompiled(ContentType.Html)));
       javalinConfig.staticFiles.add("/public", Location.CLASSPATH);
+      if (tlsMaterial != null) {
+        javalinConfig.routes.get("/storyteller-ca.crt", context -> {
+          context.contentType("application/x-x509-ca-cert");
+          context.header("Content-Disposition", "attachment; filename=storyteller-ca.crt");
+          context.result(Files.newInputStream(tlsMaterial.caCertificate()));
+        });
+      }
       sessionController.register(javalinConfig);
       storyController.register(javalinConfig);
       webController.register(javalinConfig);
@@ -111,13 +151,16 @@ public final class ApiServer implements AutoCloseable {
     }
   }
 
-  public ApiServer start() {
-    server.start(config.host(), config.port());
-    return this;
+  public void start() {
+    if (config.tls().enabled()) {
+      server.start();
+    } else {
+      server.start(config.host(), config.port());
+    }
   }
 
   public int port() {
-    return server.port();
+    return config.tls().enabled() ? config.tls().port() : server.port();
   }
 
   @Override

@@ -6,8 +6,6 @@ import java.time.Instant;
 import java.util.List;
 
 public interface StoryRepository {
-  List<Message> loadMessages(String sessionId);
-
   List<Message> loadRecentMessages(String sessionId, int maximumMessages);
 
   List<StoryMessageRecord> loadMessagesBefore(String sessionId, int beforeMessageIndex, int maximumMessages);

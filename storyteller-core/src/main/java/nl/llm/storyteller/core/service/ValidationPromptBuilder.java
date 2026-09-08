@@ -19,9 +19,17 @@ public final class ValidationPromptBuilder {
   }
 
   public String buildRequest(ValidationPromptInput input) {
-    String request = promptTemplateService.buildValidationRequest(
+    return buildRequest(
+      input,
       promptResourceLoader.loadRulesPrompt(),
-      promptTemplateService.buildFixedProtagonistsContext(),
+      promptResourceLoader.loadFixedProtagonists()
+    );
+  }
+
+  public String buildRequest(ValidationPromptInput input, String rules, String fixedProtagonists) {
+    String request = promptTemplateService.buildValidationRequest(
+      rules,
+      promptTemplateService.buildFixedProtagonistsContext(fixedProtagonists),
       input.userInput(),
       input.draftResponse()
     );

@@ -63,7 +63,8 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
         memory.recentSummary(),
         memory.canonicalState(),
         loadTurnState(connection, sessionId),
-        loadGraph(connection, sessionId)
+        loadGraph(connection, sessionId),
+        loadPrompts(connection, sessionId)
       );
     } catch (SQLException ex) {
       throw new DatabaseException("Could not export session " + sessionId + ".", ex);
@@ -85,6 +86,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
     try {
       insertSession(connection, session);
       insertSessionId(connection, INSERT_SESSION_CONFIGURATION, session.sessionId());
+      SessionPromptPersistenceSupport.insertPrompts(connection, session.sessionId(), bundle.prompts());
       insertMemory(connection, session.sessionId(), bundle);
       insertTurnState(connection, session.sessionId(), bundle.turnState());
       insertMessages(connection, session.sessionId(), bundle.history().messages());
@@ -111,6 +113,15 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
           resultSet.getInt("recent_summary_cursor"),
           resultSet.getInt("canonical_state_cursor")
         );
+      }
+    }
+  }
+
+  private SessionPrompts loadPrompts(Connection connection, String sessionId) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.SELECT_PROMPTS)) {
+      statement.setString(1, sessionId);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        return SessionPromptPersistenceSupport.readPrompts(resultSet);
       }
     }
   }

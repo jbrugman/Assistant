@@ -3,6 +3,8 @@ package nl.llm.storyteller.core.service;
 import nl.llm.storyteller.core.model.Message;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 import java.util.Map;
@@ -12,6 +14,29 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenAiCompatibleHttpClientTest {
+    @ParameterizedTest
+    @CsvSource(value = {
+        "<think>Do not show this.</think>Visible response;Visible response",
+        "<|thinking|>Do not show this.</|thinking|>Visible response;Visible response",
+        "<|channel>thought Do not show this.\\nStill reasoning.<channel|>Visible response;Visible response",
+        "<model-reasoning-output>Do not show this.</model-reasoning-output>Visible response;Visible response",
+        "<|channel>thought Chris (the male protagonist).;"
+    }, delimiter = ';')
+    @DisplayName("""
+        Given reasoning emitted through a supported reasoning or channel tag format,
+        When reasoning blocks are hidden,
+        Then only the visible final response should remain
+        """)
+    void shouldRemoveReasoningTagFormats(String response, String expected) {
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "test-model", true
+        );
+
+        String sanitized = client.stripReasoningBlocks(response);
+
+        assertEquals(expected == null ? "" : expected, sanitized);
+    }
+
     @Test
     @DisplayName("""
         Given an API key for an OpenAI-compatible endpoint,

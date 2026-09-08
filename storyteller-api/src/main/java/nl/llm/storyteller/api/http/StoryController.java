@@ -10,6 +10,8 @@ import nl.llm.storyteller.api.session.SessionService;
 import nl.llm.storyteller.api.story.StoryTurnResult;
 import nl.llm.storyteller.api.story.StoryTurnService;
 
+import java.io.IOException;
+
 public final class StoryController {
   private final SessionService sessionService;
   private final StoryTurnService storyTurnService;
@@ -23,7 +25,7 @@ public final class StoryController {
     config.routes.post("/v1/sessions/{sessionId}/turns", this::createTurn);
   }
 
-  private void createTurn(Context context) throws Exception {
+  private void createTurn(Context context) throws IOException, InterruptedException {
     String sessionId = context.pathParam("sessionId");
     if (sessionService.findActive(sessionId).isEmpty()) {
       context.status(HttpStatus.NOT_FOUND)

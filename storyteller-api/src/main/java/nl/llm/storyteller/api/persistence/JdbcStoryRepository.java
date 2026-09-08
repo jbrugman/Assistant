@@ -15,7 +15,6 @@ import static nl.llm.storyteller.api.persistence.StoryQueries.INSERT_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.DELETE_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_LAST_MESSAGE_INDEX;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES_BEFORE;
-import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_RECENT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.UPDATE_SESSION_AFTER_TURN;
 
@@ -32,19 +31,6 @@ public final class JdbcStoryRepository implements StoryRepository {
 
   public JdbcStoryRepository(Database database) {
     this.database = database;
-  }
-
-  @Override
-  public List<Message> loadMessages(String sessionId) {
-    try (Connection connection = database.openConnection();
-         PreparedStatement statement = connection.prepareStatement(SELECT_MESSAGES)) {
-      statement.setString(1, sessionId);
-      try (ResultSet resultSet = statement.executeQuery()) {
-        return readMessages(resultSet);
-      }
-    } catch (SQLException ex) {
-      throw new DatabaseException(LOAD_MESSAGES_ERROR + sessionId + ".", ex);
-    }
   }
 
   @Override

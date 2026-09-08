@@ -1,12 +1,6 @@
 package nl.llm.storyteller.api.persistence;
 
 final class StoryQueries {
-  static final String SELECT_MESSAGES = """
-    SELECT message_index, message_role, content
-    FROM story_message
-    WHERE session_id = ?
-    ORDER BY message_index
-    """;
   static final String SELECT_RECENT_MESSAGES = """
     SELECT message_index, message_role, content
     FROM story_message

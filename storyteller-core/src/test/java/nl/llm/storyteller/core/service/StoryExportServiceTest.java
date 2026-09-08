@@ -179,6 +179,9 @@ class StoryExportServiceTest {
         assertTrue(entries.contains("manifest.json"));
         assertTrue(entries.contains("history.json"));
         assertTrue(entries.contains("summary.md"));
+        assertTrue(entries.contains("systemprompts/systemprompt.md"));
+        assertTrue(entries.contains("systemprompts/fixed_protagonists.yml"));
+        assertTrue(entries.contains("systemprompts/rules.md"));
         assertFalse(entries.contains("recent-summary.md"));
     }
 

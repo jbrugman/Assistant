@@ -150,8 +150,9 @@ Screenshots of the server-rendered web interface are available in [`docs/webpage
 The web interface can disable inactivity expiration for the active story with **Infinite** and restore the configured
 session timeout with **Use timeout**.
 The start page can import a CLI-compatible session ZIP containing `history.json` and any available summary,
-canonical-state, turn-state, and knowledge-graph files. **Export** downloads the active web session in the same portable
-format, including a versioned manifest that preserves the story title.
+canonical-state, turn-state, knowledge-graph, and session prompt files. **Export** downloads the active web session in
+the same portable format, including a versioned manifest that preserves the story title. **Settings** edits the active
+session's system prompt, fixed protagonists, and rules. These values are stored in H2 and used from the next turn onward.
 
 #### Session ZIP import and export
 
@@ -163,15 +164,16 @@ downloaded from an active story in the web interface by selecting **Export**. Th
 - `turn-state.json`
 - `knowledge-graph.json`
 - `summary.md`, `recent-summary.md`, and `canonical-state.yaml` when those values exist
+- `systemprompts/systemprompt.md`, `systemprompts/fixed_protagonists.yml`, and `systemprompts/rules.md`
 
 To restore it, stop or leave the current web session, select the ZIP under **Import CLI session (ZIP)** on the start
 page, and submit the form. Import validates the complete archive, creates a new database session with a new ID, and
-then opens that session. It does not overwrite an existing session. The other CLI `/export` modes continue to produce
-Markdown files.
+then opens that session. It does not overwrite an existing session. The three prompt files are optional during import;
+missing files use the current server defaults. The other CLI `/export` modes continue to produce Markdown files.
 
 After creating a session, submit a story prompt through `POST /v1/sessions/{sessionId}/turns` with a JSON body such as
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
-assistant message indices. Session-specific prompt inspection and overrides are not exposed yet.
+assistant message indices.
 
 The local default build version is `1.3.3`.
 GitHub releases use automatic patch versioning on every push to `main` within the active minor release line, starting with `v1.3.0` and then `v1.3.1`, `v1.3.2`, and so on.
@@ -547,6 +549,11 @@ Not yet.
 ```
 
 ## Changelog
+
+### 1.3.7
+- Added built-in HTTPS support to the API and web interface, with automatically generated and renewed certificates signed by a reusable local certificate authority.
+- Improved removal of leaked model reasoning, including multiline content and alternative thinking/channel tag formats.
+- Added per-session editing and H2 persistence of the system prompt, fixed protagonists, and rules, including portable ZIP import and export.
 
 ### 1.3.6
 - Added incremental web story loading: the newest five exchanges are rendered initially and older exchanges load in five-exchange pages when scrolling upward.

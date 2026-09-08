@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 public interface SessionRepository {
-  void create(SessionRecord session);
+  void create(SessionRecord session, SessionPrompts prompts);
 
   Optional<SessionRecord> findById(String sessionId);
 

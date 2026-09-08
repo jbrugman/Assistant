@@ -1,5 +1,7 @@
 package nl.llm.storyteller.api.story;
 
+import nl.llm.storyteller.api.persistence.SessionPromptRepository;
+import nl.llm.storyteller.api.persistence.SessionPrompts;
 import nl.llm.storyteller.api.persistence.StoryRepository;
 import nl.llm.storyteller.api.persistence.StoryTurnRecord;
 import nl.llm.storyteller.core.config.AppConfig;
@@ -21,6 +23,7 @@ public final class StoryTurnService {
   private static final int MAX_PROMPT_LENGTH = 100_000;
 
   private final StoryRepository repository;
+  private final SessionPromptRepository promptRepository;
   private final AppConfig config;
   private final ChatClient chatClient;
   private final ResponseGuard responseGuard;
@@ -30,15 +33,17 @@ public final class StoryTurnService {
 
   public StoryTurnService(
     StoryRepository repository,
+    SessionPromptRepository promptRepository,
     AppConfig config,
     ChatClient chatClient,
     ChatClient validationClient
   ) {
-    this(repository, config, chatClient, validationClient, Clock.systemUTC());
+    this(repository, promptRepository, config, chatClient, validationClient, Clock.systemUTC());
   }
 
   StoryTurnService(
     StoryRepository repository,
+    SessionPromptRepository promptRepository,
     AppConfig config,
     ChatClient chatClient,
     ChatClient validationClient,
@@ -47,6 +52,7 @@ public final class StoryTurnService {
     PromptResourceLoader resources = new PromptResourceLoader(config);
     PromptTemplateService templates = new PromptTemplateService(resources);
     this.repository = repository;
+    this.promptRepository = promptRepository;
     this.config = config;
     this.chatClient = chatClient;
     this.responseGuard = new ResponseGuard(validationClient, config);
@@ -58,15 +64,16 @@ public final class StoryTurnService {
   public synchronized StoryTurnResult execute(String sessionId, String prompt)
     throws IOException, InterruptedException {
     String userInput = normalizePrompt(prompt);
+    SessionPrompts prompts = promptRepository.load(sessionId);
     var recentMessages = repository.loadRecentMessages(sessionId, config.maxRecentTurns() * 2);
     String draftResponse = chatClient.chat(
       storyPromptBuilder.build(new StoryChatPromptInput(
         userInput, "", "", "", "", recentMessages, ""
-      )),
+      ), prompts.systemPrompt(), prompts.fixedProtagonists()),
       config.chatOptions(),
       config.requestTimeoutSeconds()
     );
-    String response = validate(userInput, draftResponse);
+    String response = validate(userInput, draftResponse, prompts);
     StoryTurnRecord stored = repository.appendTurn(sessionId, userInput, response, clock.instant());
     return new StoryTurnResult(stored.userMessageIndex(), stored.assistantMessageIndex(), response);
   }
@@ -75,12 +82,17 @@ public final class StoryTurnService {
     return repository.undoLastTurn(sessionId, clock.instant());
   }
 
-  private String validate(String userInput, String draftResponse) throws InterruptedException {
+  private String validate(String userInput, String draftResponse, SessionPrompts prompts)
+    throws InterruptedException {
     if (!config.validationEnabled()) {
       return responseGuard.validate("", "", draftResponse);
     }
     String systemPrompt = validationPromptBuilder.buildSystemPrompt();
-    String request = validationPromptBuilder.buildRequest(new ValidationPromptInput(userInput, draftResponse, ""));
+    String request = validationPromptBuilder.buildRequest(
+      new ValidationPromptInput(userInput, draftResponse, ""),
+      prompts.rules(),
+      prompts.fixedProtagonists()
+    );
     return responseGuard.validate(systemPrompt, request, draftResponse);
   }
 

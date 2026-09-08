@@ -18,7 +18,7 @@
           <h1>${page.session().title() == null ? "Untitled story" : page.session().title()}</h1>
         </div>
         <div class="session-actions">
-          <span class="session-status">Session active</span>
+          <a class="header-action session-settings" href="/story/settings">Settings</a>
           <form method="post" action="/story/infinite">
             <button type="submit" class="infinite-session" aria-pressed="${page.session().infinite()}">
               ${page.session().infinite() ? "Use timeout" : "Infinite"}

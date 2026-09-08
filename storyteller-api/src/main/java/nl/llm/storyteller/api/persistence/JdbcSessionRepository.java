@@ -30,19 +30,24 @@ public final class JdbcSessionRepository implements SessionRepository {
   }
 
   @Override
-  public void create(SessionRecord session) {
+  public void create(SessionRecord session, SessionPrompts prompts) {
     try (Connection connection = database.openConnection()) {
       connection.setAutoCommit(false);
-      createInTransaction(connection, session);
+      createInTransaction(connection, session, prompts);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not create session " + session.sessionId() + ".", ex);
     }
   }
 
-  private void createInTransaction(Connection connection, SessionRecord session) throws SQLException {
+  private void createInTransaction(
+    Connection connection,
+    SessionRecord session,
+    SessionPrompts prompts
+  ) throws SQLException {
     try {
       insertSession(connection, session);
       insertDefaults(connection, session.sessionId());
+      SessionPromptPersistenceSupport.insertPrompts(connection, session.sessionId(), prompts);
       connection.commit();
     } catch (SQLException ex) {
       rollback(connection, ex);
@@ -129,17 +134,26 @@ public final class JdbcSessionRepository implements SessionRepository {
   private int deleteWithDependencies(String dependencySql, String sessionSql, StatementBinder binder) {
     try (Connection connection = database.openConnection()) {
       connection.setAutoCommit(false);
-      try {
-        executeDelete(connection, dependencySql, binder);
-        int deleted = executeDelete(connection, sessionSql, binder);
-        connection.commit();
-        return deleted;
-      } catch (SQLException ex) {
-        rollback(connection, ex);
-        throw ex;
-      }
+      return deleteInTransaction(connection, dependencySql, sessionSql, binder);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not delete session data.", ex);
+    }
+  }
+
+  private int deleteInTransaction(
+    Connection connection,
+    String dependencySql,
+    String sessionSql,
+    StatementBinder binder
+  ) throws SQLException {
+    try {
+      executeDelete(connection, dependencySql, binder);
+      int deleted = executeDelete(connection, sessionSql, binder);
+      connection.commit();
+      return deleted;
+    } catch (SQLException ex) {
+      rollback(connection, ex);
+      throw ex;
     }
   }
 

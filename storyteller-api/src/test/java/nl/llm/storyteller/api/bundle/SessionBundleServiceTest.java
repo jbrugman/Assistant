@@ -1,6 +1,7 @@
 package nl.llm.storyteller.api.bundle;
 
 import nl.llm.storyteller.api.persistence.SessionRecord;
+import nl.llm.storyteller.api.persistence.SessionPrompts;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
@@ -43,7 +44,8 @@ class SessionBundleServiceTest {
       "Recent summary",
       "currentLocation: library",
       TurnState.inactive(),
-      KnowledgeGraphDocument.empty()
+      KnowledgeGraphDocument.empty(),
+      new SessionPrompts("Story system", "fixed_protagonists: []", "Story rules")
     );
     RecordingRepository repository = new RecordingRepository(original);
     SessionBundleService service = service(repository);
@@ -61,11 +63,11 @@ class SessionBundleServiceTest {
 
   @Test
   @DisplayName("""
-    Given a CLI session ZIP created by macOS Finder,
+    Given an older CLI session ZIP without prompt files and with macOS Finder metadata,
     When the session is imported,
-    Then Finder and AppleDouble metadata should be ignored
+    Then metadata should be ignored and missing prompts should use the current defaults
     """)
-  void shouldIgnoreMacOsMetadata() throws Exception {
+  void shouldImportLegacyBundleUsingDefaultPrompts() throws Exception {
     RecordingRepository repository = new RecordingRepository(null);
     SessionBundleService service = service(repository);
     byte[] archive = archiveWithMacOsMetadata();
@@ -73,6 +75,7 @@ class SessionBundleServiceTest {
     service.importArchive(new ByteArrayInputStream(archive), archive.length, "Story.zip");
 
     assertEquals(2, repository.importedBundle.history().messages().size());
+    assertEquals(defaultPrompts(), repository.importedBundle.prompts());
   }
 
   private byte[] archiveWithMacOsMetadata() throws Exception {
@@ -101,8 +104,13 @@ class SessionBundleServiceTest {
       repository,
       Duration.ofHours(1),
       Clock.fixed(NOW, ZoneOffset.UTC),
-      () -> "imported-session"
+      () -> "imported-session",
+      defaultPrompts()
     );
+  }
+
+  private SessionPrompts defaultPrompts() {
+    return new SessionPrompts("Default system", "fixed_protagonists: []", "Default rules");
   }
 
   private static final class RecordingRepository implements SessionBundleRepository {

@@ -47,13 +47,16 @@ class JdbcSessionRepositoryTest {
       false
     );
 
-    repository.create(session);
+    SessionPrompts prompts = new SessionPrompts("System", "fixed_protagonists: []", "Rules");
+    repository.create(session, prompts);
 
     assertEquals(session, repository.findById(session.sessionId()).orElseThrow());
     assertEquals(1, rowCount("session_configuration", session.sessionId()));
     assertEquals(1, rowCount("session_memory", session.sessionId()));
     assertEquals(1, rowCount("turn_state", session.sessionId()));
     assertEquals(1, rowCount("knowledge_graph", session.sessionId()));
+    assertEquals(3, rowCount("session_prompt_override", session.sessionId()));
+    assertEquals(prompts, new JdbcSessionPromptRepository(database).load(session.sessionId()));
   }
 
   @Test
@@ -73,7 +76,7 @@ class JdbcSessionRepositoryTest {
       now.minusSeconds(3600),
       false
     );
-    repository.create(session);
+    repository.create(session, SessionPrompts.empty());
 
     int deleted = repository.deleteExpired(now);
 
@@ -99,7 +102,7 @@ class JdbcSessionRepositoryTest {
       created.plusSeconds(3600),
       false
     );
-    repository.create(session);
+    repository.create(session, SessionPrompts.empty());
     Instant accessed = created.plusSeconds(600);
 
     assertTrue(repository.refreshAccess(session.sessionId(), accessed, accessed.plusSeconds(3600)));
