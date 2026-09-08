@@ -1,33 +1,33 @@
 package nl.llm.storyteller.core.service;
 
-import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 abstract class DerivedMemoryManager {
-  protected final HistoryStore historyStore;
+  protected final StoryHistory historyStore;
   protected final ChatClient client;
   protected final nl.llm.storyteller.core.config.AppConfig config;
   protected final PromptResourceLoader promptResourceLoader;
   protected final PromptTemplateService promptTemplateService;
 
   private final DerivedMemoryTaskQueue taskQueue;
+  private final TextMemory memory;
   private final boolean ownsTaskQueue;
   private final AtomicBoolean running = new AtomicBoolean(false);
   private final AtomicBoolean updateRequested = new AtomicBoolean(false);
   private final Object lock = new Object();
 
   DerivedMemoryManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
+    TextMemory memory,
     DerivedMemoryTaskQueue taskQueue,
     boolean ownsTaskQueue
   ) {
@@ -36,6 +36,7 @@ abstract class DerivedMemoryManager {
     this.config = config;
     this.promptResourceLoader = promptResourceLoader;
     this.promptTemplateService = promptTemplateService;
+    this.memory = memory;
     this.taskQueue = taskQueue;
     this.ownsTaskQueue = ownsTaskQueue;
   }
@@ -67,11 +68,11 @@ abstract class DerivedMemoryManager {
     }
   }
 
-  protected final String loadMemory(Path path) {
+  protected final String loadMemory() {
     if (isDisabled()) {
       return "";
     }
-    return FileSupport.readTextFile(path);
+    return memory.load();
   }
 
   protected final int safeCursor(int cursor, int size) {
@@ -104,7 +105,7 @@ abstract class DerivedMemoryManager {
           return;
         }
 
-        FileSupport.writeTextFile(targetFile(), updatedContent);
+        memory.save(updatedContent);
         markUpdated(job.cutoffIndex());
       }
     } catch (InterruptedException _) {
@@ -126,8 +127,6 @@ abstract class DerivedMemoryManager {
   protected abstract List<Message> buildUpdateMessages(String existingContent, List<Message> pendingMessages);
 
   protected abstract int currentCursor(HistoryState state);
-
-  protected abstract Path targetFile();
 
   protected abstract void markUpdated(int cutoffIndex);
 

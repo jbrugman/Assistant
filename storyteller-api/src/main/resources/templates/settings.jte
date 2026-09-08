@@ -1,4 +1,5 @@
 @import nl.llm.storyteller.api.web.StorySettingsPage
+
 @param StorySettingsPage page
 
 <!doctype html>
@@ -43,6 +44,17 @@
         <label for="rules">Rules</label>
         <textarea id="rules" name="rules" rows="12" maxlength="1000000"
                   required>${page.prompts().rules()}</textarea>
+
+        <label for="knowledgeGraph">Knowledge graph (JSON)</label>
+        @if(page.hasKnowledgeGraphError())
+          <p id="knowledge-graph-error" class="settings-error" role="alert">
+            ${page.knowledgeGraphError()}
+          </p>
+        @endif
+        <textarea id="knowledgeGraph" name="knowledgeGraph" rows="18" maxlength="1000000"
+                  aria-invalid="${page.hasKnowledgeGraphError()}"
+                  aria-describedby="${page.hasKnowledgeGraphError() ? "knowledge-graph-error" : null}"
+                  required>${page.knowledgeGraph()}</textarea>
 
         <div class="settings-actions">
           <a class="header-action" href="/story">Cancel</a>

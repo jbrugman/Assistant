@@ -18,7 +18,7 @@ class BenchmarkResultTest {
     """)
   void omitsUnavailableServerMemory() {
     BenchmarkResult result = new BenchmarkResult(
-      new BenchmarkOptions("qwen3-vl-4b-instruct-mlx", 50, false, true, true),
+      new BenchmarkOptions("qwen3-vl-4b-instruct-mlx", 50, false, true),
       Duration.ofSeconds(10), 5, 5, 0, 0, null,
       0, 0, 0, 0, 0, 0, 0,
       Path.of("benchmark-results/result.md")

@@ -1,8 +1,8 @@
 package nl.llm.storyteller.cli.benchmark;
 
+import nl.llm.storyteller.core.graph.turnbasedservice.KnowledgeGraphUpdateObserver;
 import nl.llm.storyteller.core.service.ChatRequestMetrics;
 import nl.llm.storyteller.core.service.StoryTurnObserver;
-import nl.llm.storyteller.core.graph.turnbasedservice.KnowledgeGraphUpdateObserver;
 
 import java.time.Duration;
 import java.util.ArrayList;

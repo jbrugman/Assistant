@@ -1,8 +1,8 @@
 package nl.llm.storyteller.api.session;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
-import nl.llm.storyteller.api.persistence.SessionRepository;
-import nl.llm.storyteller.api.persistence.SessionPrompts;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionRecord;
+import nl.llm.storyteller.db.SessionRepository;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -118,6 +118,17 @@ public final class SessionService {
       expiresAt,
       infinite
     ));
+  }
+
+  public Optional<SessionRecord> resumeInfinite(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return Optional.empty();
+    }
+    Optional<SessionRecord> stored = repository.findById(sessionId.trim());
+    if (stored.isEmpty() || !stored.get().infinite()) {
+      return Optional.empty();
+    }
+    return findActive(stored.get().sessionId());
   }
 
   public void deleteExpired() {

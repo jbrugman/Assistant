@@ -1,8 +1,8 @@
 package nl.llm.storyteller.core.graph.turnbasedservice;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.KnowledgeGraphJsonResponse;
+import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.model.Entity;
 import nl.llm.storyteller.core.graph.model.EntityId;
 import nl.llm.storyteller.core.graph.model.Fact;
@@ -13,12 +13,12 @@ import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.Polarity;
 import nl.llm.storyteller.core.graph.model.PredicateId;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphJsonCodec;
-import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphRepository;
 import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
 import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
-import nl.llm.storyteller.core.service.HistoryStore;
+import nl.llm.storyteller.core.service.StoryHistory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -33,9 +34,9 @@ import java.util.stream.Collectors;
 public final class TurnBasedKnowledgeGraphService {
   private static final PredicateId WEARS = new PredicateId("WEARS");
 
-  private final HistoryStore historyStore;
+  private final StoryHistory historyStore;
   private final ChatClient chatClient;
-  private final KnowledgeGraphStore store;
+  private final KnowledgeGraphRepository store;
   private final ReadOnlyKnowledgeGraphService graphService;
   private final PredicateCatalog predicates;
   private final DerivedMemoryTaskQueue taskQueue;
@@ -46,9 +47,9 @@ public final class TurnBasedKnowledgeGraphService {
   private final KnowledgeGraphUpdateObserver observer;
 
   public TurnBasedKnowledgeGraphService(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient chatClient,
-    KnowledgeGraphStore store,
+    KnowledgeGraphRepository store,
     ReadOnlyKnowledgeGraphService graphService,
     PredicateCatalog predicates,
     DerivedMemoryTaskQueue taskQueue,
@@ -63,9 +64,9 @@ public final class TurnBasedKnowledgeGraphService {
   }
 
   public TurnBasedKnowledgeGraphService(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient chatClient,
-    KnowledgeGraphStore store,
+    KnowledgeGraphRepository store,
     ReadOnlyKnowledgeGraphService graphService,
     PredicateCatalog predicates,
     DerivedMemoryTaskQueue taskQueue,
@@ -89,7 +90,14 @@ public final class TurnBasedKnowledgeGraphService {
   public void startUpdateIfNeeded() {
     List<Message> messages = historyStore.load().messages();
     int completedTurns = messages.size() / 2;
-    if (completedTurns == 0 || completedTurns % batchTurns != 0) {
+    int lastProcessedTurn = store.load().facts().stream()
+      .filter(fact -> fact.source() == FactSource.TURNBASED)
+      .map(Fact::sourceTurn)
+      .filter(Objects::nonNull)
+      .mapToInt(Integer::intValue)
+      .max()
+      .orElse(0);
+    if (completedTurns - lastProcessedTurn < batchTurns) {
       return;
     }
 

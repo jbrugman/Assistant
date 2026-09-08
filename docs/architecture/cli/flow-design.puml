@@ -1,0 +1,37 @@
+@startuml
+title Storyteller CLI - Flow Design
+
+start
+:AssistantApp builds ApplicationContext;
+if (managed backend configured?) then (yes)
+  :Start local llama-server or MLX server;
+else (no)
+  :Use configured OpenAI-compatible endpoint;
+endif
+:Initialize the shared H2 schema and CLI session;
+if (new CLI database session?) then (yes)
+  :Import existing file-backed story state once;
+endif
+:Load story and derived memory from H2;
+
+repeat
+  :Read terminal input;
+  if (exit or quit?) then (yes)
+    break
+  elseif (local command?) then (yes)
+    :Handle graph, export, benchmark,\nlast-turn or undo command;
+  elseif (/image?) then (yes)
+    :Read clipboard image;
+    :Send transient multimodal story turn;
+  else (story turn)
+    :StorySessionService builds context;
+    :Request and optionally validate response;
+    :Transactionally append text turn to H2;
+    :Queue derived-memory and graph updates;
+    :Render response;
+  endif
+repeat while (continue?) is (yes)
+
+:Close ApplicationContext queues\nand managed backend;
+stop
+@enduml

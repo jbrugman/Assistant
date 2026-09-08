@@ -1,7 +1,7 @@
 package nl.llm.storyteller.cli.benchmark;
 
-import java.time.Duration;
 import java.nio.file.Path;
+import java.time.Duration;
 
 public record BenchmarkResult(
   BenchmarkOptions options,
@@ -36,7 +36,6 @@ public record BenchmarkResult(
       KV context:      4096
       Seed:            42
       Validation:      %s
-      Cache-buster:    %s
       Knowledge graph: %s
 
       Total time:      %s
@@ -55,7 +54,7 @@ public record BenchmarkResult(
       Graph updates rejected: %d
       %sAudit report:    %s
       """.formatted(
-      BenchmarkRunner.displayModel(options), options.turns(), onOff(options.validation()), onOff(options.cacheBuster()),
+      BenchmarkRunner.displayModel(options), options.turns(), onOff(options.validation()),
       onOff(options.knowledgeGraph()), formatDuration(duration), duration.toMillis() / 1000.0 / options.turns(),
       validationRequests, validationReplacements, validationImprovements, validationRegressions,
       passedValidationProbes, validationProbes, validationRetries(), passedProbes, probes,

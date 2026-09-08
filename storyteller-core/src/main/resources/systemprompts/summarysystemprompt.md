@@ -16,5 +16,6 @@ Section rules:
 General rules:
 - Keep only the story context that is worth preserving.
 - Compress aggressively without losing continuity.
+- Merge the new summary with the old summary, keeping only the most relevant information, but do not lose the older context that may still matter later.
 - Do not add speculation.
 - Return only the new full summary in markdown.

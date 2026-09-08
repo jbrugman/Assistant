@@ -1,0 +1,51 @@
+@startuml
+!pragma layout smetana
+title Storyteller Database - Component Design
+
+top to bottom direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 60
+
+package "Consumers" #E0F2FE {
+  [storyteller-cli] as CLI
+  [storyteller-api] as API
+}
+
+package "storyteller-db" #FCE7F3 {
+  [CLI Storage Factory] as StorageFactory
+  [JDBC Repositories\n\nsessions and prompts\nstory and derived memory\ngraph and turn state\nsession bundles] as Repositories
+  [SchemaInitializer] as Initializer
+  [Database Connection Provider] as Database
+  [SQL Query Catalogs] as Queries
+
+  StorageFactory -right-> Repositories
+  Repositories -down-> Queries
+  Queries -down-> Database
+  Initializer -down-> Database
+}
+
+package "storyteller-core" #DCFCE7 {
+  [ApplicationStorage contracts\n\nStoryHistory\nTextMemory\nTurnStateRepository\nKnowledgeGraphRepository] as Contracts
+}
+
+database "H2 database" as H2
+file "db/schema.sql" as Schema
+
+CLI -down-> StorageFactory
+API -down-> Repositories
+StorageFactory -down-> Contracts : creates adapters
+Repositories ..down.> Contracts : implements
+Initializer -right-> Schema : reads
+Database -down-> H2 : JDBC
+
+note right of Repositories
+Normal writes are session-scoped.
+Completed turns and bundle imports use transactions.
+Bundle exports include prompts, messages, memory,
+graph, turn state, and attached images.
+end note
+@enduml

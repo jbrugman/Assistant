@@ -1,7 +1,7 @@
 package nl.llm.storyteller.core.graph.service;
 
-import nl.llm.storyteller.core.service.PromptResourceLoader;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
+import nl.llm.storyteller.core.service.PromptResourceLoader;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;

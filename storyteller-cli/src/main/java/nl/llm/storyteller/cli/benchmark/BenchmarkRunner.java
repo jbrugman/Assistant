@@ -4,11 +4,11 @@ import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.ApplicationFactory;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -117,7 +117,6 @@ public final class BenchmarkRunner implements BenchmarkExecutor {
     StringBuilder content = new StringBuilder("# Assistant Benchmark Audit\n\n")
       .append("- Model: `").append(displayModel(options)).append("`\n")
       .append("- Validation: ").append(options.validation()).append("\n")
-      .append("- Cache-buster: ").append(options.cacheBuster()).append("\n")
       .append("- Knowledge graph: ").append(options.knowledgeGraph()).append("\n")
       .append("- Graph updates rejected: ").append(graphFailures.size()).append("\n")
       .append("- Rejection semantics: the complete candidate update was discarded; the previously stored graph remained unchanged.\n");

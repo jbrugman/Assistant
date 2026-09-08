@@ -11,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BenchmarkWorkspaceTest {
@@ -52,7 +52,6 @@ class BenchmarkWorkspaceTest {
       assertTrue(validationPrompt.contains("decision\":\"REPLACE"));
       assertTrue(validationPrompt.contains("Never return an empty response for REPLACE"));
       assertFalse(prompts.loadValidationRequestTemplate().isBlank());
-      assertFalse(prompts.loadResetCacheBusterTemplate().isBlank());
     }
   }
 

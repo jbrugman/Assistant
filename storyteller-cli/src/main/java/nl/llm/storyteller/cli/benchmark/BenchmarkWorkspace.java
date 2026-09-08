@@ -48,7 +48,6 @@ final class BenchmarkWorkspace implements AutoCloseable {
     write(prompts.resolve("canonical-state-context.md"), "Canonical state:\n%s");
     write(prompts.resolve("turn-single.md"), "%s");
     write(prompts.resolve("turn-party.md"), "%s");
-    write(prompts.resolve("cache-buster.md"), "Ignore deterministic cache-buster token: %s");
     copyValidationPrompts(sourceContext, directory);
 
     Properties properties = new Properties();
@@ -67,7 +66,6 @@ final class BenchmarkWorkspace implements AutoCloseable {
     properties.setProperty("file.validationRequestTemplate", directory.resolve("systemprompts/validationrequesttemplate.md").toString());
     properties.setProperty("file.turnViolationSingleTemplate", prompts.resolve("turn-single.md").toString());
     properties.setProperty("file.turnViolationPartyTemplate", prompts.resolve("turn-party.md").toString());
-    properties.setProperty("file.resetCacheBusterTemplate", prompts.resolve("cache-buster.md").toString());
     properties.setProperty("file.history", memory.resolve("history.json").toString());
     properties.setProperty("file.legacyHistory", memory.resolve("history.md").toString());
     properties.setProperty("file.summary", memory.resolve("summary.md").toString());
@@ -82,9 +80,6 @@ final class BenchmarkWorkspace implements AutoCloseable {
     properties.setProperty("canonicalState.batchMessages", "1000");
     properties.setProperty("graph.turnBased.batchTurns", options.knowledgeGraph() ? "5" : "1000");
     properties.setProperty("graph.enabled", Boolean.toString(options.knowledgeGraph()));
-    properties.setProperty("cacheBuster.interval", options.cacheBuster() ? "5" : "0");
-    properties.setProperty("cacheBuster.enabled", Boolean.toString(options.cacheBuster()));
-    properties.setProperty("cacheBuster.tokenPrefix", "benchmark-42");
     properties.setProperty("validation.enabled", Boolean.toString(options.validation()));
     properties.setProperty("chat.temperature", "0");
     properties.setProperty("chat.topK", "1");

@@ -1,5 +1,6 @@
-@import nl.llm.storyteller.api.web.StoryPage
 @import nl.llm.storyteller.api.web.StoryExchange
+@import nl.llm.storyteller.api.web.StoryPage
+
 @param StoryPage page
 
 <!doctype html>
@@ -16,11 +17,16 @@
         <div>
           <p class="eyebrow">Storyteller</p>
           <h1>${page.session().title() == null ? "Untitled story" : page.session().title()}</h1>
+          @if(page.session().infinite())
+            <p class="resume-session-id">Resume ID: <code>${page.session().sessionId()}</code></p>
+          @endif
         </div>
         <div class="session-actions">
-          <a class="header-action session-settings" href="/story/settings">Settings</a>
+          <a id="session-history" class="header-action session-history" href="/story/memory">History</a>
+          <a id="session-settings" class="header-action session-settings" href="/story/settings">Settings</a>
           <form method="post" action="/story/infinite">
-            <button type="submit" class="infinite-session" aria-pressed="${page.session().infinite()}">
+            <button id="session-infinite" type="submit" class="infinite-session"
+                    aria-pressed="${page.session().infinite()}">
               ${page.session().infinite() ? "Use timeout" : "Infinite"}
             </button>
           </form>
@@ -54,6 +60,12 @@
           <article class="exchange" data-message-index="${exchange.messageIndex()}">
             <div class="exchange-prompt">
               <p class="message-role">Prompt</p>
+              @if(exchange.referenceEligible())
+                <label class="past-reference">
+                  <input type="checkbox" name="pastExchange" value="${exchange.messageIndex()}" form="composer">
+                  Use as past context
+                </label>
+              @endif
               @if(exchange.hasImage())
                 <a class="prompt-image-link" href="/story/images/${exchange.messageIndex()}"
                    aria-label="Show the full image supplied with this prompt">
@@ -82,6 +94,7 @@
         <div class="composer-actions">
           <label class="image-picker" for="image">Add image</label>
           <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <span id="past-reference-count" class="past-reference-count">0/3 past exchanges</span>
           <button id="undo-story" type="submit" formaction="/story/undo" formnovalidate
                   class="undo-story"
                   data-undo-available="${page.exchanges().isEmpty() ? "false" : "true"}">Undo</button>
@@ -165,6 +178,7 @@
           const template = document.createElement("template");
           template.innerHTML = await response.text();
           heading.after(template.content);
+          updatePastReferences();
           hasOlderHistory = response.headers.get("X-Story-Has-More") === "true";
           conversation.scrollTop += conversation.scrollHeight - previousHeight;
         } finally {
@@ -193,6 +207,8 @@
       const prompt = document.getElementById("prompt");
       const continueButton = document.getElementById("continue-story");
       const undoButton = document.getElementById("undo-story");
+      const actionLinks = Array.from(document.querySelectorAll("a.header-action"));
+      const actionButtons = Array.from(document.querySelectorAll("button"));
       const imageInput = document.getElementById("image");
       const imagePreview = document.getElementById("image-preview");
       const imagePreviewThumbnail = document.getElementById("image-preview-thumbnail");
@@ -201,6 +217,26 @@
       const imagePicker = document.querySelector(".image-picker");
       undoButton.disabled = undoButton.dataset.undoAvailable !== "true";
       let submitting = false;
+      actionLinks.forEach(link => link.addEventListener("click", event => {
+        if (submitting) {
+          event.preventDefault();
+        }
+      }));
+
+      const updatePastReferences = () => {
+        const references = Array.from(document.querySelectorAll('input[name="pastExchange"]'));
+        const selected = references.filter(reference => reference.checked);
+        references.forEach(reference => {
+          reference.disabled = !reference.checked && selected.length >= 3;
+        });
+        document.getElementById("past-reference-count").textContent = selected.length + "/3 past exchanges";
+      };
+      conversation.addEventListener("change", event => {
+        if (event.target.matches('input[name="pastExchange"]')) {
+          updatePastReferences();
+        }
+      });
+      updatePastReferences();
 
       const showImage = file => {
         if (!file || !file.type.startsWith("image/")) {
@@ -248,8 +284,8 @@
         prompt.readOnly = true;
         imagePicker.setAttribute("aria-disabled", "true");
         removeImage.disabled = true;
-        continueButton.disabled = true;
-        undoButton.disabled = true;
+        actionButtons.forEach(button => button.disabled = true);
+        actionLinks.forEach(link => link.setAttribute("aria-disabled", "true"));
         if (event.submitter === continueButton) {
           continueButton.textContent = "Writing…";
         } else {

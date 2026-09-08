@@ -11,7 +11,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   private final CanonicalStatePromptBuilder canonicalStatePromptBuilder;
 
   public CanonicalStateManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -20,12 +20,12 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   ) {
     this(
       historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
-      new DerivedMemoryTaskQueue(), true
+      new FileTextMemory(config.canonicalStateFile()), new DerivedMemoryTaskQueue(), true
     );
   }
 
   public CanonicalStateManager(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
@@ -33,25 +33,41 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
     DerivedMemoryTaskQueue taskQueue
   ) {
-    this(historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder, taskQueue, false);
+    this(historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
+      new FileTextMemory(config.canonicalStateFile()), taskQueue, false);
   }
 
-  private CanonicalStateManager(
-    HistoryStore historyStore,
+  public CanonicalStateManager(
+    StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
     PromptResourceLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
+    TextMemory memory,
+    DerivedMemoryTaskQueue taskQueue
+  ) {
+    this(historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
+      memory, taskQueue, false);
+  }
+
+  private CanonicalStateManager(
+    StoryHistory historyStore,
+    ChatClient client,
+    nl.llm.storyteller.core.config.AppConfig config,
+    PromptResourceLoader promptResourceLoader,
+    PromptTemplateService promptTemplateService,
+    CanonicalStatePromptBuilder canonicalStatePromptBuilder,
+    TextMemory memory,
     DerivedMemoryTaskQueue taskQueue,
     boolean ownsTaskQueue
   ) {
-    super(historyStore, client, config, promptResourceLoader, promptTemplateService, taskQueue, ownsTaskQueue);
+    super(historyStore, client, config, promptResourceLoader, promptTemplateService, memory, taskQueue, ownsTaskQueue);
     this.canonicalStatePromptBuilder = canonicalStatePromptBuilder;
   }
 
   public String loadCanonicalState() {
-    return loadMemory(config.canonicalStateFile());
+    return loadMemory();
   }
 
   public void startUpdateIfNeeded() {
@@ -91,11 +107,6 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   @Override
   protected int currentCursor(HistoryState state) {
     return state.canonicalStateCursor();
-  }
-
-  @Override
-  protected java.nio.file.Path targetFile() {
-    return config.canonicalStateFile();
   }
 
   @Override

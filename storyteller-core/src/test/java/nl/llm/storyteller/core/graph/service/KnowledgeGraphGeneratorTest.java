@@ -1,7 +1,7 @@
 package nl.llm.storyteller.core.graph.service;
 
-import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.model.FactSource;
+import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.ChatClient;
 import org.junit.jupiter.api.DisplayName;
@@ -63,4 +63,5 @@ class KnowledgeGraphGeneratorTest {
     assertEquals(KnowledgeGraphDocument.empty(), store.load());
     assertEquals(0, service.current().revision());
   }
+
 }

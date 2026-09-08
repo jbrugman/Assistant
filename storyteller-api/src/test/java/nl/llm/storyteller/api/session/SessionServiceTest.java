@@ -1,8 +1,8 @@
 package nl.llm.storyteller.api.session;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
-import nl.llm.storyteller.api.persistence.SessionRepository;
-import nl.llm.storyteller.api.persistence.SessionPrompts;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionRecord;
+import nl.llm.storyteller.db.SessionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -133,6 +133,38 @@ class SessionServiceTest {
 
     assertTrue(infinite.infinite());
     assertFalse(finite.infinite());
+  }
+
+  @Test
+  @DisplayName("""
+    Given an infinite session,
+    When it is resumed using its session id,
+    Then it should be returned with a refreshed access time
+    """)
+  void shouldResumeInfiniteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+    service.toggleInfinite(session.sessionId());
+
+    SessionRecord resumed = service.resumeInfinite("  " + session.sessionId() + "  ").orElseThrow();
+
+    assertTrue(resumed.infinite());
+    assertEquals(NOW, resumed.lastAccessedAt());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a session with inactivity expiration,
+    When another client tries to resume it by id,
+    Then it should not grant access
+    """)
+  void shouldNotResumeFiniteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+
+    assertTrue(service.resumeInfinite(session.sessionId()).isEmpty());
   }
 
   private SessionService service(SessionRepository repository) {

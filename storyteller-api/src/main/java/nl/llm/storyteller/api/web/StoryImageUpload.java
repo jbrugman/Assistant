@@ -1,7 +1,7 @@
 package nl.llm.storyteller.api.web;
 
 import io.javalin.http.UploadedFile;
-import nl.llm.storyteller.api.persistence.StoryImage;
+import nl.llm.storyteller.db.StoryImage;
 
 import java.io.IOException;
 final class StoryImageUpload {

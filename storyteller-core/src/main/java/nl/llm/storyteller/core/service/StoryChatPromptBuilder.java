@@ -54,6 +54,7 @@ public final class StoryChatPromptBuilder {
     addIfPresent(sections, promptTemplateService.buildSummaryContext(input.summary()));
     addIfPresent(sections, promptTemplateService.buildRecentSummaryContext(input.recentSummary()));
     addIfPresent(sections, input.knowledgeGraphFacts());
+    addIfPresent(sections, input.relevantPastStory());
     return String.join("\n\n", sections);
   }
 

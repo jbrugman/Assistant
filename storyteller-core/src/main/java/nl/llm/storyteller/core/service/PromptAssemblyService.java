@@ -9,7 +9,7 @@ import nl.llm.storyteller.core.model.ValidationPromptInput;
 import java.util.List;
 
 public final class PromptAssemblyService {
-  private final HistoryStore historyStore;
+  private final StoryHistory historyStore;
   private final SummaryManager summaryManager;
   private final RecentSummaryManager recentSummaryManager;
   private final CanonicalStateManager canonicalStateManager;
@@ -19,7 +19,7 @@ public final class PromptAssemblyService {
   private final KnowledgeGraphService knowledgeGraphService;
 
   public PromptAssemblyService(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     SummaryManager summaryManager,
     RecentSummaryManager recentSummaryManager,
     CanonicalStateManager canonicalStateManager,
@@ -32,7 +32,7 @@ public final class PromptAssemblyService {
   }
 
   public PromptAssemblyService(
-    HistoryStore historyStore,
+    StoryHistory historyStore,
     SummaryManager summaryManager,
     RecentSummaryManager recentSummaryManager,
     CanonicalStateManager canonicalStateManager,
@@ -68,6 +68,7 @@ public final class PromptAssemblyService {
         summaryManager.loadSummary(),
         recentSummaryManager.loadRecentSummary(),
         relevantFacts(userInput),
+        "",
         recentMessages,
         extraSystemInstruction
       )

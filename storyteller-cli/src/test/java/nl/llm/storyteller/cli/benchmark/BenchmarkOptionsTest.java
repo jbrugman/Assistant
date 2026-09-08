@@ -11,22 +11,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class BenchmarkOptionsTest {
   @ParameterizedTest
   @CsvSource({
-    "--validation=off, false, true, true",
-    "--cache-buster=off, true, false, true",
-    "--knowledge-graph=off, true, true, false"
+    "--validation=off, false, true",
+    "--knowledge-graph=off, true, false"
   })
   @DisplayName("""
     Given a supported benchmark model and one disabled feature,
     When the command is parsed,
     Then only the requested feature should be disabled
     """)
-  void parsesFeatureSwitches(String argument, boolean validation, boolean cacheBuster, boolean knowledgeGraph) {
+  void parsesFeatureSwitches(String argument, boolean validation, boolean knowledgeGraph) {
     BenchmarkOptions options = BenchmarkOptions.parse(
       "/benchmark -qwen3-vl-4b-instruct-mlx " + argument
     );
 
     assertEquals(validation, options.validation());
-    assertEquals(cacheBuster, options.cacheBuster());
     assertEquals(knowledgeGraph, options.knowledgeGraph());
   }
 
@@ -67,6 +65,7 @@ class BenchmarkOptionsTest {
     "/benchmark -",
     "/benchmark -qwen3-vl-4b-instruct-mlx --turns=9",
     "/benchmark -qwen3-vl-4b-instruct-mlx --validation=maybe",
+    "/benchmark -qwen3-vl-4b-instruct-mlx --cache-buster=off",
     "/benchmark -qwen3-vl-4b-instruct-mlx --unknown=on"
   })
   @DisplayName("""

@@ -1,7 +1,9 @@
 package nl.llm.storyteller.api.bundle;
 
-import nl.llm.storyteller.api.persistence.SessionRecord;
-import nl.llm.storyteller.api.persistence.SessionPrompts;
+import nl.llm.storyteller.db.bundle.SessionBundle;
+import nl.llm.storyteller.db.bundle.SessionBundleRepository;
+import nl.llm.storyteller.db.SessionPrompts;
+import nl.llm.storyteller.db.SessionRecord;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.model.HistoryState;
 import nl.llm.storyteller.core.model.Message;

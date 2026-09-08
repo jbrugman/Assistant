@@ -32,6 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ApiServerTest {
+  private static final String EMPTY_GRAPH = """
+    {"schemaVersion":1,"revision":0,"entities":{},"facts":[]}
+    """;
+
   @TempDir
   Path temporaryDirectory;
 
@@ -179,6 +183,13 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
+    HttpResponse<String> memory = client.send(
+      HttpRequest.newBuilder(uri("/story/memory"))
+        .header("Cookie", cookiePair)
+        .GET()
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
     HttpResponse<String> savedSettings = client.send(
       HttpRequest.newBuilder(uri("/story/settings"))
         .header("Content-Type", "application/x-www-form-urlencoded")
@@ -186,7 +197,8 @@ class ApiServerTest {
         .POST(HttpRequest.BodyPublishers.ofString(settingsForm(
           "Edited system",
           "fixed_protagonists:\n  Valerie:\n    role: Edited protagonists",
-          "Edited rules"
+          "Edited rules",
+          EMPTY_GRAPH
         )))
         .build(),
       HttpResponse.BodyHandlers.ofString()
@@ -198,7 +210,8 @@ class ApiServerTest {
         .POST(HttpRequest.BodyPublishers.ofString(settingsForm(
           "Should not be saved",
           "fixed_protagonists:\n  Valerie:\n    role: [broken",
-          "Should not be saved"
+          "Should not be saved",
+          EMPTY_GRAPH
         )))
         .build(),
       HttpResponse.BodyHandlers.ofString()
@@ -231,6 +244,12 @@ class ApiServerTest {
     assertEquals(303, created.statusCode());
     assertEquals(200, settings.statusCode());
     assertTrue(settings.body().contains("Story settings"));
+    assertTrue(settings.body().contains("Knowledge graph (JSON)"));
+    assertFalse(settings.body().contains("Canonical state"));
+    assertEquals(200, memory.statusCode());
+    assertTrue(memory.body().contains("Mid-term history"));
+    assertTrue(memory.body().contains("Long-term history"));
+    assertTrue(memory.body().contains("Canonical state"));
     assertEquals(303, savedSettings.statusCode());
     assertEquals(200, rejectedSettings.statusCode());
     assertTrue(rejectedSettings.body().contains("Invalid YAML at line"));
@@ -257,13 +276,15 @@ class ApiServerTest {
     assertTrue(story.body().contains("response-maximized"));
     assertTrue(story.body().contains("single-column"));
     assertTrue(story.body().contains("event.shiftKey"));
-    assertTrue(story.body().contains("continueButton.disabled = true"));
-    assertTrue(story.body().contains("undoButton.disabled = true"));
+    assertTrue(story.body().contains("const actionButtons"));
+    assertTrue(story.body().contains("actionButtons.forEach(button => button.disabled = true)"));
+    assertTrue(story.body().contains("actionLinks.forEach(link => link.setAttribute(\"aria-disabled\", \"true\"))"));
     assertTrue(story.body().contains("formaction=\"/story/undo\""));
     assertTrue(story.body().contains("Stop story"));
     assertTrue(story.body().contains("permanently deleted"));
     assertTrue(story.body().contains("Infinite"));
     assertTrue(story.body().contains("Settings"));
+    assertTrue(story.body().contains("History"));
     assertTrue(story.body().contains("prompt.addEventListener(\"paste\""));
     assertTrue(story.body().contains("name=\"image\""));
     assertFalse(story.body().contains("imageInput.disabled = true"));
@@ -306,6 +327,19 @@ class ApiServerTest {
     assertEquals(303, infinite.statusCode());
     assertTrue(infinite.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=2147483647"));
     assertTrue(infiniteStory.body().contains("Use timeout"));
+    String sessionId = cookiePair.substring(cookiePair.indexOf('=') + 1);
+    assertTrue(infiniteStory.body().contains("Resume ID: <code>" + sessionId + "</code>"));
+
+    HttpResponse<String> resumed = client.send(
+      HttpRequest.newBuilder(uri("/web/sessions/resume"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString("sessionId=" + sessionId))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+
+    assertEquals(303, resumed.statusCode());
+    assertTrue(resumed.headers().firstValue("Set-Cookie").orElseThrow().contains(sessionId));
 
     HttpResponse<String> stopped = client.send(
       HttpRequest.newBuilder(uri("/story/stop"))
@@ -324,10 +358,78 @@ class ApiServerTest {
     assertEquals(303, deletedStory.statusCode());
   }
 
-  private String settingsForm(String systemPrompt, String fixedProtagonists, String rules) {
+  @Test
+  @DisplayName("""
+    Given an exchange older than the configured recent context,
+    When it is selected while submitting a new web turn,
+    Then its complete prompt and response should be sent once as clearly marked past context
+    """)
+  void shouldUseSelectedOldExchangeAsPastContext() throws Exception {
+    Path coreOverride = temporaryDirectory.resolve("past-context.config");
+    Files.writeString(coreOverride, "validation.enabled=false\n");
+    RecordingChatClient storyClient = new RecordingChatClient(List.of(
+      "Response zero", "Response one", "Response two", "Response three"
+    ));
+    server = ApiServer.create(
+      config(), AppConfigLoader.load(temporaryDirectory, coreOverride), storyClient, storyClient
+    );
+    server.start();
+    HttpClient client = HttpClient.newHttpClient();
+    HttpResponse<String> created = client.send(
+      HttpRequest.newBuilder(uri("/web/sessions"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString("title=Past+context"))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    String cookie = created.headers().firstValue("Set-Cookie").orElseThrow();
+    String cookiePair = cookie.substring(0, cookie.indexOf(';'));
+    for (int turn = 0; turn < 3; turn++) {
+      client.send(
+        HttpRequest.newBuilder(uri("/story/turns"))
+          .header("Content-Type", "multipart/form-data; boundary=past-boundary")
+          .header("Cookie", cookiePair)
+          .POST(HttpRequest.BodyPublishers.ofByteArray(multipartPastTurn(
+            "past-boundary", "Prompt " + turn, null
+          )))
+          .build(),
+        HttpResponse.BodyHandlers.ofString()
+      );
+    }
+    HttpResponse<String> story = client.send(
+      HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    client.send(
+      HttpRequest.newBuilder(uri("/story/turns"))
+        .header("Content-Type", "multipart/form-data; boundary=past-boundary")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofByteArray(multipartPastTurn(
+          "past-boundary", "Prompt 3", 0
+        )))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+
+    String systemMessage = storyClient.requests().getLast().getFirst().content();
+    assertTrue(story.body().contains("name=\"pastExchange\" value=\"0\""));
+    assertTrue(story.body().contains("0/3 past exchanges"));
+    assertTrue(systemMessage.contains("RELEVANT PAST STORY EXCERPTS"));
+    assertTrue(systemMessage.contains("[Earlier exchange, messages 0-1]"));
+    assertTrue(systemMessage.contains("Prompt 0"));
+    assertTrue(systemMessage.contains("Response zero"));
+  }
+
+  private String settingsForm(
+    String systemPrompt,
+    String fixedProtagonists,
+    String rules,
+    String knowledgeGraph
+  ) {
     return "systemPrompt=" + encode(systemPrompt)
       + "&fixedProtagonists=" + encode(fixedProtagonists)
-      + "&rules=" + encode(rules);
+      + "&rules=" + encode(rules)
+      + "&knowledgeGraph=" + encode(knowledgeGraph);
   }
 
   private String encode(String value) {
@@ -344,6 +446,20 @@ class ApiServerTest {
       + "Content-Type: image/png\r\n\r\n").getBytes(StandardCharsets.UTF_8));
     body.write(image);
     body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+    return body.toByteArray();
+  }
+
+  private byte[] multipartPastTurn(String boundary, String prompt, Integer pastMessageIndex) throws Exception {
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    body.write(("--" + boundary + "\r\n"
+      + "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n"
+      + prompt + "\r\n").getBytes(StandardCharsets.UTF_8));
+    if (pastMessageIndex != null) {
+      body.write(("--" + boundary + "\r\n"
+        + "Content-Disposition: form-data; name=\"pastExchange\"\r\n\r\n"
+        + pastMessageIndex + "\r\n").getBytes(StandardCharsets.UTF_8));
+    }
+    body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
     return body.toByteArray();
   }
 

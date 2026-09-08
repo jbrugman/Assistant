@@ -1,10 +1,13 @@
 package nl.llm.storyteller.core.service;
 
 import nl.llm.storyteller.core.AtomicFileWriter;
+import nl.llm.storyteller.core.ApplicationStorage;
 import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.Message;
+import nl.llm.storyteller.core.model.HistoryState;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphJsonCodec;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +17,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -21,20 +26,34 @@ import java.util.zip.ZipOutputStream;
 public final class StoryExportService {
   private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
-  private final HistoryStore historyStore;
+  private final StoryHistory historyStore;
   private final Path baseDir;
   private final Clock clock;
+  private final ApplicationStorage storage;
   private static final String ASSISTANT = "assistant";
   private static final String EXPORT = "# Story Export\n\n";
 
-  public StoryExportService(HistoryStore historyStore, Path baseDir) {
-    this(historyStore, baseDir, Clock.systemDefaultZone());
+  public StoryExportService(StoryHistory historyStore, Path baseDir) {
+    this(historyStore, baseDir, Clock.systemDefaultZone(), null);
   }
 
-  StoryExportService(HistoryStore historyStore, Path baseDir, Clock clock) {
+  StoryExportService(StoryHistory historyStore, Path baseDir, Clock clock) {
+    this(historyStore, baseDir, clock, null);
+  }
+
+  public StoryExportService(ApplicationStorage storage, Path baseDir) {
+    this(storage.history(), baseDir, Clock.systemDefaultZone(), storage);
+  }
+
+  StoryExportService(ApplicationStorage storage, Path baseDir, Clock clock) {
+    this(storage.history(), baseDir, clock, storage);
+  }
+
+  private StoryExportService(StoryHistory historyStore, Path baseDir, Clock clock, ApplicationStorage storage) {
     this.historyStore = Objects.requireNonNull(historyStore);
     this.baseDir = Objects.requireNonNull(baseDir);
     this.clock = Objects.requireNonNull(clock);
+    this.storage = storage;
   }
 
   public Path export(ExportMode mode) {
@@ -63,12 +82,11 @@ public final class StoryExportService {
   private void writeSessionBundle(Path path, AppConfig config) throws IOException {
     try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(path), StandardCharsets.UTF_8)) {
       writeManifest(zip);
-      writeRequiredFile(zip, config.historyFile());
-      writeOptionalFile(zip, "summary.md", config.summaryFile());
-      writeOptionalFile(zip, "recent-summary.md", config.recentSummaryFile());
-      writeOptionalFile(zip, "canonical-state.yaml", config.canonicalStateFile());
-      writeOptionalFile(zip, "turn-state.json", config.turnStateFile());
-      writeOptionalFile(zip, "knowledge-graph.json", config.knowledgeGraphFile());
+      if (storage == null) {
+        writeFileBackedState(zip, config);
+      } else {
+        writeStoredState(zip);
+      }
       writePrompt(zip, "systemprompts/systemprompt.md", config.systemPromptFile(), config.baseDir());
       writePrompt(
         zip,
@@ -77,6 +95,43 @@ public final class StoryExportService {
         config.baseDir()
       );
       writePrompt(zip, "systemprompts/rules.md", config.rulesFile(), config.baseDir());
+    }
+  }
+
+  private void writeFileBackedState(ZipOutputStream zip, AppConfig config) throws IOException {
+    writeRequiredFile(zip, config.historyFile());
+    writeOptionalFile(zip, "summary.md", config.summaryFile());
+    writeOptionalFile(zip, "recent-summary.md", config.recentSummaryFile());
+    writeOptionalFile(zip, "canonical-state.yaml", config.canonicalStateFile());
+    writeOptionalFile(zip, "turn-state.json", config.turnStateFile());
+    writeOptionalFile(zip, "knowledge-graph.json", config.knowledgeGraphFile());
+  }
+
+  private void writeStoredState(ZipOutputStream zip) throws IOException {
+    writeEntry(zip, "history.json", serializeHistory(storage.history().load()));
+    writeOptionalText(zip, "summary.md", storage.summary().load());
+    writeOptionalText(zip, "recent-summary.md", storage.recentSummary().load());
+    writeOptionalText(zip, "canonical-state.yaml", storage.canonicalState().load());
+    writeEntry(zip, "turn-state.json", JsonSupport.OBJECT_MAPPER.writerWithDefaultPrettyPrinter()
+      .writeValueAsBytes(TurnStateJsonCodec.toJson(storage.turnState().load())));
+    writeEntry(zip, "knowledge-graph.json", JsonSupport.OBJECT_MAPPER.writerWithDefaultPrettyPrinter()
+      .writeValueAsBytes(new KnowledgeGraphJsonCodec().toJson(storage.knowledgeGraph().load())));
+  }
+
+  private byte[] serializeHistory(HistoryState state) throws IOException {
+    Map<String, Object> document = new LinkedHashMap<>();
+    document.put("messages", state.messages().stream()
+      .map(message -> Map.of("role", message.role(), "content", message.content()))
+      .toList());
+    document.put("summary_cursor", state.summaryCursor());
+    document.put("recent_summary_cursor", state.recentSummaryCursor());
+    document.put("canonical_state_cursor", state.canonicalStateCursor());
+    return JsonSupport.OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsBytes(document);
+  }
+
+  private void writeOptionalText(ZipOutputStream zip, String name, String content) throws IOException {
+    if (content != null && !content.isBlank()) {
+      writeEntry(zip, name, content.getBytes(StandardCharsets.UTF_8));
     }
   }
 

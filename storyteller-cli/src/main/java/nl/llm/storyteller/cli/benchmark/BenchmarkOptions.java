@@ -6,7 +6,6 @@ public record BenchmarkOptions(
   String model,
   int turns,
   boolean validation,
-  boolean cacheBuster,
   boolean knowledgeGraph
 ) {
   private static final int DEFAULT_TURNS = 50;
@@ -25,7 +24,6 @@ public record BenchmarkOptions(
 
     int turns = DEFAULT_TURNS;
     boolean validation = true;
-    boolean cacheBuster = true;
     boolean knowledgeGraph = true;
     for (int index = optionStart; index < arguments.length; index++) {
       String argument = arguments[index];
@@ -33,20 +31,18 @@ public record BenchmarkOptions(
         turns = parseTurns(argument.substring("--turns=".length()));
       } else if (argument.startsWith("--validation=")) {
         validation = parseSwitch("validation", argument.substring("--validation=".length()));
-      } else if (argument.startsWith("--cache-buster=")) {
-        cacheBuster = parseSwitch("cache-buster", argument.substring("--cache-buster=".length()));
       } else if (argument.startsWith("--knowledge-graph=")) {
         knowledgeGraph = parseSwitch("knowledge-graph", argument.substring("--knowledge-graph=".length()));
       } else {
         throw new IllegalArgumentException("Unknown benchmark option: " + argument + "\n" + usage());
       }
     }
-    return new BenchmarkOptions(model, turns, validation, cacheBuster, knowledgeGraph);
+    return new BenchmarkOptions(model, turns, validation, knowledgeGraph);
   }
 
   public static String usage() {
     return "Use /benchmark [-<model>] "
-      + "[--turns=50] [--validation=on|off] [--cache-buster=on|off] [--knowledge-graph=on|off].";
+      + "[--turns=50] [--validation=on|off] [--knowledge-graph=on|off].";
   }
 
   private static int parseTurns(String value) {

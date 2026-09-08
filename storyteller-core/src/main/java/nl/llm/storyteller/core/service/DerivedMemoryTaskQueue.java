@@ -30,6 +30,6 @@ public final class DerivedMemoryTaskQueue implements AutoCloseable {
 
   @Override
   public void close() {
-    executor.shutdownNow();
+    executor.close();
   }
 }

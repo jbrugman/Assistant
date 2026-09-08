@@ -11,12 +11,13 @@
 
   <modules>
     <module>storyteller-core</module>
+    <module>storyteller-db</module>
     <module>storyteller-cli</module>
     <module>storyteller-api</module>
   </modules>
 
   <properties>
-    <revision>1.3.3</revision>
+    <revision>2.0.0</revision>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.22.2</jackson.version>
@@ -33,6 +34,11 @@
       <dependency>
         <groupId>nl.llm</groupId>
         <artifactId>storyteller-core</artifactId>
+        <version>${revision}</version>
+      </dependency>
+      <dependency>
+        <groupId>nl.llm</groupId>
+        <artifactId>storyteller-db</artifactId>
         <version>${revision}</version>
       </dependency>
       <dependency>

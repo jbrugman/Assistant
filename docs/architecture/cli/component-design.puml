@@ -1,0 +1,67 @@
+@startuml
+!pragma layout smetana
+title Storyteller CLI - Component Design
+
+top to bottom direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 55
+
+actor "Terminal user" as User
+
+package "storyteller-cli" #E0F2FE {
+  [AssistantApp] as App
+  [TerminalStoryteller] as Terminal
+  [Terminal Support\n\nrendering\nclipboard images\nbenchmark commands] as CliSupport
+
+  App -right-> Terminal : starts
+  Terminal -right-> CliSupport
+}
+
+package "storyteller-core" #DCFCE7 {
+  [ApplicationFactory] as CoreFactory
+  [ApplicationContext] as Context
+  [Story Services\n\nsession and prompts\nvalidation and export\nderived memory and graph] as CoreServices
+  [Storage Contracts] as StorageContracts
+
+  CoreFactory -right-> Context : creates
+  Context -right-> CoreServices
+  CoreServices -down-> StorageContracts
+}
+
+package "storyteller-db" #FCE7F3 {
+  [JdbcApplicationStorageFactory] as StorageFactory
+  [JDBC Storage Adapters] as JdbcAdapters
+  [SQL Schema] as Schema
+
+  StorageFactory -right-> JdbcAdapters
+  Schema -up-> JdbcAdapters
+}
+
+database "Shared H2 database" as H2
+database "systemprompts/\ndefaults and overrides" as Prompts
+cloud "OpenAI-compatible\nmodel backend" as Backend
+
+User -down-> Terminal
+App -down-> CoreFactory
+App -down-> StorageFactory
+Terminal -down-> Context : commands and story turns
+JdbcAdapters ..up.> StorageContracts : implements
+JdbcAdapters -right-> H2
+CoreServices -left-> Prompts : loads
+CoreServices -right-> Backend
+
+note left of StorageFactory
+The fixed infinite CLI session is created once.
+Existing file-backed state is imported transactionally
+when that database session is first created.
+end note
+
+note right of CliSupport
+Clipboard image bytes are transient.
+Only the prompt and response text are persisted.
+end note
+@enduml

@@ -19,6 +19,10 @@
       <artifactId>storyteller-core</artifactId>
     </dependency>
     <dependency>
+      <groupId>nl.llm</groupId>
+      <artifactId>storyteller-db</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.jline</groupId>
       <artifactId>jline</artifactId>
     </dependency>
@@ -66,6 +70,10 @@
                     <exclude>META-INF/MANIFEST.MF</exclude>
                     <exclude>META-INF/LICENSE*</exclude>
                     <exclude>META-INF/NOTICE*</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/versions/*/OSGI-INF/MANIFEST.MF</exclude>
                   </excludes>
                 </filter>
               </filters>
@@ -97,6 +105,7 @@
               <fallback>false</fallback>
               <buildArgs>
                 <buildArg>-H:IncludeResources=systemprompts/.*</buildArg>
+                <buildArg>-H:IncludeResources=db/.*</buildArg>
                 <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                 <buildArg>-H:+SharedArenaSupport</buildArg>
               </buildArgs>

@@ -1,26 +1,28 @@
 package nl.llm.storyteller.core;
 
-import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
-import nl.llm.storyteller.core.graph.service.KnowledgeGraphInitializer;
-import nl.llm.storyteller.core.graph.service.KnowledgeGraphGenerator;
-import nl.llm.storyteller.core.graph.service.KnowledgeGraphManagementService;
-import nl.llm.storyteller.core.graph.turnbasedservice.TurnBasedKnowledgeGraphService;
-import nl.llm.storyteller.core.graph.turnbasedservice.KnowledgeGraphUpdateObserver;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphFillService;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphGenerator;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphInitializer;
+import nl.llm.storyteller.core.graph.service.KnowledgeGraphManagementService;
+import nl.llm.storyteller.core.graph.service.ReadOnlyKnowledgeGraphService;
+import nl.llm.storyteller.core.graph.turnbasedservice.KnowledgeGraphUpdateObserver;
+import nl.llm.storyteller.core.graph.turnbasedservice.TurnBasedKnowledgeGraphService;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
-import nl.llm.storyteller.core.service.ChatRequestMetrics;
 import nl.llm.storyteller.core.service.ChatClient;
+import nl.llm.storyteller.core.service.ChatRequestMetrics;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
 import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
-import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
+import nl.llm.storyteller.core.service.FileTextMemory;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
-import nl.llm.storyteller.core.graph.service.KnowledgeGraphFillService;
+import nl.llm.storyteller.core.service.LmStudioNativeChatClient;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
+import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
@@ -31,6 +33,7 @@ import nl.llm.storyteller.core.service.ResponseGuard;
 import nl.llm.storyteller.core.service.StoryChatPromptBuilder;
 import nl.llm.storyteller.core.service.StoryExportService;
 import nl.llm.storyteller.core.service.StorySessionService;
+import nl.llm.storyteller.core.service.StoryPrompts;
 import nl.llm.storyteller.core.service.StoryTurnObserver;
 import nl.llm.storyteller.core.service.SummaryManager;
 import nl.llm.storyteller.core.service.SummaryPromptBuilder;
@@ -74,8 +77,32 @@ public final class ApplicationFactory {
     StoryTurnObserver turnObserver,
     KnowledgeGraphUpdateObserver graphObserver
   ) {
-    HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-    PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+    PredicateCatalog predicateCatalog = PredicateCatalog.load(config.baseDir());
+    PromptResourceLoader filePrompts = new PromptResourceLoader(config);
+    return create(config, metrics, turnObserver, graphObserver, new ApplicationStorage(
+      new HistoryStore(config.historyFile(), config.legacyHistoryFile()),
+      new FileTextMemory(config.summaryFile()),
+      new FileTextMemory(config.recentSummaryFile()),
+      new FileTextMemory(config.canonicalStateFile()),
+      new TurnStateStore(config.turnStateFile()),
+      new KnowledgeGraphStore(config.knowledgeGraphFile(), new KnowledgeGraphValidator(predicateCatalog)),
+      () -> new StoryPrompts(
+        filePrompts.loadSystemPrompt(),
+        filePrompts.loadFixedProtagonists(),
+        filePrompts.loadRulesPrompt()
+      )
+    ));
+  }
+
+  public static ApplicationContext create(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ChatRequestMetrics metrics,
+    StoryTurnObserver turnObserver,
+    KnowledgeGraphUpdateObserver graphObserver,
+    ApplicationStorage storage
+  ) {
+    var historyStore = storage.history();
+    PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config, storage.prompts());
     PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
     StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(
       promptResourceLoader, promptTemplateService
@@ -98,10 +125,9 @@ public final class ApplicationFactory {
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
       backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation"
     );
+    boolean useNativeNonReasoningClient = "lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport());
     ChatClient validatorDelegate = config.validationEnabled()
-      ? new OpenAiCompatibleHttpClient(
-        backendUrl, config.validatorModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "validation"
-      )
+      ? nonReasoningClient(config, metrics, backendUrl, config.validatorModel(), "validation", useNativeNonReasoningClient)
       : (_, _, _) -> {
         throw new IllegalStateException("Validation client is disabled by validation.enabled=false.");
       };
@@ -113,34 +139,40 @@ public final class ApplicationFactory {
       validatorDelegate,
       new LlmBackendGuard("Validation backend", config.validationFailureThreshold(), config.validationCooldownSeconds())
     );
+    ChatClient derivedStateDelegate;
+    if (useNativeNonReasoningClient) {
+      derivedStateDelegate = new LmStudioNativeChatClient(
+        backendUrl, config.chatModel(), config.openAiCompatibleApiKey(), metrics, "derived-state"
+      );
+    } else {
+      derivedStateDelegate = chatDelegate;
+    }
     ResilientChatClient backgroundClient = new ResilientChatClient(
-      chatDelegate,
+      derivedStateDelegate,
       new LlmBackendGuard("Background memory backend", config.backgroundFailureThreshold(), config.backgroundCooldownSeconds())
     );
     DerivedMemoryTaskQueue derivedMemoryTaskQueue = new DerivedMemoryTaskQueue();
     SummaryManager summaryManager = new SummaryManager(
       historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, summaryPromptBuilder,
-      derivedMemoryTaskQueue
+      storage.summary(), derivedMemoryTaskQueue
     );
     RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
       historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
-      derivedMemoryTaskQueue
+      storage.recentSummary(), derivedMemoryTaskQueue
     );
     CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
       historyStore, backgroundClient, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
-      derivedMemoryTaskQueue
+      storage.canonicalState(), derivedMemoryTaskQueue
     );
     TurnManager turnManager = new TurnManager(
       config,
       promptResourceLoader,
       promptTemplateService,
       new GameModeDefinitionParser(),
-      new TurnStateStore(config.turnStateFile())
+      storage.turnState()
     );
     PredicateCatalog predicateCatalog = PredicateCatalog.load(config.baseDir());
-    KnowledgeGraphStore knowledgeGraphStore = new KnowledgeGraphStore(
-      config.knowledgeGraphFile(), new KnowledgeGraphValidator(predicateCatalog)
-    );
+    var knowledgeGraphStore = storage.knowledgeGraph();
     ReadOnlyKnowledgeGraphService knowledgeGraphService = new ReadOnlyKnowledgeGraphService(
       knowledgeGraphStore, predicateCatalog
     );
@@ -175,7 +207,6 @@ public final class ApplicationFactory {
       recentSummaryManager,
       canonicalStateManager,
       promptAssemblyService,
-      promptResourceLoader,
       config.graphEnabled() ? turnBasedKnowledgeGraphService : null,
       turnObserver
     );
@@ -183,7 +214,7 @@ public final class ApplicationFactory {
       config,
       derivedMemoryTaskQueue,
       storySessionService,
-      new StoryExportService(historyStore, config.baseDir()),
+      new StoryExportService(storage, config.baseDir()),
       knowledgeGraphService,
       new KnowledgeGraphInitializer(knowledgeGraphStore, knowledgeGraphService),
       new KnowledgeGraphFillService(
@@ -201,6 +232,24 @@ public final class ApplicationFactory {
       new KnowledgeGraphManagementService(knowledgeGraphStore, knowledgeGraphService),
       managedLlamaServer,
       managedMlxServer
+    );
+  }
+
+  private static ChatClient nonReasoningClient(
+    nl.llm.storyteller.core.config.AppConfig config,
+    ChatRequestMetrics metrics,
+    String backendUrl,
+    String model,
+    String purpose,
+    boolean useNativeClient
+  ) {
+    if (useNativeClient) {
+      return new LmStudioNativeChatClient(
+        backendUrl, model, config.openAiCompatibleApiKey(), metrics, purpose
+      );
+    }
+    return new OpenAiCompatibleHttpClient(
+      backendUrl, model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, purpose
     );
   }
 

@@ -2,17 +2,17 @@ package nl.llm.storyteller.core.graph;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import nl.llm.storyteller.core.FileSupport;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.graph.model.EntityType;
 import nl.llm.storyteller.core.graph.model.PredicateId;
 
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import nl.llm.storyteller.core.FileSupport;
-import java.nio.file.Path;
 
 public final class PredicateCatalog {
   private final Map<PredicateId, PredicateDefinition> definitions;

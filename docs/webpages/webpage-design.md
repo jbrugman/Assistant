@@ -1,13 +1,9 @@
-# ADR-004: Render the default web interface server-side with JTE
-
-Status: accepted  
-Date: 2026-09-07
-
 ## Context
 
 Storyteller has a default browser interface next to its CLI and JSON API. The bundled interface currently supports a
-focused simple workflow: creating or importing a session, reading the conversation, submitting and undoing turns,
-exporting the session, and stopping the session (removing the session from the system). It is one client of the API, not
+focused workflow: creating, importing, resuming, and optionally retaining an infinite session; reading paged history;
+submitting and undoing text or image turns; selecting older exchanges as one-turn context; editing session prompts and
+the knowledge graph; inspecting read-only summaries and canonical state; exporting; and permanently stopping the session. It is one client of the API, not
 the required interface for Storyteller. Other applications may provide their own web, desktop, mobile, or automated
 interface against the JSON API.
 
@@ -79,7 +75,7 @@ of Javalin as a small, explicit HTTP adapter.
 
 ## Consequences
 
-- Browser pages and the JSON API are delivered by the same API application and port.
+- Browser pages and the JSON API are delivered by the same API application and its configured HTTP/HTTPS connectors.
 - The bundled web interface is the default browser client alongside the CLI; it is not the only supported client.
 - The web layer remains under `nl.llm.storyteller.api.web`; domain and orchestration behavior remain outside templates
   and controllers.

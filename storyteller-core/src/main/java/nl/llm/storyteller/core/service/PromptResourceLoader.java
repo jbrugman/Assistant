@@ -4,16 +4,31 @@ import nl.llm.storyteller.core.FileSupport;
 
 public final class PromptResourceLoader {
   private final nl.llm.storyteller.core.config.AppConfig config;
+  private final StoryPromptSource storyPromptSource;
 
   public PromptResourceLoader(nl.llm.storyteller.core.config.AppConfig config) {
+    this(config, null);
+  }
+
+  public PromptResourceLoader(
+    nl.llm.storyteller.core.config.AppConfig config,
+    StoryPromptSource storyPromptSource
+  ) {
     this.config = config;
+    this.storyPromptSource = storyPromptSource;
   }
 
   public String loadSystemPrompt() {
+    if (storyPromptSource != null) {
+      return storyPromptSource.load().systemPrompt();
+    }
     return FileSupport.readRequiredTextFileOrResource(config.systemPromptFile(), config.baseDir());
   }
 
   public String loadRulesPrompt() {
+    if (storyPromptSource != null) {
+      return storyPromptSource.load().rules();
+    }
     return FileSupport.readRequiredTextFileOrResource(config.rulesFile(), config.baseDir());
   }
 
@@ -30,6 +45,9 @@ public final class PromptResourceLoader {
   }
 
   public String loadFixedProtagonists() {
+    if (storyPromptSource != null) {
+      return storyPromptSource.load().fixedProtagonists();
+    }
     return FileSupport.readRequiredTextFileOrResource(config.fixedProtagonistsFile(), config.baseDir());
   }
 
@@ -65,7 +83,4 @@ public final class PromptResourceLoader {
     return FileSupport.readRequiredTextFileOrResource(config.turnViolationPartyTemplateFile(), config.baseDir());
   }
 
-  public String loadResetCacheBusterTemplate() {
-    return FileSupport.readRequiredTextFileOrResource(config.resetCacheBusterTemplateFile(), config.baseDir());
-  }
 }

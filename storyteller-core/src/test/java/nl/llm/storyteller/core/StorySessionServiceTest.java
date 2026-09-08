@@ -4,6 +4,7 @@ import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.ChatClient;
+import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
@@ -18,7 +19,6 @@ import nl.llm.storyteller.core.service.SummaryPromptBuilder;
 import nl.llm.storyteller.core.service.TurnManager;
 import nl.llm.storyteller.core.service.TurnStateStore;
 import nl.llm.storyteller.core.service.ValidationPromptBuilder;
-import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -35,78 +35,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class StorySessionServiceTest {
     @Test
     @DisplayName("""
-        Given a completed story turn at the configured cache-buster interval,
-        When the story session persists that turn,
-        Then it should send one silent cache-buster reset request afterward
-        """)
-    void shouldRunSilentPeriodicCacheBusterAfterConfiguredTurnInterval() throws Exception {
-        Path baseDirectory = Files.createTempDirectory("storyteller-periodic-cache-buster");
-        writeOverride(baseDirectory, "systemprompts/application.config", """
-            validation.enabled=false
-            cacheBuster.interval=1
-            """);
-
-        nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
-        HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
-        PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
-        SummaryManager summaryManager = new SummaryManager(
-            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
-            new SummaryPromptBuilder(promptResourceLoader, promptTemplateService)
-        );
-        RecentSummaryManager recentSummaryManager = new RecentSummaryManager(
-            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
-            new RecentSummaryPromptBuilder(promptResourceLoader, promptTemplateService)
-        );
-        CanonicalStateManager canonicalStateManager = new CanonicalStateManager(
-            historyStore, new NoOpChatClient(), config, promptResourceLoader, promptTemplateService,
-            new CanonicalStatePromptBuilder(promptResourceLoader, promptTemplateService)
-        );
-        RecordingChatClient recordingChatClient = new RecordingChatClient("Story response");
-        StorySessionService storySessionService = new StorySessionService(
-            config,
-            historyStore,
-            recordingChatClient,
-            new ResponseGuard(new NoOpChatClient(), config),
-            summaryManager,
-            recentSummaryManager,
-            canonicalStateManager,
-            new PromptAssemblyService(
-                historyStore,
-                summaryManager,
-                recentSummaryManager,
-                canonicalStateManager,
-                new TurnManager(
-                    config,
-                    promptResourceLoader,
-                    promptTemplateService,
-                    new GameModeDefinitionParser(),
-                    new TurnStateStore(config.turnStateFile())
-                ),
-                new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService),
-                new ValidationPromptBuilder(promptResourceLoader, promptTemplateService)
-            ),
-            promptResourceLoader
-        );
-
-        try {
-            assertEquals("Story response", storySessionService.handleUserTurn("Continue the story."));
-            assertEquals(2, recordingChatClient.requestCount());
-            List<Message> cacheBusterRequest = recordingChatClient.requests().getLast();
-            assertTrue(cacheBusterRequest.getFirst().content().startsWith("Opaque reset cache-buster token:"));
-            assertEquals(config.resetStoryCommand(), cacheBusterRequest.getLast().content());
-        } finally {
-            summaryManager.shutdown();
-            recentSummaryManager.shutdown();
-            canonicalStateManager.shutdown();
-        }
-    }
-
-    @Test
-    @DisplayName("""
         Given a reset-only turn that is meant to wake the model up,
         When the story session handles that reset instruction,
-        Then the request should include a transient cache buster but no history or derived-memory updates should be persisted
+        Then it should not persist history or trigger derived-memory updates
         """)
     void shouldTreatResetAsTransientControlTurn() throws Exception {
         Path baseDirectory = Files.createTempDirectory("storyteller-reset-turn");
@@ -167,8 +98,7 @@ class StorySessionServiceTest {
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            promptAssemblyService,
-            promptResourceLoader
+            promptAssemblyService
         );
 
         try {
@@ -189,8 +119,6 @@ class StorySessionServiceTest {
             List<Message> sentMessages = recordingChatClient.messages();
             assertEquals(2, sentMessages.size());
             assertEquals("system", sentMessages.getFirst().role());
-            assertTrue(sentMessages.getFirst().content().contains("Opaque reset cache-buster token:"));
-            assertTrue(sentMessages.getFirst().content().startsWith("Opaque reset cache-buster token:"));
             assertEquals("user", sentMessages.getLast().role());
             assertEquals(config.resetStoryCommand(), sentMessages.getLast().content());
             assertFalse(sentMessages.getFirst().content().contains("Earlier prompt"));
@@ -267,8 +195,7 @@ class StorySessionServiceTest {
             summaryManager,
             recentSummaryManager,
             canonicalStateManager,
-            promptAssemblyService,
-            promptResourceLoader
+            promptAssemblyService
         );
 
         try {
