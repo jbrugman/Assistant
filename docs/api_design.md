@@ -272,6 +272,8 @@ CREATE TABLE story_message (
   message_index INTEGER NOT NULL,
   message_role VARCHAR(16) NOT NULL,
   content VARCHAR(1000000) NOT NULL,
+  image_media_type VARCHAR(64),
+  image_content BLOB,
   PRIMARY KEY (session_id, message_index),
   FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
   CHECK (message_index >= 0),
@@ -389,6 +391,7 @@ The first implemented bundle format contains:
 
 - optional `manifest.json` with bundle version and story title; API exports always include it
 - required `history.json`, including the three CLI history cursors
+- optional `memory/images/<message-index>.<extension>` entries referenced by image-bearing messages in `history.json`
 - optional `summary.md`
 - optional `recent-summary.md`
 - optional `canonical-state.yaml`
@@ -417,6 +420,12 @@ view; model context assembly and CLI history behavior are unchanged.
 The default web interface exposes `GET /story/settings` and `POST /story/settings` for editing the active session's
 system prompt, fixed protagonists, and rules. The values are normalized, length-limited, updated transactionally, and
 used from the next story turn onward.
+
+For vision-capable backends, the web turn form accepts one PNG, JPEG, GIF, or WebP image of at most 10 MB. Image bytes
+and their media type are stored with the user message in `story_message`. They are converted to an OpenAI-compatible
+data URL only while assembling a model request. `GET /story/images/{messageIndex}` serves the stored image only to the
+active session, allowing the SSR history to render a bounded thumbnail without embedding base64 data in the HTML.
+Session exports store the binary image under `memory/images/`, while `history.json` contains only its path.
 
 ## Confirmed Configuration Model
 

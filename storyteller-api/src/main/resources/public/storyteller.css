@@ -373,6 +373,69 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.prompt-image-link {
+  display: block;
+  width: fit-content;
+  border-radius: 8px;
+}
+
+.prompt-image-link:focus-visible {
+  outline: 2px solid #c69a72;
+  outline-offset: 3px;
+}
+
+.prompt-thumbnail {
+  display: block;
+  width: min(100%, 12rem);
+  max-height: 9rem;
+  object-fit: contain;
+  border: 1px solid #4c433d;
+  border-radius: 8px;
+  background: #171513;
+  margin-bottom: 0.65rem;
+  cursor: zoom-in;
+}
+
+.image-lightbox {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 78%);
+}
+
+.image-lightbox[hidden] {
+  display: none;
+}
+
+.image-lightbox-content {
+  position: relative;
+  display: grid;
+  max-width: min(92vw, 90rem);
+  max-height: 92vh;
+  padding: 2.75rem 0.75rem 0.75rem;
+  border: 1px solid #625448;
+  border-radius: 12px;
+  background: #171513;
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+
+.image-lightbox-content img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(92vh - 3.5rem);
+  object-fit: contain;
+}
+
+.image-lightbox-close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  padding: 0.35rem 0.65rem;
+}
+
 .composer {
   display: grid;
   gap: 0.55rem;
@@ -382,6 +445,57 @@ button:disabled {
 .composer-actions {
   display: flex;
   gap: 0.65rem;
+}
+
+.image-picker,
+.remove-image {
+  border: 1px solid #625448;
+  border-radius: 10px;
+  background: transparent;
+  color: #d7a879;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.75rem 1rem;
+  text-transform: none;
+}
+
+.image-picker[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.image-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  color: #c9bdb2;
+  font-size: 0.85rem;
+}
+
+.image-preview[hidden] {
+  display: none;
+}
+
+.image-preview img {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border: 1px solid #4c433d;
+  border-radius: 8px;
+}
+
+.image-preview span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remove-image {
+  margin-left: auto;
+  padding: 0.45rem 0.65rem;
 }
 
 .undo-story {

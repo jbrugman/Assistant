@@ -18,13 +18,16 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SessionBundleServiceTest {
   private static final Instant NOW = Instant.parse("2026-09-06T16:00:00Z");
+  private static final String PNG_DATA_URL = "data:image/png;base64,iVBORw0KGgo=";
 
   @Test
   @DisplayName("""
@@ -35,7 +38,10 @@ class SessionBundleServiceTest {
   void shouldRoundTripSessionBundle() throws Exception {
     SessionBundle original = new SessionBundle(
       new HistoryState(
-        List.of(new Message("user", "Open the door"), new Message("assistant", "It opens.")),
+        List.of(
+          Message.withImage("user", "Open the door", PNG_DATA_URL),
+          new Message("assistant", "It opens.")
+        ),
         2,
         1,
         2
@@ -59,6 +65,19 @@ class SessionBundleServiceTest {
     assertEquals("imported-session", imported.sessionId());
     assertFalse(imported.infinite());
     assertEquals(original, repository.importedBundle);
+    assertTrue(archiveContains(archive, "memory/images/000.png"));
+  }
+
+  private boolean archiveContains(byte[] archive, String expectedName) throws Exception {
+    try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archive), StandardCharsets.UTF_8)) {
+      ZipEntry entry;
+      while ((entry = zip.getNextEntry()) != null) {
+        if (expectedName.equals(entry.getName())) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @Test

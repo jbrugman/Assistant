@@ -2,7 +2,7 @@ package nl.llm.storyteller.api.persistence;
 
 final class SessionBundleQueries {
   static final String SELECT_MESSAGES = """
-    SELECT message_role, content
+    SELECT message_role, content, image_media_type, image_content
     FROM story_message
     WHERE session_id = ?
     ORDER BY message_index

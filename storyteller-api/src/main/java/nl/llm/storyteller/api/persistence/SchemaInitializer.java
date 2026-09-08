@@ -40,6 +40,7 @@ public final class SchemaInitializer {
       existingSchemaTables.retainAll(EXPECTED_TABLES);
       if (existingSchemaTables.equals(EXPECTED_TABLES)) {
         addInfiniteSessionColumnIfMissing(connection);
+        addStoryImageColumnsIfMissing(connection);
         return;
       }
       if (!existingSchemaTables.isEmpty()) {
@@ -48,6 +49,23 @@ public final class SchemaInitializer {
       executeSchema(connection, loadSchema());
     } catch (SQLException ex) {
       throw new DatabaseException("Could not initialize the API database schema.", ex);
+    }
+  }
+
+  private void addStoryImageColumnsIfMissing(Connection connection) throws SQLException {
+    addColumnIfMissing(connection, "STORY_MESSAGE", "IMAGE_MEDIA_TYPE", "image_media_type VARCHAR(64)");
+    addColumnIfMissing(connection, "STORY_MESSAGE", "IMAGE_CONTENT", "image_content BLOB");
+  }
+
+  private void addColumnIfMissing(Connection connection, String table, String column, String definition)
+    throws SQLException {
+    try (ResultSet columns = connection.getMetaData().getColumns(null, null, table, column)) {
+      if (columns.next()) {
+        return;
+      }
+    }
+    try (var statement = connection.createStatement()) {
+      statement.execute("ALTER TABLE " + table + " ADD COLUMN " + definition);
     }
   }
 

@@ -132,7 +132,13 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
       try (ResultSet resultSet = statement.executeQuery()) {
         List<Message> messages = new ArrayList<>();
         while (resultSet.next()) {
-          messages.add(new Message(resultSet.getString("message_role"), resultSet.getString("content")));
+          String role = resultSet.getString("message_role");
+          String content = resultSet.getString("content");
+          String mediaType = resultSet.getString("image_media_type");
+          byte[] imageContent = resultSet.getBytes("image_content");
+          messages.add(imageContent == null || mediaType == null
+            ? new Message(role, content)
+            : Message.withImage(role, content, new StoryImage(mediaType, imageContent).dataUrl()));
         }
         return List.copyOf(messages);
       }
@@ -267,16 +273,27 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
   }
 
   private void insertMessages(Connection connection, String sessionId, List<Message> messages) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(INSERT_MESSAGE)) {
-      statement.setString(1, sessionId);
+    try (PreparedStatement textStatement = connection.prepareStatement(INSERT_MESSAGE);
+         PreparedStatement imageStatement = connection.prepareStatement(INSERT_MESSAGE)) {
+      textStatement.setString(1, sessionId);
+      textStatement.setNull(5, Types.VARCHAR);
+      textStatement.setNull(6, Types.BLOB);
+      imageStatement.setString(1, sessionId);
       for (int index = 0; index < messages.size(); index++) {
         Message message = messages.get(index);
+        PreparedStatement statement = message.imageDataUrl().isBlank() ? textStatement : imageStatement;
         statement.setInt(2, index);
         statement.setString(3, message.role());
         statement.setString(4, message.content());
+        if (!message.imageDataUrl().isBlank()) {
+          StoryImage image = StoryImage.fromDataUrl(message.imageDataUrl());
+          statement.setString(5, image.mediaType());
+          statement.setBytes(6, image.content());
+        }
         statement.addBatch();
       }
-      statement.executeBatch();
+      textStatement.executeBatch();
+      imageStatement.executeBatch();
     }
   }
 

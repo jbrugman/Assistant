@@ -13,7 +13,8 @@ public record StoryPage(SessionRecord session, List<StoryExchange> exchanges, bo
       exchanges.add(new StoryExchange(
         messages.get(index).messageIndex(),
         messages.get(index).content(),
-        messages.get(index + 1).content()
+        messages.get(index + 1).content(),
+        messages.get(index).hasImage()
       ));
     }
     boolean hasOlder = !messages.isEmpty() && messages.getFirst().messageIndex() > 0;

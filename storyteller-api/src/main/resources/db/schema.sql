@@ -32,6 +32,8 @@ CREATE TABLE story_message (
   message_index INTEGER NOT NULL,
   message_role VARCHAR(16) NOT NULL,
   content VARCHAR(1000000) NOT NULL,
+  image_media_type VARCHAR(64),
+  image_content BLOB,
   PRIMARY KEY (session_id, message_index),
   FOREIGN KEY (session_id) REFERENCES story_session (session_id) ON DELETE CASCADE,
   CHECK (message_index >= 0),

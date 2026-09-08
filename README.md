@@ -149,6 +149,9 @@ The CLI and API are separate applications with separate entry points. Both depen
 Screenshots of the server-rendered web interface are available in [`docs/webpages`](docs/webpages/).
 The web interface can disable inactivity expiration for the active story with **Infinite** and restore the configured
 session timeout with **Use timeout**.
+For a vision-capable model, paste an image directly into the story input or select **Add image**, add the accompanying
+instruction, and submit the turn. A preview is shown before submission and a thumbnail remains attached to the stored
+prompt afterward. PNG, JPEG, GIF, and WebP images up to 10 MB are accepted.
 The start page can import a CLI-compatible session ZIP containing `history.json` and any available summary,
 canonical-state, turn-state, knowledge-graph, and session prompt files. **Export** downloads the active web session in
 the same portable format, including a versioned manifest that preserves the story title. **Settings** edits the active
@@ -161,6 +164,7 @@ downloaded from an active story in the web interface by selecting **Export**. Th
 
 - `manifest.json` with the bundle format version and story title
 - `history.json` with all user and assistant messages and the three memory cursors
+- `memory/images/<message-index>.<extension>` for images attached to prompts, referenced from `history.json`
 - `turn-state.json`
 - `knowledge-graph.json`
 - `summary.md`, `recent-summary.md`, and `canonical-state.yaml` when those values exist
@@ -553,7 +557,8 @@ Not yet.
 ### 1.3.7
 - Added built-in HTTPS support to the API and web interface, with automatically generated and renewed certificates signed by a reusable local certificate authority.
 - Improved removal of leaked model reasoning, including multiline content and alternative thinking/channel tag formats.
-- Added per-session editing and H2 persistence of the system prompt, fixed protagonists, and rules, including portable ZIP import and export.
+- Web version for the system prompt, fixed protagonists, and rules, including portable ZIP import and export, inlcuding yaml validation.
+- Added web image support for vision models, with paste and file selection, session thumbnails, H2 persistence, and portable ZIP import and export.
 
 ### 1.3.6
 - Added incremental web story loading: the newest five exchanges are rendered initially and older exchanges load in five-exchange pages when scrolling upward.

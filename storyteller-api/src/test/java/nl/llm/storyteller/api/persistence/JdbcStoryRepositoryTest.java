@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JdbcStoryRepositoryTest {
   @TempDir
@@ -30,7 +32,7 @@ class JdbcStoryRepositoryTest {
       "paged-session", "Paged story", now, now, now, now.plusSeconds(3600), false
     ), SessionPrompts.empty());
     for (int turn = 0; turn < 7; turn++) {
-      storyRepository.appendTurn("paged-session", "Prompt " + turn, "Response " + turn, now);
+      storyRepository.appendTurn("paged-session", "Prompt " + turn, "Response " + turn, null, now);
     }
 
     List<StoryMessageRecord> newest = storyRepository.loadMessagesBefore(
@@ -44,5 +46,38 @@ class JdbcStoryRepositoryTest {
     assertEquals(4, newest.getFirst().messageIndex());
     assertEquals(13, newest.getLast().messageIndex());
     assertEquals(List.of(0, 1, 2, 3), older.stream().map(StoryMessageRecord::messageIndex).toList());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a story turn with an image,
+    When the turn is stored and loaded,
+    Then the image should remain attached to the user message only
+    """)
+  void shouldStoreImageWithUserMessage() {
+    Database database = new Database("jdbc:h2:file:" + temporaryDirectory.resolve("story-image"), "sa", "");
+    new SchemaInitializer(database).initialize();
+    JdbcSessionRepository sessionRepository = new JdbcSessionRepository(database);
+    JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
+    Instant now = Instant.parse("2026-09-08T08:00:00Z");
+    sessionRepository.create(new SessionRecord(
+      "image-session", "Image story", now, now, now, now.plusSeconds(3600), false
+    ), SessionPrompts.empty());
+    byte[] content = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+
+    StoryTurnRecord turn = storyRepository.appendTurn(
+      "image-session", "Describe this", "An image", new StoryImage("image/png", content), now
+    );
+
+    List<StoryMessageRecord> messages = storyRepository.loadMessagesBefore(
+      "image-session", Integer.MAX_VALUE, 2
+    );
+    assertTrue(messages.getFirst().hasImage());
+    assertFalse(messages.getLast().hasImage());
+    assertEquals(new StoryImage("image/png", content), storyRepository.loadImage(
+      "image-session", turn.userMessageIndex()
+    ).orElseThrow());
+    assertTrue(storyRepository.loadRecentMessages("image-session", 2).getFirst().imageDataUrl()
+      .startsWith("data:image/png;base64,"));
   }
 }

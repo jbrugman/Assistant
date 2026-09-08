@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import nl.llm.storyteller.api.persistence.SessionRecord;
 import nl.llm.storyteller.api.persistence.SessionPrompts;
+import nl.llm.storyteller.api.persistence.StoryImage;
 import nl.llm.storyteller.core.JsonSupport;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
@@ -31,6 +32,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
@@ -52,6 +55,7 @@ public final class SessionBundleService {
   private static final int BUFFER_SIZE = 8192;
   private static final String MEMORY_DIRECTORY = "memory/";
   private static final String SYSTEM_PROMPTS_DIRECTORY = "systemprompts/";
+  private static final String IMAGE_DIRECTORY = MEMORY_DIRECTORY + "images/";
   private static final String MACOS_METADATA_DIRECTORY = "__MACOSX/";
   private static final String MACOS_FINDER_METADATA = ".DS_Store";
   private static final String MACOS_APPLE_DOUBLE_PREFIX = "._";
@@ -67,12 +71,12 @@ public final class SessionBundleService {
   private static final String TURN_STATE = "turn-state.json";
   private static final String KNOWLEDGE_GRAPH = "knowledge-graph.json";
   private static final String SYSTEM_PROMPT = SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.SYSTEM_PROMPT_NAME;
-  private static final String FIXED_PROTAGONISTS =
-    SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.FIXED_PROTAGONISTS_NAME;
+  private static final String FIXED_PROTAGONISTS = SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.FIXED_PROTAGONISTS_NAME;
   private static final String RULES = SYSTEM_PROMPTS_DIRECTORY + SessionPrompts.RULES_NAME;
   private static final String MESSAGES = "messages";
   private static final String ROLE = "role";
   private static final String CONTENT = "content";
+  private static final String IMAGE = "image";
   private static final String SUMMARY_CURSOR = "summary_cursor";
   private static final String RECENT_SUMMARY_CURSOR = "recent_summary_cursor";
   private static final String CANONICAL_STATE_CURSOR = "canonical_state_cursor";
@@ -82,6 +86,9 @@ public final class SessionBundleService {
   private static final Set<String> ALLOWED_ENTRIES = Set.of(
     MANIFEST, HISTORY, SUMMARY, RECENT_SUMMARY, CANONICAL_STATE, TURN_STATE, KNOWLEDGE_GRAPH,
     SYSTEM_PROMPT, FIXED_PROTAGONISTS, RULES
+  );
+  private static final Pattern IMAGE_ENTRY_PATTERN = Pattern.compile(
+    "memory/images/(\\d+)\\.(png|jpg|gif|webp)"
   );
   private static final ObjectWriter PRETTY_JSON = JsonSupport.OBJECT_MAPPER.writerWithDefaultPrettyPrinter();
 
@@ -147,7 +154,7 @@ public final class SessionBundleService {
     if (historyBytes == null) {
       throw new IllegalArgumentException("Session ZIP is missing history.json.");
     }
-    HistoryState history = parseHistory(text(historyBytes, HISTORY));
+    HistoryState history = parseHistory(text(historyBytes, HISTORY), entries);
     KnowledgeGraphDocument graph = parseGraph(entries.get(KNOWLEDGE_GRAPH));
     SessionBundle bundle = new SessionBundle(
       history,
@@ -187,10 +194,11 @@ public final class SessionBundleService {
     if (name.startsWith(MACOS_METADATA_DIRECTORY)) {
       return null;
     }
-    if (entry.isDirectory() && (MEMORY_DIRECTORY.equals(name) || SYSTEM_PROMPTS_DIRECTORY.equals(name))) {
+    if (entry.isDirectory() && (MEMORY_DIRECTORY.equals(name) || IMAGE_DIRECTORY.equals(name)
+      || SYSTEM_PROMPTS_DIRECTORY.equals(name))) {
       return null;
     }
-    if (name.startsWith(MEMORY_DIRECTORY)) {
+    if (name.startsWith(MEMORY_DIRECTORY) && !name.startsWith(IMAGE_DIRECTORY)) {
       name = name.substring(MEMORY_DIRECTORY.length());
     }
     if (MACOS_FINDER_METADATA.equals(name) || name.startsWith(MACOS_APPLE_DOUBLE_PREFIX)) {
@@ -198,14 +206,14 @@ public final class SessionBundleService {
     }
     boolean promptEntry = name.startsWith(SYSTEM_PROMPTS_DIRECTORY);
     if (name.isBlank() || name.contains("\\") || name.contains("..")
-      || (name.contains("/") && !promptEntry)) {
+      || (name.contains("/") && !promptEntry && isNotImageEntry(name))) {
       throw new IllegalArgumentException("Unsafe session ZIP entry: " + entry.getName());
     }
     return name;
   }
 
   private void validateEntry(ZipEntry entry, String name, Map<String, byte[]> entries) {
-    if (entry.isDirectory() || !ALLOWED_ENTRIES.contains(name)) {
+    if (entry.isDirectory() || (!ALLOWED_ENTRIES.contains(name) && isNotImageEntry(name))) {
       throw new IllegalArgumentException("Unsupported session ZIP entry: " + name);
     }
     if (entries.containsKey(name)) {
@@ -229,7 +237,7 @@ public final class SessionBundleService {
     return output.toByteArray();
   }
 
-  private HistoryState parseHistory(String json) {
+  private HistoryState parseHistory(String json, Map<String, byte[]> entries) {
     try {
       JsonNode root = JsonSupport.OBJECT_MAPPER.readTree(json);
       JsonNode messagesNode = root.get(MESSAGES);
@@ -241,7 +249,7 @@ public final class SessionBundleService {
       }
       List<Message> messages = new ArrayList<>();
       for (JsonNode node : messagesNode) {
-        messages.add(readMessage(node, messages.size()));
+        messages.add(readMessage(node, messages.size(), entries));
       }
       validateTurns(messages);
       int summaryCursor = cursor(root, SUMMARY_CURSOR, messages.size());
@@ -253,7 +261,7 @@ public final class SessionBundleService {
     }
   }
 
-  private Message readMessage(JsonNode node, int index) {
+  private Message readMessage(JsonNode node, int index, Map<String, byte[]> entries) {
     if (!node.isObject() || !node.path(ROLE).isTextual() || !node.path(CONTENT).isTextual()) {
       throw new IllegalArgumentException("Invalid message at index " + index + " in history.json.");
     }
@@ -263,7 +271,19 @@ public final class SessionBundleService {
         "Message at index " + index + " exceeds " + MAX_TEXT_LENGTH + " characters."
       );
     }
-    return new Message(node.path(ROLE).textValue(), content);
+    JsonNode image = node.get(IMAGE);
+    if (image == null || image.isNull()) {
+      return new Message(node.path(ROLE).textValue(), content);
+    }
+    if (!image.isTextual() || isNotImageEntryForMessage(image.textValue(), index)) {
+      throw new IllegalArgumentException("Invalid image at message index " + index + " in history.json.");
+    }
+    byte[] imageContent = entries.get(image.textValue());
+    if (imageContent == null) {
+      throw new IllegalArgumentException("Missing session image: " + image.textValue());
+    }
+    StoryImage storyImage = new StoryImage(mediaType(image.textValue()), imageContent);
+    return Message.withImage(node.path(ROLE).textValue(), content, storyImage.dataUrl());
   }
 
   private void validateTurns(List<Message> messages) {
@@ -364,6 +384,7 @@ public final class SessionBundleService {
     try (ZipOutputStream zip = new ZipOutputStream(output, StandardCharsets.UTF_8)) {
       writeEntry(zip, MANIFEST, manifestJson(title));
       writeEntry(zip, HISTORY, historyJson(bundle.history()));
+      writeImages(zip, bundle.history());
       writeOptionalEntry(zip, SUMMARY, bundle.summary());
       writeOptionalEntry(zip, RECENT_SUMMARY, bundle.recentSummary());
       writeOptionalEntry(zip, CANONICAL_STATE, bundle.canonicalState());
@@ -414,15 +435,65 @@ public final class SessionBundleService {
   private String historyJson(HistoryState history) throws JsonProcessingException {
     ObjectNode root = JsonSupport.OBJECT_MAPPER.createObjectNode();
     var messages = root.putArray(MESSAGES);
-    for (Message message : history.messages()) {
+    for (int index = 0; index < history.messages().size(); index++) {
+      Message message = history.messages().get(index);
       ObjectNode node = messages.addObject();
       node.put(ROLE, message.role());
       node.put(CONTENT, message.content());
+      if (!message.imageDataUrl().isBlank()) {
+        node.put(IMAGE, imageEntry(index, StoryImage.fromDataUrl(message.imageDataUrl()).mediaType()));
+      }
     }
     root.put(SUMMARY_CURSOR, history.summaryCursor());
     root.put(RECENT_SUMMARY_CURSOR, history.recentSummaryCursor());
     root.put(CANONICAL_STATE_CURSOR, history.canonicalStateCursor());
     return prettyJson(root);
+  }
+
+  private void writeImages(ZipOutputStream zip, HistoryState history) throws IOException {
+    for (int index = 0; index < history.messages().size(); index++) {
+      Message message = history.messages().get(index);
+      if (!message.imageDataUrl().isBlank()) {
+        StoryImage image = StoryImage.fromDataUrl(message.imageDataUrl());
+        writeEntry(zip, imageEntry(index, image.mediaType()), image.content());
+      }
+    }
+  }
+
+  private String imageEntry(int messageIndex, String mediaType) {
+    return IMAGE_DIRECTORY + "%03d".formatted(messageIndex) + extension(mediaType);
+  }
+
+  private String extension(String mediaType) {
+    return switch (mediaType) {
+      case "image/png" -> ".png";
+      case "image/jpeg" -> ".jpg";
+      case "image/gif" -> ".gif";
+      case "image/webp" -> ".webp";
+      default -> throw new IllegalArgumentException("Unsupported image media type: " + mediaType);
+    };
+  }
+
+  private String mediaType(String imageEntry) {
+    if (imageEntry.endsWith(".png")) {
+      return "image/png";
+    }
+    if (imageEntry.endsWith(".jpg")) {
+      return "image/jpeg";
+    }
+    if (imageEntry.endsWith(".gif")) {
+      return "image/gif";
+    }
+    return "image/webp";
+  }
+
+  private boolean isNotImageEntry(String name) {
+    return !IMAGE_ENTRY_PATTERN.matcher(name).matches();
+  }
+
+  private boolean isNotImageEntryForMessage(String name, int messageIndex) {
+    Matcher matcher = IMAGE_ENTRY_PATTERN.matcher(name);
+    return !matcher.matches() || Integer.parseInt(matcher.group(1)) != messageIndex;
   }
 
   private String turnStateJson(TurnState state) throws JsonProcessingException {
@@ -440,8 +511,12 @@ public final class SessionBundleService {
   }
 
   private void writeEntry(ZipOutputStream zip, String name, String content) throws IOException {
+    writeEntry(zip, name, content.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private void writeEntry(ZipOutputStream zip, String name, byte[] content) throws IOException {
     zip.putNextEntry(new ZipEntry(name));
-    zip.write(content.getBytes(StandardCharsets.UTF_8));
+    zip.write(content);
     zip.closeEntry();
   }
 

@@ -10,6 +10,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -22,6 +24,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -199,17 +203,27 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
+    byte[] png = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+    String boundary = "storyteller-test-boundary";
     HttpResponse<String> submitted = client.send(
       HttpRequest.newBuilder(uri("/story/turns"))
-        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Content-Type", "multipart/form-data; boundary=" + boundary)
         .header("Cookie", cookiePair)
-        .POST(HttpRequest.BodyPublishers.ofString("prompt=Open+the+door"))
+        .POST(HttpRequest.BodyPublishers.ofByteArray(multipartTurn(boundary, "Open the door", png)))
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
     HttpResponse<String> story = client.send(
       HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
       HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<byte[]> storedImage = client.send(
+      HttpRequest.newBuilder(uri("/story/images/0")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofByteArray()
+    );
+    HttpResponse<byte[]> exported = client.send(
+      HttpRequest.newBuilder(uri("/export")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofByteArray()
     );
 
     assertEquals(200, start.statusCode());
@@ -227,6 +241,15 @@ class ApiServerTest {
     assertTrue(story.body().contains("The Library"));
     assertTrue(story.body().contains("Open the door"));
     assertTrue(story.body().contains("A door opens in the old library."));
+    assertTrue(story.body().contains("class=\"prompt-thumbnail\""));
+    assertTrue(story.body().contains("href=\"/story/images/0\""));
+    assertTrue(story.body().contains("id=\"image-lightbox\""));
+    assertTrue(story.body().contains("const closeImageLightbox"));
+    assertFalse(story.body().contains("target=\"_blank\""));
+    assertEquals(200, storedImage.statusCode());
+    assertEquals("image/png", storedImage.headers().firstValue("Content-Type").orElseThrow());
+    assertTrue(java.util.Arrays.equals(png, storedImage.body()));
+    assertTrue(java.util.Arrays.equals(png, archiveEntry(exported.body(), "memory/images/000.png")));
     assertTrue(story.body().contains("class=\"exchange\""));
     assertTrue(story.body().contains("conversation.scrollTop = latestTop"));
     assertTrue(story.body().contains("response-width-toggle"));
@@ -241,9 +264,13 @@ class ApiServerTest {
     assertTrue(story.body().contains("permanently deleted"));
     assertTrue(story.body().contains("Infinite"));
     assertTrue(story.body().contains("Settings"));
+    assertTrue(story.body().contains("prompt.addEventListener(\"paste\""));
+    assertTrue(story.body().contains("name=\"image\""));
+    assertFalse(story.body().contains("imageInput.disabled = true"));
     String modelSystemPrompt = storyClient.requests().getFirst().getFirst().content();
     assertTrue(modelSystemPrompt.contains("Edited system"));
     assertTrue(modelSystemPrompt.contains("Edited protagonists"));
+    assertTrue(storyClient.requests().getFirst().getLast().imageDataUrl().startsWith("data:image/png;base64,"));
     String validationRequest = validationClient.requests().getFirst().getLast().content();
     assertTrue(validationRequest.contains("Edited rules"));
     assertTrue(validationRequest.contains("Edited protagonists"));
@@ -305,6 +332,31 @@ class ApiServerTest {
 
   private String encode(String value) {
     return URLEncoder.encode(value, StandardCharsets.UTF_8);
+  }
+
+  private byte[] multipartTurn(String boundary, String prompt, byte[] image) throws Exception {
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    body.write(("--" + boundary + "\r\n"
+      + "Content-Disposition: form-data; name=\"prompt\"\r\n\r\n"
+      + prompt + "\r\n"
+      + "--" + boundary + "\r\n"
+      + "Content-Disposition: form-data; name=\"image\"; filename=\"clipboard.png\"\r\n"
+      + "Content-Type: image/png\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+    body.write(image);
+    body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+    return body.toByteArray();
+  }
+
+  private byte[] archiveEntry(byte[] archive, String expectedName) throws Exception {
+    try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archive), StandardCharsets.UTF_8)) {
+      ZipEntry entry;
+      while ((entry = zip.getNextEntry()) != null) {
+        if (expectedName.equals(entry.getName())) {
+          return zip.readAllBytes();
+        }
+      }
+    }
+    return new byte[0];
   }
 
   private HttpResponse<String> submitTurn(HttpClient client, String sessionId, String prompt) throws Exception {

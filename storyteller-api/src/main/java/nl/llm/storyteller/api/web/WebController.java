@@ -8,6 +8,7 @@ import io.javalin.http.UploadedFile;
 import nl.llm.storyteller.api.bundle.SessionBundleService;
 import nl.llm.storyteller.api.persistence.SessionRecord;
 import nl.llm.storyteller.api.persistence.SessionPrompts;
+import nl.llm.storyteller.api.persistence.StoryImage;
 import nl.llm.storyteller.api.persistence.StoryRepository;
 import nl.llm.storyteller.api.session.InvalidFixedProtagonistsException;
 import nl.llm.storyteller.api.session.SessionCookieService;
@@ -51,6 +52,7 @@ public final class WebController {
     config.routes.get("/export", this::exportSession);
     config.routes.get("/story", this::story);
     config.routes.get("/story/history", this::storyHistory);
+    config.routes.get("/story/images/{messageIndex}", this::storyImage);
     config.routes.get("/story/settings", this::settings);
     config.routes.post("/story/settings", this::saveSettings);
     config.routes.post("/story/turns", this::createTurn);
@@ -138,6 +140,23 @@ public final class WebController {
     context.render("story-exchanges.jte", Map.of("exchanges", page.exchanges()));
   }
 
+  private void storyImage(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      context.status(HttpStatus.NOT_FOUND);
+      return;
+    }
+    int messageIndex = parseMessageIndex(context.pathParam("messageIndex"));
+    Optional<StoryImage> image = storyRepository.loadImage(session.get().sessionId(), messageIndex);
+    if (image.isEmpty()) {
+      context.status(HttpStatus.NOT_FOUND);
+      return;
+    }
+    context.header("Cache-Control", "private, no-store");
+    context.contentType(image.get().mediaType());
+    context.result(image.get().content());
+  }
+
   private void settings(Context context) {
     Optional<SessionRecord> session = activeSession(context);
     if (session.isEmpty()) {
@@ -187,13 +206,28 @@ public final class WebController {
     }
   }
 
+  private int parseMessageIndex(String value) {
+    try {
+      int messageIndex = Integer.parseInt(value);
+      if (messageIndex < 0) {
+        throw new NumberFormatException();
+      }
+      return messageIndex;
+    } catch (NumberFormatException ex) {
+      throw new IllegalArgumentException("Message index must be zero or greater.", ex);
+    }
+  }
+
   private void createTurn(Context context) throws IOException, InterruptedException {
     Optional<SessionRecord> session = activeSession(context);
     if (session.isEmpty()) {
       redirectToStart(context);
       return;
     }
-    storyTurnService.execute(session.get().sessionId(), context.formParam("prompt"));
+    context.multipartConfig().maxFileSize(StoryImageUpload.MAX_BYTES, SizeUnit.BYTES);
+    context.multipartConfig().maxTotalRequestSize(StoryImageUpload.MAX_BYTES + 1024 * 1024, SizeUnit.BYTES);
+    StoryImage image = StoryImageUpload.read(context.uploadedFile("image"));
+    storyTurnService.execute(session.get().sessionId(), context.formParam("prompt"), image);
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.redirect("/story", HttpStatus.SEE_OTHER);
   }

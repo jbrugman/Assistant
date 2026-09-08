@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SchemaInitializerTest {
   private static final Set<String> EXPECTED_TABLES = Set.of(
@@ -45,6 +46,29 @@ class SchemaInitializerTest {
     initializer.initialize();
 
     assertEquals(EXPECTED_TABLES, storytellerTables(database));
+    assertTrue(hasColumn(database, "STORY_MESSAGE", "IMAGE_MEDIA_TYPE"));
+    assertTrue(hasColumn(database, "STORY_MESSAGE", "IMAGE_CONTENT"));
+  }
+
+  @Test
+  @DisplayName("""
+    Given an existing API schema without image columns,
+    When the schema is initialized,
+    Then the additive image-storage upgrade should be applied
+    """)
+  void shouldAddImageColumnsToExistingSchema() throws Exception {
+    Database database = database();
+    SchemaInitializer initializer = new SchemaInitializer(database);
+    initializer.initialize();
+    try (Connection connection = database.openConnection(); var statement = connection.createStatement()) {
+      statement.execute("ALTER TABLE story_message DROP COLUMN image_media_type");
+      statement.execute("ALTER TABLE story_message DROP COLUMN image_content");
+    }
+
+    initializer.initialize();
+
+    assertTrue(hasColumn(database, "STORY_MESSAGE", "IMAGE_MEDIA_TYPE"));
+    assertTrue(hasColumn(database, "STORY_MESSAGE", "IMAGE_CONTENT"));
   }
 
   private Database database() {
@@ -63,5 +87,12 @@ class SchemaInitializerTest {
       }
     }
     return tables;
+  }
+
+  private boolean hasColumn(Database database, String table, String column) throws Exception {
+    try (Connection connection = database.openConnection();
+         ResultSet resultSet = connection.getMetaData().getColumns(null, null, table, column)) {
+      return resultSet.next();
+    }
   }
 }

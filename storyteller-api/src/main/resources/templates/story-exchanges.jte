@@ -6,6 +6,13 @@
   <article class="exchange" data-message-index="${exchange.messageIndex()}">
     <div class="exchange-prompt">
       <p class="message-role">Prompt</p>
+      @if(exchange.hasImage())
+        <a class="prompt-image-link" href="/story/images/${exchange.messageIndex()}"
+           aria-label="Show the full image supplied with this prompt">
+          <img class="prompt-thumbnail" src="/story/images/${exchange.messageIndex()}"
+               alt="Image supplied with this prompt" title="Show full image">
+        </a>
+      @endif
       <div class="message-content">${exchange.prompt()}</div>
     </div>
     <div class="exchange-response">

@@ -54,6 +54,13 @@
           <article class="exchange" data-message-index="${exchange.messageIndex()}">
             <div class="exchange-prompt">
               <p class="message-role">Prompt</p>
+              @if(exchange.hasImage())
+                <a class="prompt-image-link" href="/story/images/${exchange.messageIndex()}"
+                   aria-label="Show the full image supplied with this prompt">
+                  <img class="prompt-thumbnail" src="/story/images/${exchange.messageIndex()}"
+                       alt="Image supplied with this prompt" title="Show full image">
+                </a>
+              @endif
               <div class="message-content">${exchange.prompt()}</div>
             </div>
             <div class="exchange-response">
@@ -64,10 +71,17 @@
         @endfor
       </section>
 
-      <form id="composer" method="post" action="/story/turns" class="composer">
+      <form id="composer" method="post" action="/story/turns" enctype="multipart/form-data" class="composer">
         <label for="prompt">What happens next?</label>
         <textarea id="prompt" name="prompt" rows="3" maxlength="100000" required autofocus></textarea>
+        <div id="image-preview" class="image-preview" hidden>
+          <img id="image-preview-thumbnail" alt="Image ready to send">
+          <span id="image-preview-name"></span>
+          <button id="remove-image" type="button" class="remove-image">Remove</button>
+        </div>
         <div class="composer-actions">
+          <label class="image-picker" for="image">Add image</label>
+          <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
           <button id="undo-story" type="submit" formaction="/story/undo" formnovalidate
                   class="undo-story"
                   data-undo-available="${page.exchanges().isEmpty() ? "false" : "true"}">Undo</button>
@@ -75,8 +89,48 @@
         </div>
       </form>
     </main>
+    <div id="image-lightbox" class="image-lightbox" role="dialog" aria-modal="true"
+         aria-label="Prompt image" hidden>
+      <div class="image-lightbox-content">
+        <button id="image-lightbox-close" class="image-lightbox-close" type="button"
+                aria-label="Close full image">Close</button>
+        <img id="image-lightbox-image" alt="Full image supplied with this prompt">
+      </div>
+    </div>
     <script>
       const conversation = document.getElementById("conversation");
+      const imageLightbox = document.getElementById("image-lightbox");
+      const imageLightboxImage = document.getElementById("image-lightbox-image");
+      const imageLightboxClose = document.getElementById("image-lightbox-close");
+      let openedImageLink = null;
+      const closeImageLightbox = () => {
+        imageLightbox.hidden = true;
+        imageLightboxImage.removeAttribute("src");
+        openedImageLink?.focus();
+        openedImageLink = null;
+      };
+      conversation.addEventListener("click", event => {
+        const imageLink = event.target.closest(".prompt-image-link");
+        if (!imageLink) {
+          return;
+        }
+        event.preventDefault();
+        openedImageLink = imageLink;
+        imageLightboxImage.src = imageLink.href;
+        imageLightbox.hidden = false;
+        imageLightboxClose.focus();
+      });
+      imageLightboxClose.addEventListener("click", closeImageLightbox);
+      imageLightbox.addEventListener("click", event => {
+        if (event.target === imageLightbox) {
+          closeImageLightbox();
+        }
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !imageLightbox.hidden) {
+          closeImageLightbox();
+        }
+      });
       const latestExchange = conversation.querySelector(".exchange:last-child");
       const heading = conversation.querySelector(".conversation-heading");
       const scrollToLatestExchange = () => {
@@ -139,8 +193,50 @@
       const prompt = document.getElementById("prompt");
       const continueButton = document.getElementById("continue-story");
       const undoButton = document.getElementById("undo-story");
+      const imageInput = document.getElementById("image");
+      const imagePreview = document.getElementById("image-preview");
+      const imagePreviewThumbnail = document.getElementById("image-preview-thumbnail");
+      const imagePreviewName = document.getElementById("image-preview-name");
+      const removeImage = document.getElementById("remove-image");
+      const imagePicker = document.querySelector(".image-picker");
       undoButton.disabled = undoButton.dataset.undoAvailable !== "true";
       let submitting = false;
+
+      const showImage = file => {
+        if (!file || !file.type.startsWith("image/")) {
+          return;
+        }
+        imagePreviewThumbnail.src = URL.createObjectURL(file);
+        imagePreviewName.textContent = file.name || "Pasted image";
+        imagePreview.hidden = false;
+      };
+
+      imageInput.addEventListener("change", () => showImage(imageInput.files[0]));
+      imagePicker.addEventListener("click", event => {
+        if (submitting) {
+          event.preventDefault();
+        }
+      });
+      removeImage.addEventListener("click", () => {
+        imageInput.value = "";
+        imagePreviewThumbnail.removeAttribute("src");
+        imagePreview.hidden = true;
+        prompt.focus();
+      });
+
+      prompt.addEventListener("paste", event => {
+        const imageItem = Array.from(event.clipboardData?.items || [])
+          .find(item => item.kind === "file" && item.type.startsWith("image/"));
+        if (!imageItem) {
+          return;
+        }
+        const file = imageItem.getAsFile();
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        imageInput.files = transfer.files;
+        showImage(file);
+        event.preventDefault();
+      });
 
       composer.addEventListener("submit", event => {
         if (submitting) {
@@ -150,6 +246,8 @@
         submitting = true;
         composer.setAttribute("aria-busy", "true");
         prompt.readOnly = true;
+        imagePicker.setAttribute("aria-disabled", "true");
+        removeImage.disabled = true;
         continueButton.disabled = true;
         undoButton.disabled = true;
         if (event.submitter === continueButton) {

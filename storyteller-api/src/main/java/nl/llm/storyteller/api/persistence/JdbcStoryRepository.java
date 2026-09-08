@@ -10,10 +10,12 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static nl.llm.storyteller.api.persistence.StoryQueries.INSERT_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.DELETE_MESSAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_LAST_MESSAGE_INDEX;
+import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_IMAGE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_MESSAGES_BEFORE;
 import static nl.llm.storyteller.api.persistence.StoryQueries.SELECT_RECENT_MESSAGES;
 import static nl.llm.storyteller.api.persistence.StoryQueries.UPDATE_SESSION_AFTER_TURN;
@@ -22,6 +24,8 @@ public final class JdbcStoryRepository implements StoryRepository {
   private static final String MESSAGE_INDEX = "message_index";
   private static final String MESSAGE_ROLE = "message_role";
   private static final String CONTENT = "content";
+  private static final String IMAGE_MEDIA_TYPE = "image_media_type";
+  private static final String IMAGE_CONTENT = "image_content";
   private static final String LAST_MESSAGE_INDEX = "last_message_index";
   private static final String USER = "user";
   private static final String ASSISTANT = "assistant";
@@ -65,7 +69,8 @@ public final class JdbcStoryRepository implements StoryRepository {
           messages.add(new StoryMessageRecord(
             resultSet.getInt(MESSAGE_INDEX),
             resultSet.getString(MESSAGE_ROLE),
-            resultSet.getString(CONTENT)
+            resultSet.getString(CONTENT),
+            resultSet.getBytes(IMAGE_CONTENT) != null
           ));
         }
         return List.copyOf(messages.reversed());
@@ -75,10 +80,37 @@ public final class JdbcStoryRepository implements StoryRepository {
     }
   }
 
+  @Override
+  public Optional<StoryImage> loadImage(String sessionId, int messageIndex) {
+    try (Connection connection = database.openConnection();
+         PreparedStatement statement = connection.prepareStatement(SELECT_IMAGE)) {
+      statement.setString(1, sessionId);
+      statement.setInt(2, messageIndex);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (!resultSet.next()) {
+          return Optional.empty();
+        }
+        String mediaType = resultSet.getString(IMAGE_MEDIA_TYPE);
+        byte[] content = resultSet.getBytes(IMAGE_CONTENT);
+        return content == null || mediaType == null
+          ? Optional.empty()
+          : Optional.of(new StoryImage(mediaType, content));
+      }
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not load story image for session " + sessionId + ".", ex);
+    }
+  }
+
   private List<Message> readMessages(ResultSet resultSet) throws SQLException {
     List<Message> messages = new ArrayList<>();
     while (resultSet.next()) {
-      messages.add(new Message(resultSet.getString(MESSAGE_ROLE), resultSet.getString(CONTENT)));
+      String role = resultSet.getString(MESSAGE_ROLE);
+      String content = resultSet.getString(CONTENT);
+      String mediaType = resultSet.getString(IMAGE_MEDIA_TYPE);
+      byte[] imageContent = resultSet.getBytes(IMAGE_CONTENT);
+      messages.add(imageContent == null || mediaType == null
+        ? new Message(role, content)
+        : Message.withImage(role, content, new StoryImage(mediaType, imageContent).dataUrl()));
     }
     return List.copyOf(messages);
   }
@@ -88,11 +120,12 @@ public final class JdbcStoryRepository implements StoryRepository {
     String sessionId,
     String userInput,
     String assistantResponse,
+    StoryImage image,
     Instant updatedAt
   ) {
     try (Connection connection = database.openConnection()) {
       connection.setAutoCommit(false);
-      return appendInTransaction(connection, sessionId, userInput, assistantResponse, updatedAt);
+      return appendInTransaction(connection, sessionId, userInput, assistantResponse, image, updatedAt);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not append story turn for session " + sessionId + ".", ex);
     }
@@ -158,13 +191,14 @@ public final class JdbcStoryRepository implements StoryRepository {
     String sessionId,
     String userInput,
     String assistantResponse,
+    StoryImage image,
     Instant updatedAt
   ) throws SQLException {
     try {
       int userMessageIndex = nextMessageIndex(connection, sessionId);
-      insertMessage(connection, sessionId, userMessageIndex, USER, userInput);
+      insertMessage(connection, sessionId, userMessageIndex, USER, userInput, image);
       int assistantMessageIndex = userMessageIndex + 1;
-      insertMessage(connection, sessionId, assistantMessageIndex, ASSISTANT, assistantResponse);
+      insertMessage(connection, sessionId, assistantMessageIndex, ASSISTANT, assistantResponse, null);
       updateSession(connection, sessionId, updatedAt);
       connection.commit();
       return new StoryTurnRecord(userMessageIndex, assistantMessageIndex);
@@ -190,13 +224,21 @@ public final class JdbcStoryRepository implements StoryRepository {
     String sessionId,
     int messageIndex,
     String role,
-    String content
+    String content,
+    StoryImage image
   ) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(INSERT_MESSAGE)) {
       statement.setString(1, sessionId);
       statement.setInt(2, messageIndex);
       statement.setString(3, role);
       statement.setString(4, content);
+      if (image == null) {
+        statement.setNull(5, java.sql.Types.VARCHAR);
+        statement.setNull(6, java.sql.Types.BLOB);
+      } else {
+        statement.setString(5, image.mediaType());
+        statement.setBytes(6, image.content());
+      }
       statement.executeUpdate();
     }
   }

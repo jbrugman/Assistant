@@ -3,6 +3,7 @@ package nl.llm.storyteller.api.story;
 import nl.llm.storyteller.api.persistence.SessionPromptRepository;
 import nl.llm.storyteller.api.persistence.SessionPrompts;
 import nl.llm.storyteller.api.persistence.StoryRepository;
+import nl.llm.storyteller.api.persistence.StoryImage;
 import nl.llm.storyteller.api.persistence.StoryTurnRecord;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.model.StoryChatPromptInput;
@@ -16,6 +17,9 @@ import nl.llm.storyteller.core.service.ValidationPromptBuilder;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
+import nl.llm.storyteller.core.model.Message;
 
 import static nl.llm.storyteller.api.input.TextInputNormalizer.requiredMultiline;
 
@@ -63,23 +67,35 @@ public final class StoryTurnService {
 
   public synchronized StoryTurnResult execute(String sessionId, String prompt)
     throws IOException, InterruptedException {
+    return execute(sessionId, prompt, null);
+  }
+
+  public synchronized StoryTurnResult execute(String sessionId, String prompt, StoryImage image)
+    throws IOException, InterruptedException {
     String userInput = normalizePrompt(prompt);
     SessionPrompts prompts = promptRepository.load(sessionId);
     var recentMessages = repository.loadRecentMessages(sessionId, config.maxRecentTurns() * 2);
+    List<Message> messages = new ArrayList<>(storyPromptBuilder.build(new StoryChatPromptInput(
+      userInput, "", "", "", "", recentMessages, ""
+    ), prompts.systemPrompt(), prompts.fixedProtagonists()));
+    if (image != null) {
+      Message userMessage = messages.getLast();
+      messages.set(messages.size() - 1, Message.withImage(
+        userMessage.role(), userMessage.content(), image.dataUrl()
+      ));
+    }
     String draftResponse = chatClient.chat(
-      storyPromptBuilder.build(new StoryChatPromptInput(
-        userInput, "", "", "", "", recentMessages, ""
-      ), prompts.systemPrompt(), prompts.fixedProtagonists()),
+      messages,
       config.chatOptions(),
       config.requestTimeoutSeconds()
     );
     String response = validate(userInput, draftResponse, prompts);
-    StoryTurnRecord stored = repository.appendTurn(sessionId, userInput, response, clock.instant());
+    StoryTurnRecord stored = repository.appendTurn(sessionId, userInput, response, image, clock.instant());
     return new StoryTurnResult(stored.userMessageIndex(), stored.assistantMessageIndex(), response);
   }
 
-  public synchronized boolean undoLastTurn(String sessionId) {
-    return repository.undoLastTurn(sessionId, clock.instant());
+  public synchronized void undoLastTurn(String sessionId) {
+    repository.undoLastTurn(sessionId, clock.instant());
   }
 
   private String validate(String userInput, String draftResponse, SessionPrompts prompts)
