@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.1-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.2-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.1-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.2-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.1`.
+The local default build version is `2.0.2`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.1-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.2-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -351,7 +351,7 @@ longer updated as live CLI state. Session ZIP and Markdown files remain explicit
 `graph.generation.transport` controls only the shared memory client used for long-term and recent history,
 canonical-state generation, manual `/graph -fill`, and automatic turn-based graph extraction. `lmstudio-native`
 derives `/api/v1/chat` and `/api/v1/models` from `memory.http.url` (or its `backend.http.url` fallback), sends
-`reasoning: "off"` and `store: false`, and discovers the single loaded model when `memory.chat` is empty.
+`reasoning: "off"` and `store: false`, and discovers the single loaded model when `memory.http.model` is empty.
 `openai-compatible` uses the configured chat-completions URL, but cannot portably guarantee that reasoning is disabled.
 Normal story generation and validation always use the OpenAI-compatible backend through `backend.http.*` and are not
 affected by this setting.
@@ -597,6 +597,9 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.2
+- Corrected the memory model configuration key from `memory.chat` to `memory.http.model`.
 
 ### 2.0.1
 - Added optional `memory.chat`, `memory.http.url`, and `memory.http.apikey` settings for the shared background-memory

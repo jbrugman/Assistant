@@ -194,12 +194,12 @@ public final class ApiServer implements AutoCloseable {
   private static ChatClient derivedStateClient(AppConfig config) {
     if ("lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport())) {
       return new LmStudioNativeChatClient(
-        config.memoryHttpUrl(), config.memoryChatModel(), config.memoryHttpApiKey(),
+        config.memoryHttpUrl(), config.memoryHttpModel(), config.memoryHttpApiKey(),
         nl.llm.storyteller.core.service.ChatRequestMetrics.NONE
       );
     }
     return new OpenAiCompatibleHttpClient(
-      config.memoryHttpUrl(), config.memoryChatModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey()
+      config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey()
     );
   }
 

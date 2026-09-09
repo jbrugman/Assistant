@@ -202,10 +202,10 @@ public final class AppConfig {
     return effectiveRequestModel(modelAccess.validatorModel());
   }
 
-  public String memoryChatModel() {
-    String configuredModel = modelAccess.memoryChatModel().isBlank()
+  public String memoryHttpModel() {
+    String configuredModel = modelAccess.memoryHttpModel().isBlank()
       ? modelAccess.chatModel()
-      : modelAccess.memoryChatModel();
+      : modelAccess.memoryHttpModel();
     return effectiveRequestModel(configuredModel);
   }
 
@@ -497,7 +497,7 @@ public final class AppConfig {
         source.optionalTrimmedString("backend.http.apiKey"),
         source.optionalTrimmedString("model.chat"),
         source.optionalTrimmedString("model.validator"),
-        source.optionalTrimmedString("memory.chat"),
+        source.optionalTrimmedString("memory.http.model"),
         source.optionalTrimmedString("memory.http.url"),
         source.optionalTrimmedString("memory.http.apikey"),
         source.optionalTrimmedString("backend.llama.command"),
@@ -641,7 +641,7 @@ public final class AppConfig {
     String openAiCompatibleApiKey,
     String chatModel,
     String validatorModel,
-    String memoryChatModel,
+    String memoryHttpModel,
     String memoryHttpUrl,
     String memoryHttpApiKey,
     String llamaServerCommand,

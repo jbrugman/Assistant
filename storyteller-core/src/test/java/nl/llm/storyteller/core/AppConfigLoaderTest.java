@@ -183,7 +183,7 @@ class AppConfigLoaderTest {
 
         assertEquals("http://main.test/v1/chat/completions", fallback.memoryHttpUrl());
         assertEquals("main-key", fallback.memoryHttpApiKey());
-        assertEquals("main-model", fallback.memoryChatModel());
+        assertEquals("main-model", fallback.memoryHttpModel());
 
         Files.writeString(configFile, """
             backend.http.url=http://main.test/v1/chat/completions
@@ -191,7 +191,7 @@ class AppConfigLoaderTest {
             model.chat=main-model
             memory.http.url=http://memory.test/v1/chat/completions
             memory.http.apikey=memory-key
-            memory.chat=memory-model
+            memory.http.model=memory-model
             """);
 
         nl.llm.storyteller.core.config.AppConfig overridden =
@@ -199,7 +199,7 @@ class AppConfigLoaderTest {
 
         assertEquals("http://memory.test/v1/chat/completions", overridden.memoryHttpUrl());
         assertEquals("memory-key", overridden.memoryHttpApiKey());
-        assertEquals("memory-model", overridden.memoryChatModel());
+        assertEquals("memory-model", overridden.memoryHttpModel());
         assertEquals("http://main.test/v1/chat/completions", overridden.openAiCompatibleUrl());
         assertEquals("main-key", overridden.openAiCompatibleApiKey());
         assertEquals("main-model", overridden.chatModel());
