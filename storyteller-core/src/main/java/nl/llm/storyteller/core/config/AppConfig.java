@@ -150,6 +150,18 @@ public final class AppConfig {
     return modelAccess.openAiCompatibleApiKey();
   }
 
+  public String memoryHttpUrl() {
+    return modelAccess.memoryHttpUrl().isBlank() ? openAiCompatibleUrl() : modelAccess.memoryHttpUrl();
+  }
+
+  public String memoryHttpApiKey() {
+    return modelAccess.memoryHttpApiKey().isBlank() ? openAiCompatibleApiKey() : modelAccess.memoryHttpApiKey();
+  }
+
+  public boolean hasMemoryHttpUrl() {
+    return !modelAccess.memoryHttpUrl().isBlank();
+  }
+
   public boolean usesManagedLlamaServer() {
     return "managed-llama-server".equalsIgnoreCase(backendType());
   }
@@ -188,6 +200,13 @@ public final class AppConfig {
 
   public String validatorModel() {
     return effectiveRequestModel(modelAccess.validatorModel());
+  }
+
+  public String memoryChatModel() {
+    String configuredModel = modelAccess.memoryChatModel().isBlank()
+      ? modelAccess.chatModel()
+      : modelAccess.memoryChatModel();
+    return effectiveRequestModel(configuredModel);
   }
 
   private String effectiveRequestModel(String configuredModel) {
@@ -478,6 +497,9 @@ public final class AppConfig {
         source.optionalTrimmedString("backend.http.apiKey"),
         source.optionalTrimmedString("model.chat"),
         source.optionalTrimmedString("model.validator"),
+        source.optionalTrimmedString("memory.chat"),
+        source.optionalTrimmedString("memory.http.url"),
+        source.optionalTrimmedString("memory.http.apikey"),
         source.optionalTrimmedString("backend.llama.command"),
         source.optionalPath(),
         source.requiredInt("backend.llama.port"),
@@ -619,6 +641,9 @@ public final class AppConfig {
     String openAiCompatibleApiKey,
     String chatModel,
     String validatorModel,
+    String memoryChatModel,
+    String memoryHttpUrl,
+    String memoryHttpApiKey,
     String llamaServerCommand,
     Path llamaServerModelPath,
     int llamaServerPort,

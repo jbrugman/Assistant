@@ -327,6 +327,7 @@ class ApiServerTest {
     assertEquals(303, infinite.statusCode());
     assertTrue(infinite.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=2147483647"));
     assertTrue(infiniteStory.body().contains("Use timeout"));
+    assertFalse(infiniteStory.body().contains("all stored story data will be permanently deleted"));
     String sessionId = cookiePair.substring(cookiePair.indexOf('=') + 1);
     assertTrue(infiniteStory.body().contains("Resume ID: <code>" + sessionId + "</code>"));
 
@@ -348,14 +349,15 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
-    HttpResponse<String> deletedStory = client.send(
+    HttpResponse<String> retainedInfiniteStory = client.send(
       HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
       HttpResponse.BodyHandlers.ofString()
     );
 
     assertEquals(303, stopped.statusCode());
     assertTrue(stopped.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=0"));
-    assertEquals(303, deletedStory.statusCode());
+    assertEquals(200, retainedInfiniteStory.statusCode());
+    assertTrue(retainedInfiniteStory.body().contains("Resume ID: <code>" + sessionId + "</code>"));
   }
 
   @Test

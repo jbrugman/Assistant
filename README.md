@@ -37,10 +37,10 @@ for these background requests:
 graph.generation.transport=lmstudio-native
 ```
 
-Those requests and validation explicitly send `reasoning: "off"` and `store: false`. Only normal story generation
-retains the configured backend's normal reasoning behavior. When a configured model name is empty, this processing
-selects the single model currently loaded in LM Studio. If multiple models are loaded, configure the relevant model
-explicitly.
+Those memory requests explicitly send `reasoning: "off"` and `store: false`. Main story generation and validation
+continue to use the OpenAI-compatible backend and retain its normal reasoning behavior. When the memory model name is
+empty, this processing selects the single model currently loaded in LM Studio. If multiple models are loaded,
+configure `memory.chat` explicitly.
 
 For a backend without LM Studio's `/api/v1/chat` endpoint, use:
 
@@ -168,8 +168,15 @@ backend.http.url=http://localhost:1234/v1/chat/completions
 backend.http.apiKey=
 model.chat=
 model.validator=
+memory.chat=
+memory.http.url=
+memory.http.apikey=
 ```
 
+The memory settings configure the shared client for long-term and short-term summaries, canonical state, and graph
+generation. Leave them empty to fall back to `model.chat`, `backend.http.url`, and `backend.http.apiKey` respectively.
+`graph.generation.transport` selects the transport for this shared memory client only. Main chat and validation always
+use the OpenAI-compatible client configured through `backend.http.*`, with `model.chat` and `model.validator`.
 Leave the model fields empty to use the model already loaded by the backend. CLI, API, and web sessions store their
 story state in H2 through `storyteller-db`.
 

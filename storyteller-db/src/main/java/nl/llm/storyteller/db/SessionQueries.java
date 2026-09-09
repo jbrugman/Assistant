@@ -40,11 +40,15 @@ final class SessionQueries {
     """;
   static final String DELETE_SESSION = """
     DELETE FROM story_session
-    WHERE session_id = ?
+    WHERE session_id = ? AND infinite = FALSE
     """;
   static final String DELETE_SESSION_FACTS = """
     DELETE FROM knowledge_fact
-    WHERE session_id = ?
+    WHERE session_id IN (
+      SELECT session_id
+      FROM story_session
+      WHERE session_id = ? AND infinite = FALSE
+    )
     """;
   static final String DELETE_EXPIRED_SESSIONS = """
     DELETE FROM story_session

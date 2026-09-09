@@ -66,7 +66,7 @@ backend.http.url=https://example.test/v1/chat/completions
 backend.http.apiKey=your-api-key
 ```
 
-Leave `backend.http.apiKey` blank for local endpoints that do not require authentication. The key is sent as `Authorization: Bearer <key>` and applies to chat, validation, and background-memory requests. Because the configuration value is stored as plain text, keep local configuration files containing real keys out of version control.
+Leave `backend.http.apiKey` blank for local endpoints that do not require authentication. The key is sent as `Authorization: Bearer <key>` and applies to chat and validation, and is also the fallback for memory requests when `memory.http.apikey` is empty. Because configuration values are stored as plain text, keep local configuration files containing real keys out of version control.
 
 For an oMLX server using its default port and required API-key verification, use:
 
@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.0-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.1-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.0-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.1-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.0`.
+The local default build version is `2.0.1`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.0-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.1-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -348,12 +348,13 @@ longer updated as live CLI state. Session ZIP and Markdown files remain explicit
 
 ### Knowledge graph MVP
 
-`graph.generation.transport` controls non-story model work: validation, long-term and recent history, canonical-state
-generation, manual `/graph -fill`, and automatic turn-based graph extraction. `lmstudio-native` derives `/api/v1/chat`
-and `/api/v1/models` from `backend.http.url`, sends `reasoning: "off"` and `store: false`, and discovers the single loaded
-model when its configured model name is empty. `openai-compatible` retains the regular transport for non-LM-Studio
-backends, but cannot portably guarantee that reasoning is disabled. Normal story-turn generation is unaffected and
-retains the backend's configured reasoning behavior.
+`graph.generation.transport` controls only the shared memory client used for long-term and recent history,
+canonical-state generation, manual `/graph -fill`, and automatic turn-based graph extraction. `lmstudio-native`
+derives `/api/v1/chat` and `/api/v1/models` from `memory.http.url` (or its `backend.http.url` fallback), sends
+`reasoning: "off"` and `store: false`, and discovers the single loaded model when `memory.chat` is empty.
+`openai-compatible` uses the configured chat-completions URL, but cannot portably guarantee that reasoning is disabled.
+Normal story generation and validation always use the OpenAI-compatible backend through `backend.http.*` and are not
+affected by this setting.
 
 Version 1.2.0 introduced a small knowledge graph for mitigation of entity contagion and feature bleeding.
 The active graph is validated and stored in H2. For the CLI, a legacy `memory/knowledge-graph.json` configured through
@@ -597,6 +598,14 @@ Not yet.
 
 ## Changelog
 
+### 2.0.1
+- Added optional `memory.chat`, `memory.http.url`, and `memory.http.apikey` settings for the shared background-memory
+  client used by long-term history, recent history, canonical state, and knowledge-graph generation. Empty settings
+  fall back to `model.chat`, `backend.http.url`, and `backend.http.apiKey`.
+- Restricted `graph.generation.transport` to the shared memory client. Main story generation and validation always use
+  the OpenAI-compatible backend client, allowing the validator to retain reasoning independently of memory transport.
+- BUGFIX: Prevent infinite sessions and their dependent data from being deleted, including through the Stop story action.
+
 ### 2.0.0
 - Replaced the CLI's file-backed runtime state with the shared H2 session store. This is a breaking storage change: the CLI no longer uses the former `memory/` files as its live persistence format; existing files are imported once when applicable.
 - Moved H2, the SQL schema, repository contracts, JDBC implementations, and session bundle records into the reusable `storyteller-db` module.
@@ -626,35 +635,5 @@ Not yet.
 - Added an optional infinite-session mode that keeps a story out of inactivity cleanup until the normal timeout is restored.
 - Added an Undo control that atomically removes the latest prompt and response from the active web story.
 - Added `/export -zip` to the CLI and transactional session ZIP import/export to the web application for transferring history and derived memory between them.
-
-### 1.3.4
-- Added a responsive server-rendered web interface for starting, continuing, and permanently stopping story sessions on mobile, tablet, and desktop.
-- Added adjustable single/dual-column and normal/maximized reading layouts, automatic positioning at the latest exchange, and duplicate-submit protection while a response is being generated.
-
-### 1.3.3
-- Improved benchmark validation so rule violations are replaced with corrected story text, and expanded the documented benchmark comparison across validation, cache-buster, and knowledge-graph configurations.
-- Added the first story interaction endpoint to the API, with session-owned database history and atomic persistence of completed user and assistant turns.
-
-### 1.3.2
-- Prevented `/graph -fill` and automatic turn-based knowledge-graph extraction from overwriting each other's updates.
-
-### 1.3.1
-- Added an isolated, reproducible local-model benchmark with a fixed fact-retention scenario and independently switchable validation, cache-buster, and knowledge-graph processing.
-
-### 1.3.0
-- Reorganized the project into separate `storyteller-core`, `storyteller-cli`, and `storyteller-api` Maven modules. The CLI and new API are independent applications that share the core, keeping their code and dependencies out of each other's distributions.
-- The API currently supports only creating a session and resuming the active session through a secure session cookie; story interaction is not available through the API yet.
-
-### 1.2.3
-- Added optional `backend.http.apiKey` configuration for bearer authentication with hosted OpenAI-compatible endpoints.
-- Made turn-based relationship extraction conservative so interactions such as talking, flirting, kissing, cooperation, or momentary affection do not automatically become enduring relationship facts.
-- Added the temporal `WEARS` predicate for clothing, represented as separate `ITEM` entities and facts per garment.
-- Added outfit snapshot replacement so a character's obsolete `TURNBASED` clothing is removed after changing clothes, while manual and fixed-protagonist graph data remains protected.
-
-### 1.2.2
-- Added configurable automatic knowledge-graph updates from every `graph.turnBased.batchTurns` completed story turns, defaulting to three.
-- Added source metadata to graph entities and introduced lower-authority `TURNBASED` entities and facts that cannot override fixed-protagonist or manual graph data.
-- Added `/graph -reset` to remove only TURNBASED graph items, including startup help, CLI validation, regression tests, and updated architecture diagrams.
-- Moved graph services into `core.graph.service` and isolated automatic turn extraction and merge in `core.graph.turnbasedservice`.
 
 Read more: https://github.com/jbrugman/Assistant/wiki/Changelog
