@@ -59,6 +59,24 @@ final class StoryQueries {
     DELETE FROM story_message
     WHERE session_id = ? AND message_index = ?
     """;
+  static final String CLAMP_MEMORY_CURSORS = """
+    UPDATE session_memory
+    SET summary_cursor = LEAST(summary_cursor, ?),
+        recent_summary_cursor = LEAST(recent_summary_cursor, ?),
+        canonical_state_cursor = LEAST(canonical_state_cursor, ?)
+    WHERE session_id = ?
+    """;
+  static final String DELETE_UNDONE_TURN_BASED_FACTS = """
+    DELETE FROM knowledge_fact
+    WHERE session_id = ?
+      AND fact_source = 'TURNBASED'
+      AND source_turn > ?
+    """;
+  static final String INCREMENT_GRAPH_REVISION = """
+    UPDATE knowledge_graph
+    SET revision = revision + 1
+    WHERE session_id = ?
+    """;
 
   private StoryQueries() {
   }

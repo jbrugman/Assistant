@@ -598,6 +598,12 @@ Not yet.
 
 ## Changelog
 
+### 2.0.3
+- BUGFIX: Rewind the long-term, mid-term, and canonical-state processing cursors when undoing a web/API story turn, so
+  its replacement is processed by the shared background-memory model.
+- BUGFIX: Remove turn-based knowledge-graph facts belonging to an undone turn and rewind the graph checkpoint, so a
+  replacement turn is included in the next graph update.
+
 ### 2.0.2
 - Corrected the memory model configuration key from `memory.chat` to `memory.http.model`.
 

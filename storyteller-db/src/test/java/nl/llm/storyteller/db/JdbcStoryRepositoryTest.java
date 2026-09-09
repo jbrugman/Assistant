@@ -1,5 +1,14 @@
 package nl.llm.storyteller.db;
 
+import nl.llm.storyteller.core.graph.model.Entity;
+import nl.llm.storyteller.core.graph.model.EntityId;
+import nl.llm.storyteller.core.graph.model.EntityType;
+import nl.llm.storyteller.core.graph.model.Fact;
+import nl.llm.storyteller.core.graph.model.FactSource;
+import nl.llm.storyteller.core.graph.model.FactStatus;
+import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
+import nl.llm.storyteller.core.graph.model.Polarity;
+import nl.llm.storyteller.core.graph.model.PredicateId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -7,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,6 +25,72 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JdbcStoryRepositoryTest {
   @TempDir
   Path temporaryDirectory;
+
+  @Test
+  @DisplayName("Given processed memory, when the last turn is undone, then memory cursors should allow its replacement")
+  void shouldRewindMemoryCursorsWhenUndoingLastTurn() {
+    Database database = new Database("jdbc:h2:file:" + temporaryDirectory.resolve("undo-cursors"), "sa", "");
+    new SchemaInitializer(database).initialize();
+    JdbcSessionRepository sessionRepository = new JdbcSessionRepository(database);
+    JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
+    JdbcSessionMemoryRepository memoryRepository = new JdbcSessionMemoryRepository(database);
+    Instant now = Instant.parse("2026-09-09T08:00:00Z");
+    String sessionId = "undo-session";
+    sessionRepository.create(new SessionRecord(
+      sessionId, "Undo story", now, now, now, now.plusSeconds(3600), false
+    ), SessionPrompts.empty());
+    storyRepository.appendTurn(sessionId, "First prompt", "First response", null, now);
+    SessionMemory initial = memoryRepository.loadForUpdate(sessionId);
+    assertTrue(memoryRepository.updateSummary(sessionId, initial, "Summary", 2));
+    SessionMemory summarized = memoryRepository.loadForUpdate(sessionId);
+    assertTrue(memoryRepository.updateRecentSummary(sessionId, summarized, "Recent", 2));
+    SessionMemory recent = memoryRepository.loadForUpdate(sessionId);
+    assertTrue(memoryRepository.updateCanonicalState(sessionId, recent, "Canonical", 2));
+
+    assertTrue(storyRepository.undoLastTurn(sessionId, now.plusSeconds(1)));
+    SessionMemory undone = memoryRepository.loadForUpdate(sessionId);
+
+    assertEquals(0, undone.messages().size());
+    assertEquals(0, undone.summaryCursor());
+    assertEquals(0, undone.recentSummaryCursor());
+    assertEquals(0, undone.canonicalStateCursor());
+
+    storyRepository.appendTurn(sessionId, "Replacement prompt", "Replacement response", null, now.plusSeconds(2));
+    SessionMemory replaced = memoryRepository.loadForUpdate(sessionId);
+    assertEquals(2, replaced.messages().size());
+    assertEquals(0, replaced.canonicalStateCursor());
+  }
+
+  @Test
+  @DisplayName("Given a processed graph batch, when its last turn is undone, then its graph checkpoint is removed")
+  void shouldRewindTurnBasedGraphWhenUndoingLastTurn() {
+    Database database = new Database("jdbc:h2:file:" + temporaryDirectory.resolve("undo-graph"), "sa", "");
+    new SchemaInitializer(database).initialize();
+    JdbcSessionRepository sessionRepository = new JdbcSessionRepository(database);
+    JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
+    JdbcSessionBundleRepository bundleRepository = new JdbcSessionBundleRepository(database);
+    Instant now = Instant.parse("2026-09-09T08:00:00Z");
+    String sessionId = "undo-graph-session";
+    sessionRepository.create(new SessionRecord(
+      sessionId, "Undo graph", now, now, now, now.plusSeconds(3600), false
+    ), SessionPrompts.empty());
+    storyRepository.appendTurn(sessionId, "First prompt", "First response", null, now);
+    Map<String, Entity> entities = Map.of(
+      "alice", new Entity(EntityType.CHARACTER, "Alice", List.of(), FactSource.TURNBASED),
+      "paris", new Entity(EntityType.LOCATION, "Paris", List.of(), FactSource.TURNBASED)
+    );
+    Fact fact = new Fact(
+      "alice-lives-paris", new EntityId("alice"), new PredicateId("LIVES"), new EntityId("paris"),
+      Polarity.POSITIVE, FactStatus.ACTIVE, FactSource.TURNBASED, 1, false
+    );
+    bundleRepository.saveKnowledgeGraph(sessionId, new KnowledgeGraphDocument(1, 1, entities, List.of(fact)));
+
+    assertTrue(storyRepository.undoLastTurn(sessionId, now.plusSeconds(1)));
+    KnowledgeGraphDocument graph = bundleRepository.loadKnowledgeGraph(sessionId);
+
+    assertEquals(2, graph.revision());
+    assertTrue(graph.facts().isEmpty());
+  }
 
   @Test
   @DisplayName("""

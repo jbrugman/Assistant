@@ -192,6 +192,9 @@ public final class JdbcStoryRepository implements StoryRepository {
       for (int messageIndex : messageIndexes) {
         deleteMessage(connection, sessionId, messageIndex);
       }
+      int remainingMessageCount = messageIndexes.getLast();
+      clampMemoryCursors(connection, sessionId, remainingMessageCount);
+      removeUndoneTurnBasedFacts(connection, sessionId, remainingMessageCount / 2);
       updateSession(connection, sessionId, updatedAt);
       connection.commit();
       return true;
@@ -222,6 +225,34 @@ public final class JdbcStoryRepository implements StoryRepository {
     try (PreparedStatement statement = connection.prepareStatement(DELETE_MESSAGE)) {
       statement.setString(1, sessionId);
       statement.setInt(2, messageIndex);
+      statement.executeUpdate();
+    }
+  }
+
+  private void clampMemoryCursors(Connection connection, String sessionId, int remainingMessageCount)
+    throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(StoryQueries.CLAMP_MEMORY_CURSORS)) {
+      statement.setInt(1, remainingMessageCount);
+      statement.setInt(2, remainingMessageCount);
+      statement.setInt(3, remainingMessageCount);
+      statement.setString(4, sessionId);
+      statement.executeUpdate();
+    }
+  }
+
+  private void removeUndoneTurnBasedFacts(Connection connection, String sessionId, int remainingTurnCount)
+    throws SQLException {
+    int removedFacts;
+    try (PreparedStatement statement = connection.prepareStatement(StoryQueries.DELETE_UNDONE_TURN_BASED_FACTS)) {
+      statement.setString(1, sessionId);
+      statement.setInt(2, remainingTurnCount);
+      removedFacts = statement.executeUpdate();
+    }
+    if (removedFacts == 0) {
+      return;
+    }
+    try (PreparedStatement statement = connection.prepareStatement(StoryQueries.INCREMENT_GRAPH_REVISION)) {
+      statement.setString(1, sessionId);
       statement.executeUpdate();
     }
   }
