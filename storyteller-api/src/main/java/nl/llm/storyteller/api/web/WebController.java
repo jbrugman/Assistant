@@ -268,12 +268,22 @@ public final class WebController {
     context.multipartConfig().maxFileSize(StoryImageUpload.MAX_BYTES, SizeUnit.BYTES);
     context.multipartConfig().maxTotalRequestSize(StoryImageUpload.MAX_BYTES + 1024 * 1024, SizeUnit.BYTES);
     StoryImage image = StoryImageUpload.read(context.uploadedFile("image"));
-    storyTurnService.execute(
-      session.get().sessionId(),
-      context.formParam("prompt"),
-      image,
-      pastMessageIndexes(context.formParams("pastExchange"))
-    );
+    String prompt = context.formParam("prompt");
+    try {
+      storyTurnService.execute(
+        session.get().sessionId(),
+        prompt,
+        image,
+        pastMessageIndexes(context.formParams("pastExchange"))
+      );
+    } catch (IOException ex) {
+      cookieService.write(context, session.get().sessionId(), session.get().infinite());
+      context.status(HttpStatus.SERVICE_UNAVAILABLE);
+      context.render("story.jte", Map.of(
+        "page", storyPage(session.get(), Integer.MAX_VALUE).withBackendError(prompt)
+      ));
+      return;
+    }
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.redirect("/story", HttpStatus.SEE_OTHER);
   }

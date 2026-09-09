@@ -6,7 +6,13 @@ import nl.llm.storyteller.db.StoryMessageRecord;
 import java.util.ArrayList;
 import java.util.List;
 
-public record StoryPage(SessionRecord session, List<StoryExchange> exchanges, boolean hasOlder) {
+public record StoryPage(
+  SessionRecord session,
+  List<StoryExchange> exchanges,
+  boolean hasOlder,
+  String submittedPrompt,
+  String errorMessage
+) {
   public static StoryPage from(
     SessionRecord session,
     List<StoryMessageRecord> messages,
@@ -23,6 +29,16 @@ public record StoryPage(SessionRecord session, List<StoryExchange> exchanges, bo
       ));
     }
     boolean hasOlder = !messages.isEmpty() && messages.getFirst().messageIndex() > 0;
-    return new StoryPage(session, List.copyOf(exchanges), hasOlder);
+    return new StoryPage(session, List.copyOf(exchanges), hasOlder, "", "");
+  }
+
+  public StoryPage withBackendError(String prompt) {
+    return new StoryPage(
+      session,
+      exchanges,
+      hasOlder,
+      prompt == null ? "" : prompt,
+      "The model is temporarily unavailable. Your prompt was not saved; please try again."
+    );
   }
 }

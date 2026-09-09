@@ -91,7 +91,7 @@
 
       <form id="composer" method="post" action="/story/turns" enctype="multipart/form-data" class="composer">
         <label for="prompt">What happens next?</label>
-        <textarea id="prompt" name="prompt" rows="3" maxlength="100000" required autofocus></textarea>
+        <textarea id="prompt" name="prompt" rows="3" maxlength="100000" required autofocus>${page.submittedPrompt()}</textarea>
         <div id="image-preview" class="image-preview" hidden>
           <img id="image-preview-thumbnail" alt="Image ready to send">
           <span id="image-preview-name"></span>
@@ -108,6 +108,17 @@
         </div>
       </form>
     </main>
+    @if(!page.errorMessage().isBlank())
+      <div id="model-backend-notification" class="notification-modal" role="alertdialog" aria-modal="true"
+           aria-labelledby="model-backend-notification-title"
+           aria-describedby="model-backend-notification-message">
+        <div class="notification-modal-content">
+          <p id="model-backend-notification-title" class="notification-modal-title">Model temporarily unavailable</p>
+          <p id="model-backend-notification-message">${page.errorMessage()}</p>
+          <button id="model-backend-notification-close" type="button">Close</button>
+        </div>
+      </div>
+    @endif
     <div id="image-lightbox" class="image-lightbox" role="dialog" aria-modal="true"
          aria-label="Prompt image" hidden>
       <div class="image-lightbox-content">
@@ -121,6 +132,17 @@
       const imageLightbox = document.getElementById("image-lightbox");
       const imageLightboxImage = document.getElementById("image-lightbox-image");
       const imageLightboxClose = document.getElementById("image-lightbox-close");
+      const backendNotification = document.getElementById("model-backend-notification");
+      const backendNotificationClose = document.getElementById("model-backend-notification-close");
+      const closeBackendNotification = () => {
+        if (backendNotification) {
+          backendNotification.hidden = true;
+        }
+      };
+      backendNotificationClose?.addEventListener("click", closeBackendNotification);
+      if (backendNotification) {
+        window.setTimeout(closeBackendNotification, 8000);
+      }
       let openedImageLink = null;
       const closeImageLightbox = () => {
         imageLightbox.hidden = true;
@@ -146,6 +168,10 @@
         }
       });
       document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && backendNotification && !backendNotification.hidden) {
+          closeBackendNotification();
+          return;
+        }
         if (event.key === "Escape" && !imageLightbox.hidden) {
           closeImageLightbox();
         }

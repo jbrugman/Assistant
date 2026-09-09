@@ -361,6 +361,67 @@ class ApiServerTest {
   }
 
   @Test
+  @DisplayName("Given a temporary model failure, when a web turn is retried, then the prompt is preserved but not duplicated")
+  void shouldPreserveUnpersistedPromptAfterTemporaryModelFailure() throws Exception {
+    Path coreOverride = temporaryDirectory.resolve("retry-core.config");
+    Files.writeString(coreOverride, "validation.enabled=false\n");
+    int[] attempts = {0};
+    ChatClient chatClient = (_, _, _) -> {
+      if (attempts[0]++ == 0) {
+        throw new java.io.IOException("OpenAI-compatible backend returned HTTP 503: model unavailable");
+      }
+      return "Recovered response";
+    };
+    server = ApiServer.create(
+      config(), AppConfigLoader.load(temporaryDirectory, coreOverride), chatClient, chatClient
+    );
+    server.start();
+    HttpClient client = HttpClient.newHttpClient();
+    HttpResponse<String> created = client.send(
+      HttpRequest.newBuilder(uri("/web/sessions"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString("title=Retry+story"))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    String cookie = created.headers().firstValue("Set-Cookie").orElseThrow();
+    String cookiePair = cookie.substring(0, cookie.indexOf(';'));
+    byte[] turn = multipartPastTurn("retry-boundary", "Keep this prompt", null);
+
+    HttpResponse<String> failed = client.send(
+      HttpRequest.newBuilder(uri("/story/turns"))
+        .header("Content-Type", "multipart/form-data; boundary=retry-boundary")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofByteArray(turn))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> retried = client.send(
+      HttpRequest.newBuilder(uri("/story/turns"))
+        .header("Content-Type", "multipart/form-data; boundary=retry-boundary")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofByteArray(turn))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    HttpResponse<String> story = client.send(
+      HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+
+    assertEquals(503, failed.statusCode());
+    assertTrue(failed.body().contains("The model is temporarily unavailable"));
+    assertTrue(failed.body().contains("id=\"model-backend-notification\""));
+    assertTrue(failed.body().contains("role=\"alertdialog\""));
+    assertTrue(failed.body().contains("window.setTimeout(closeBackendNotification, 8000)"));
+    assertTrue(failed.body().contains(">Keep this prompt</textarea>"));
+    assertFalse(failed.body().contains("class=\"exchange\""));
+    assertEquals(303, retried.statusCode());
+    assertTrue(story.body().contains("Keep this prompt"));
+    assertTrue(story.body().contains("Recovered response"));
+  }
+
+  @Test
   @DisplayName("""
     Given an exchange older than the configured recent context,
     When it is selected while submitting a new web turn,

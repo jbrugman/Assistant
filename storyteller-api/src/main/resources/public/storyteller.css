@@ -446,6 +446,39 @@ button:disabled {
   background: rgb(0 0 0 / 78%);
 }
 
+.notification-modal {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 58%);
+}
+
+.notification-modal[hidden] {
+  display: none;
+}
+
+.notification-modal-content {
+  width: min(100%, 32rem);
+  padding: 1.25rem;
+  border: 1px solid #a75d52;
+  border-radius: 12px;
+  background: #211916;
+  box-shadow: 0 1.5rem 4rem rgb(0 0 0 / 55%);
+}
+
+.notification-modal-title {
+  margin: 0 0 0.65rem;
+  color: #f0b0a6;
+  font-weight: 700;
+}
+
+.notification-modal-content p:last-of-type {
+  margin-bottom: 1rem;
+}
+
 .image-lightbox[hidden] {
   display: none;
 }

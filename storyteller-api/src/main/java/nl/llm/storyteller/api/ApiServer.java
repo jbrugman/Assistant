@@ -187,7 +187,8 @@ public final class ApiServer implements AutoCloseable {
 
   private static ChatClient openAiClient(AppConfig config, String model) {
     return new OpenAiCompatibleHttpClient(
-      config.openAiCompatibleUrl(), model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey()
+      config.openAiCompatibleUrl(), model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey(),
+      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "generation", config.googleBackend()
     );
   }
 
@@ -199,7 +200,8 @@ public final class ApiServer implements AutoCloseable {
       );
     }
     return new OpenAiCompatibleHttpClient(
-      config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey()
+      config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(),
+      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend()
     );
   }
 
