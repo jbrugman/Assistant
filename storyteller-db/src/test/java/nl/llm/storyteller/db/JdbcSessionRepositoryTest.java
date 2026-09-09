@@ -86,6 +86,28 @@ class JdbcSessionRepositoryTest {
   }
 
   @Test
+  @DisplayName("An infinite session and its owned state can never be deleted directly")
+  void shouldNeverDeleteInfiniteSession() throws Exception {
+    Instant now = Instant.parse("2026-09-05T10:15:30Z");
+    SessionRecord session = new SessionRecord(
+      "62e88996-2a27-4209-824c-a8f7310da24d",
+      "Infinite story",
+      now,
+      now,
+      now,
+      now.plusSeconds(3600),
+      true
+    );
+    repository.create(session, SessionPrompts.empty());
+
+    repository.delete(session.sessionId());
+
+    assertTrue(repository.findById(session.sessionId()).orElseThrow().infinite());
+    assertEquals(1, rowCount("session_memory", session.sessionId()));
+    assertEquals(1, rowCount("knowledge_graph", session.sessionId()));
+  }
+
+  @Test
   @DisplayName("""
     Given an active persisted session,
     When its access window is refreshed,

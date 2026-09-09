@@ -31,10 +31,16 @@
             </button>
           </form>
           <a class="header-action export-session" href="/export">Export</a>
-          <form method="post" action="/story/stop"
-                onsubmit="return confirm('Stop this story? The session and all stored story data will be permanently deleted.')">
-            <button type="submit" class="stop-story">Stop story</button>
-          </form>
+          @if(page.session().infinite())
+            <form method="post" action="/story/stop">
+              <button type="submit" class="stop-story">Stop story</button>
+            </form>
+          @else
+            <form method="post" action="/story/stop"
+                  onsubmit="return confirm('Stop this story? The session and all stored story data will be permanently deleted.')">
+              <button type="submit" class="stop-story">Stop story</button>
+            </form>
+          @endif
         </div>
       </header>
 

@@ -118,6 +118,19 @@ class SessionServiceTest {
   }
 
   @Test
+  @DisplayName("An infinite session can never be deleted")
+  void shouldNeverDeleteInfiniteSession() {
+    InMemorySessionRepository repository = new InMemorySessionRepository();
+    SessionService service = service(repository);
+    SessionRecord session = service.create("Story");
+    service.toggleInfinite(session.sessionId());
+
+    service.delete(session.sessionId());
+
+    assertTrue(repository.findById(session.sessionId()).orElseThrow().infinite());
+  }
+
+  @Test
   @DisplayName("""
     Given an active session with inactivity expiration,
     When infinite retention is enabled,

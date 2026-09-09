@@ -139,7 +139,9 @@ public final class SessionService {
     if (sessionId == null || sessionId.isBlank()) {
       return;
     }
-    repository.delete(sessionId);
+    repository.findById(sessionId)
+      .filter(session -> !session.infinite())
+      .ifPresent(session -> repository.delete(session.sessionId()));
   }
 
   private String normalizeTitle(String title) {

@@ -59,7 +59,7 @@ public final class ApiServer implements AutoCloseable {
       config,
       coreConfig,
       chatClient,
-      derivedStateClient(coreConfig, coreConfig.validatorModel()),
+      openAiClient(coreConfig, coreConfig.validatorModel()),
       derivedStateClient,
       derivedStateClient
     );
@@ -192,17 +192,15 @@ public final class ApiServer implements AutoCloseable {
   }
 
   private static ChatClient derivedStateClient(AppConfig config) {
-    return derivedStateClient(config, config.chatModel());
-  }
-
-  private static ChatClient derivedStateClient(AppConfig config, String model) {
     if ("lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport())) {
       return new LmStudioNativeChatClient(
-        config.openAiCompatibleUrl(), model, config.openAiCompatibleApiKey(),
+        config.memoryHttpUrl(), config.memoryChatModel(), config.memoryHttpApiKey(),
         nl.llm.storyteller.core.service.ChatRequestMetrics.NONE
       );
     }
-    return openAiClient(config, model);
+    return new OpenAiCompatibleHttpClient(
+      config.memoryHttpUrl(), config.memoryChatModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey()
+    );
   }
 
   private static void createDatabaseDirectory(Path databasePath) {

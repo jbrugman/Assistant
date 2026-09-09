@@ -125,9 +125,16 @@ public final class ApplicationFactory {
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
       backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation"
     );
-    boolean useNativeNonReasoningClient = "lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport());
+    boolean useNativeMemoryClient = "lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport());
     ChatClient validatorDelegate = config.validationEnabled()
-      ? nonReasoningClient(config, metrics, backendUrl, config.validatorModel(), "validation", useNativeNonReasoningClient)
+      ? new OpenAiCompatibleHttpClient(
+        backendUrl,
+        config.validatorModel(),
+        config.hideReasoningBlocks(),
+        config.openAiCompatibleApiKey(),
+        metrics,
+        "validation"
+      )
       : (_, _, _) -> {
         throw new IllegalStateException("Validation client is disabled by validation.enabled=false.");
       };
@@ -139,13 +146,17 @@ public final class ApplicationFactory {
       validatorDelegate,
       new LlmBackendGuard("Validation backend", config.validationFailureThreshold(), config.validationCooldownSeconds())
     );
+    String memoryBackendUrl = config.hasMemoryHttpUrl() ? config.memoryHttpUrl() : backendUrl;
     ChatClient derivedStateDelegate;
-    if (useNativeNonReasoningClient) {
+    if (useNativeMemoryClient) {
       derivedStateDelegate = new LmStudioNativeChatClient(
-        backendUrl, config.chatModel(), config.openAiCompatibleApiKey(), metrics, "derived-state"
+        memoryBackendUrl, config.memoryChatModel(), config.memoryHttpApiKey(), metrics, "derived-state"
       );
     } else {
-      derivedStateDelegate = chatDelegate;
+      derivedStateDelegate = new OpenAiCompatibleHttpClient(
+        memoryBackendUrl, config.memoryChatModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
+        "derived-state"
+      );
     }
     ResilientChatClient backgroundClient = new ResilientChatClient(
       derivedStateDelegate,
@@ -232,24 +243,6 @@ public final class ApplicationFactory {
       new KnowledgeGraphManagementService(knowledgeGraphStore, knowledgeGraphService),
       managedLlamaServer,
       managedMlxServer
-    );
-  }
-
-  private static ChatClient nonReasoningClient(
-    nl.llm.storyteller.core.config.AppConfig config,
-    ChatRequestMetrics metrics,
-    String backendUrl,
-    String model,
-    String purpose,
-    boolean useNativeClient
-  ) {
-    if (useNativeClient) {
-      return new LmStudioNativeChatClient(
-        backendUrl, model, config.openAiCompatibleApiKey(), metrics, purpose
-      );
-    }
-    return new OpenAiCompatibleHttpClient(
-      backendUrl, model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, purpose
     );
   }
 

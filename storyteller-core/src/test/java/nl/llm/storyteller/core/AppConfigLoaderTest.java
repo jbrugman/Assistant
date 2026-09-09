@@ -167,6 +167,45 @@ class AppConfigLoaderTest {
     }
 
     @Test
+    @DisplayName("Memory model access should override and otherwise fall back to the main backend")
+    void shouldLoadMemoryModelAccessWithBackendFallbacks() throws Exception {
+        Path baseDirectory = Files.createTempDirectory("storyteller-config-memory-access");
+        Path configFile = baseDirectory.resolve("systemprompts/application.config");
+        Files.createDirectories(configFile.getParent());
+        Files.writeString(configFile, """
+            backend.http.url=http://main.test/v1/chat/completions
+            backend.http.apiKey=main-key
+            model.chat=main-model
+            """);
+
+        nl.llm.storyteller.core.config.AppConfig fallback =
+            nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
+
+        assertEquals("http://main.test/v1/chat/completions", fallback.memoryHttpUrl());
+        assertEquals("main-key", fallback.memoryHttpApiKey());
+        assertEquals("main-model", fallback.memoryChatModel());
+
+        Files.writeString(configFile, """
+            backend.http.url=http://main.test/v1/chat/completions
+            backend.http.apiKey=main-key
+            model.chat=main-model
+            memory.http.url=http://memory.test/v1/chat/completions
+            memory.http.apikey=memory-key
+            memory.chat=memory-model
+            """);
+
+        nl.llm.storyteller.core.config.AppConfig overridden =
+            nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
+
+        assertEquals("http://memory.test/v1/chat/completions", overridden.memoryHttpUrl());
+        assertEquals("memory-key", overridden.memoryHttpApiKey());
+        assertEquals("memory-model", overridden.memoryChatModel());
+        assertEquals("http://main.test/v1/chat/completions", overridden.openAiCompatibleUrl());
+        assertEquals("main-key", overridden.openAiCompatibleApiKey());
+        assertEquals("main-model", overridden.chatModel());
+    }
+
+    @Test
     @DisplayName("""
         Given a local application.config override that leaves model settings blank,
         When the application config is loaded,
