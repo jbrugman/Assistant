@@ -150,11 +150,11 @@ public final class ApplicationFactory {
     ChatClient derivedStateDelegate;
     if (useNativeMemoryClient) {
       derivedStateDelegate = new LmStudioNativeChatClient(
-        memoryBackendUrl, config.memoryChatModel(), config.memoryHttpApiKey(), metrics, "derived-state"
+        memoryBackendUrl, config.memoryHttpModel(), config.memoryHttpApiKey(), metrics, "derived-state"
       );
     } else {
       derivedStateDelegate = new OpenAiCompatibleHttpClient(
-        memoryBackendUrl, config.memoryChatModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
+        memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
         "derived-state"
       );
     }

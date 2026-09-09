@@ -40,7 +40,7 @@ graph.generation.transport=lmstudio-native
 Those memory requests explicitly send `reasoning: "off"` and `store: false`. Main story generation and validation
 continue to use the OpenAI-compatible backend and retain its normal reasoning behavior. When the memory model name is
 empty, this processing selects the single model currently loaded in LM Studio. If multiple models are loaded,
-configure `memory.chat` explicitly.
+configure `memory.http.model` explicitly.
 
 For a backend without LM Studio's `/api/v1/chat` endpoint, use:
 
@@ -168,7 +168,7 @@ backend.http.url=http://localhost:1234/v1/chat/completions
 backend.http.apiKey=
 model.chat=
 model.validator=
-memory.chat=
+memory.http.model=
 memory.http.url=
 memory.http.apikey=
 ```
