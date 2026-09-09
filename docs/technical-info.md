@@ -150,7 +150,7 @@ application contains the other. The API additionally uses `storyteller-db` and o
 API and web session history, prompts, derived memory, turn state, knowledge graph, and images are stored in H2; ZIP
 bundles are portable imports, exports, and backups rather than live session storage.
 
-Screenshots of the server-rendered web interface are available in [`docs/webpages`](webpages/).
+Screenshots of the server-rendered web interface are available in [`docs/webpages`](webpages-screenshots/).
 The web interface can disable inactivity expiration for the active story with **Infinite** and restore the configured
 session timeout with **Use timeout**.
 For a vision-capable model, paste an image directly into the story input or select **Add image**, add the accompanying

@@ -1,10 +1,20 @@
 # Storyteller
 
-Storyteller is a local-first AI storytelling application for writing long-running interactive stories with an
-OpenAI-compatible large-language-model backend (LLM). It is designed to help a model retain characters, relationships, world state,
-and earlier events beyond the small recent conversation window.
+Storyteller is a local-first AI storytelling application, but underneath it is really a long-context world preserver.
+It keeps characters, relationships, world state, and earlier events coherent across stories that extend far beyond an
+LLM's recent conversation window.
+
+Instead of relying on an ever-growing prompt, Storyteller shapes the past into several practical memory layers: recent
+conversation, mid-term and long-term summaries, canonical state, and a validated knowledge graph. This deliberately
+simple approach gives the model the context it needs at the moment it matters and makes long-running worlds workable
+without requiring an enormous context window.
 
 It is a dedicated storyteller and persistent story-world engine, not a general desktop assistant.
+
+The web interface is now the recommended way to use Storyteller. It provides a considerably smoother and more complete
+experience than the CLI, especially for navigating long stories, managing sessions, editing settings, attaching images,
+and reviewing memory. The CLI remains available for now because it is still useful for benchmarking, diagnostics, and
+lightweight terminal-based workflows.
 
 ## What it provides
 
@@ -16,7 +26,8 @@ It is a dedicated storyteller and persistent story-world engine, not a general d
 - Optional response validation using the same or a separate model.
 - Undo, paged web history, portable session import/export, and vision prompts.
 - Manual selection of up to three older exchanges as relevant context for the next web turn.
-- Support for local or hosted OpenAI-compatible endpoints, managed `llama-server`, and managed MLX serving.
+- Support for local or hosted OpenAI-compatible endpoints, Google Gemini Cloud, managed `llama-server`, and managed
+  MLX serving.
 
 ## History
 Storyteller started as a small assistant app and gradually evolved into a dedicated storytelling tool.
@@ -202,7 +213,7 @@ shows the generated mid-term and long-term summaries plus canonical state.
 - [Technical information, configuration, commands, benchmarks, architecture, and changelog](docs/technical-info.md)
 - [API design](docs/api_design.md)
 - [Architecture documentation](docs/architecture/)
-- [Web interface design and screenshots](docs/webpages/)
+- [Web interface design and screenshots](docs/webpages-screenshots/)
 - [Configuration and Hardware Guide](https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide)
 
 ## License

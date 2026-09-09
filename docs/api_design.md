@@ -12,7 +12,7 @@ Related diagrams:
 - [API flow design](architecture/api/flow-design.puml)
 - [Database component design](architecture/db/component-design.puml)
 - [Database schema design](architecture/db/schema-design.puml)
-- [Web interface design](webpages/webpage-design.md)
+- [Web interface design](webpage-design.md)
 
 ## Module Boundaries
 
@@ -39,7 +39,7 @@ The API talks to an already running OpenAI-compatible backend, such as LM Studio
 
 Javalin owns HTTP routing and server lifecycle. JTE renders the bundled default web interface on the server. This keeps the browser client small and avoids requiring a separate JavaScript framework or frontend deployment.
 
-The default web interface is optional from an architectural perspective: another client can use the JSON API. The rationale for SSR and JTE is documented in the [web interface design](webpages/webpage-design.md).
+The default web interface is optional from an architectural perspective: another client can use the JSON API. The rationale for SSR and JTE is documented in the [web interface design](webpage-design.md).
 
 ### Configuration
 
