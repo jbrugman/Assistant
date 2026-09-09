@@ -123,7 +123,8 @@ public final class ApplicationFactory {
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
     String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
     OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
-      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation"
+      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation",
+      config.googleBackend()
     );
     boolean useNativeMemoryClient = "lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport());
     ChatClient validatorDelegate = config.validationEnabled()
@@ -133,7 +134,8 @@ public final class ApplicationFactory {
         config.hideReasoningBlocks(),
         config.openAiCompatibleApiKey(),
         metrics,
-        "validation"
+        "validation",
+        config.googleBackend()
       )
       : (_, _, _) -> {
         throw new IllegalStateException("Validation client is disabled by validation.enabled=false.");
@@ -155,7 +157,7 @@ public final class ApplicationFactory {
     } else {
       derivedStateDelegate = new OpenAiCompatibleHttpClient(
         memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
-        "derived-state"
+        "derived-state", config.googleBackend()
       );
     }
     ResilientChatClient backgroundClient = new ResilientChatClient(

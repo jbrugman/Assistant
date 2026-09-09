@@ -598,6 +598,22 @@ Not yet.
 
 ## Changelog
 
+### 2.0.4
+- Added Google Gemini Cloud support through Gemini's OpenAI-compatible endpoint. Storyteller automatically detects
+  Google endpoints and omits the unsupported `top_k`, `min_p`, and `repeat_penalty` sampler fields. For a custom
+  gateway hostname, set `google.backend=true` explicitly.
+- Keep failed web prompts out of story history and restore them in the composer when Gemini or another model backend
+  is temporarily unavailable. A prominent notification modal explains the failure and closes automatically.
+
+Example Gemini Cloud configuration:
+
+```properties
+backend.type=openai-compatible
+backend.http.url=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+backend.http.apiKey=Your_Google_Developer_Api_Key
+model.chat=gemini-3.6-flash
+```
+
 ### 2.0.3
 - BUGFIX: Rewind the long-term, mid-term, and canonical-state processing cursors when undoing a web/API story turn, so
   its replacement is processed by the shared background-memory model.

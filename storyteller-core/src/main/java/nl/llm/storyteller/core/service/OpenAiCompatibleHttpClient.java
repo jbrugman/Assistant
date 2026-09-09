@@ -20,6 +20,9 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 public final class OpenAiCompatibleHttpClient implements ChatClient {
+  private static final List<String> GEMINI_UNSUPPORTED_OPTIONS = List.of(
+    "top_k", "min_p", "repeat_penalty"
+  );
   private static final Pattern REASONING_PATTERN = Pattern.compile(
     "<[^>]*(?:think|thinking|reasoning|channel)[^>]*>.*?"
       + "(?:<[^>]*(?:think|thinking|reasoning|channel)[^>]*>|\\z)",
@@ -30,6 +33,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
   private final String model;
   private final boolean hideReasoningBlocks;
   private final String apiKey;
+  private final boolean googleBackend;
   private final HttpClient httpClient;
   private final ChatRequestMetrics metrics;
   private final String metricsPurpose;
@@ -50,10 +54,23 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     ChatRequestMetrics metrics,
     String metricsPurpose
   ) {
+    this(url, model, hideReasoningBlocks, apiKey, metrics, metricsPurpose, false);
+  }
+
+  public OpenAiCompatibleHttpClient(
+    String url,
+    String model,
+    boolean hideReasoningBlocks,
+    String apiKey,
+    ChatRequestMetrics metrics,
+    String metricsPurpose,
+    boolean googleBackend
+  ) {
     this.url = Objects.requireNonNull(url);
     this.model = Objects.requireNonNull(model);
     this.hideReasoningBlocks = hideReasoningBlocks;
     this.apiKey = Objects.requireNonNull(apiKey);
+    this.googleBackend = googleBackend;
     this.metrics = Objects.requireNonNull(metrics);
     this.metricsPurpose = Objects.requireNonNull(metricsPurpose);
     this.httpClient = HttpClient.newBuilder().build();
@@ -131,7 +148,16 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     }
     payload.put("messages", messages.stream().map(Message::toMap).toList());
     payload.putAll(options);
+    if (googleBackend || usesGeminiOpenAiEndpoint()) {
+      GEMINI_UNSUPPORTED_OPTIONS.forEach(payload::remove);
+    }
     return payload;
+  }
+
+  private boolean usesGeminiOpenAiEndpoint() {
+    String host = URI.create(url).getHost();
+    return host != null && (host.equals("generativelanguage.googleapis.com")
+      || host.endsWith(".aiplatform.googleapis.com"));
   }
 
   String stripReasoningBlocks(String content) {

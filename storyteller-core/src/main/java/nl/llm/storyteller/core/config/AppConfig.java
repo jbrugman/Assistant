@@ -142,6 +142,10 @@ public final class AppConfig {
     return modelAccess.backendType();
   }
 
+  public boolean googleBackend() {
+    return modelAccess.googleBackend();
+  }
+
   public String openAiCompatibleUrl() {
     return modelAccess.openAiCompatibleUrl();
   }
@@ -493,6 +497,7 @@ public final class AppConfig {
       source.baseDir(),
       new ModelAccessConfig(
         source.requiredString("backend.type"),
+        source.requiredBoolean("google.backend"),
         source.requiredString("backend.http.url"),
         source.optionalTrimmedString("backend.http.apiKey"),
         source.optionalTrimmedString("model.chat"),
@@ -637,6 +642,7 @@ public final class AppConfig {
 
   private record ModelAccessConfig(
     String backendType,
+    boolean googleBackend,
     String openAiCompatibleUrl,
     String openAiCompatibleApiKey,
     String chatModel,
