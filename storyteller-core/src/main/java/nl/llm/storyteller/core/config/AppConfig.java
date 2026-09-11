@@ -109,10 +109,6 @@ public final class AppConfig {
       || graphTurnBasedBatchTurns() < 1) {
       throw new IllegalArgumentException("Batch sizes must all be at least 1.");
     }
-    if (!"openai-compatible".equalsIgnoreCase(graphGenerationTransport())
-      && !"lmstudio-native".equalsIgnoreCase(graphGenerationTransport())) {
-      throw new IllegalArgumentException("graph.generation.transport must be openai-compatible or lmstudio-native.");
-    }
   }
 
   private void validateValidationOutputMode() {
@@ -336,10 +332,6 @@ public final class AppConfig {
     return conversation.graphEnabled();
   }
 
-  public String graphGenerationTransport() {
-    return conversation.graphGenerationTransport();
-  }
-
   public boolean turnBasedModeEnabled() {
     return conversation.turnBasedModeEnabled();
   }
@@ -548,7 +540,6 @@ public final class AppConfig {
         source.requiredInt("canonicalState.batchMessages"),
         source.requiredInt("graph.turnBased.batchTurns"),
         source.requiredBoolean("graph.enabled"),
-        source.requiredString("graph.generation.transport"),
         source.requiredBoolean("game.turnBasedModeEnabled"),
         source.requiredInt("game.turnPenaltySingleLowHp"),
         source.requiredInt("game.turnPenaltySingleHighHp")
@@ -697,7 +688,6 @@ public final class AppConfig {
     int canonicalStateBatchMessages,
     int graphTurnBasedBatchTurns,
     boolean graphEnabled,
-    String graphGenerationTransport,
     boolean turnBasedModeEnabled,
     int turnPenaltySingleLowHp,
     int turnPenaltySingleHighHp

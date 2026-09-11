@@ -146,6 +146,22 @@ class OpenAiCompatibleHttpClientTest {
     }
 
     @Test
+    @DisplayName("Given LM Studio background processing, when a payload is built, then OpenAI reasoning is disabled")
+    void shouldDisableReasoningThroughOpenAiCompatiblePayload() {
+        OpenAiCompatibleHttpClient client = new OpenAiCompatibleHttpClient(
+            "http://localhost:1234/v1/chat/completions", "google/gemma-4-26b-a4b-qat", true, "",
+            ChatRequestMetrics.NONE, "derived-state", false, true
+        );
+
+        Map<String, Object> payload = client.buildPayload(
+            List.of(new Message("user", "hello")), Map.of("reasoning_effort", "medium")
+        );
+
+        assertEquals("none", payload.get("reasoning_effort"));
+        assertFalse(payload.containsKey("store"));
+    }
+
+    @Test
     @DisplayName("""
         Given a blank configured model name,
         When the request payload is built,
