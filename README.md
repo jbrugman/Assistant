@@ -41,26 +41,8 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 ### Important: background processing and reasoning
 
 Long-term history, recent history, canonical-state generation, manual `/graph -fill`, and automatic turn-based graph
-updates should not spend tokens on model reasoning. The bundled LM Studio setup therefore uses its native chat endpoint
-for these background requests:
-
-```properties
-graph.generation.transport=lmstudio-native
-```
-
-Those memory requests explicitly send `reasoning: "off"` and `store: false`. Main story generation and validation
-continue to use the OpenAI-compatible backend and retain its normal reasoning behavior. When the memory model name is
-empty, this processing selects the single model currently loaded in LM Studio. If multiple models are loaded,
-configure `memory.http.model` explicitly.
-
-For a backend without LM Studio's `/api/v1/chat` endpoint, use:
-
-```properties
-graph.generation.transport=openai-compatible
-```
-
-The OpenAI-compatible transport cannot reliably disable reasoning for these background requests because that switch is
-not portable across compatible providers.
+updates should not spend tokens on model reasoning. With LM Studio, these memory requests therefore send
+`reasoning_effort: "none"` through the normal OpenAI-compatible endpoint. Story generation and validation do not.
 
 ## Architecture
 
@@ -186,8 +168,8 @@ memory.http.apikey=
 
 The memory settings configure the shared client for long-term and short-term summaries, canonical state, and graph
 generation. Leave them empty to fall back to `model.chat`, `backend.http.url`, and `backend.http.apiKey` respectively.
-`graph.generation.transport` selects the transport for this shared memory client only. Main chat and validation always
-use the OpenAI-compatible client configured through `backend.http.*`, with `model.chat` and `model.validator`.
+Main chat, validation, and memory all use the OpenAI-compatible client configured through `backend.http.*`, with
+`model.chat`, `model.validator`, and the optional `memory.http.*` overrides.
 Leave the model fields empty to use the model already loaded by the backend. CLI, API, and web sessions store their
 story state in H2 through `storyteller-db`.
 

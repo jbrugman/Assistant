@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.2-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.5-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.2-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.5-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.2`.
+The local default build version is `2.0.5`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.2-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.5-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -348,13 +348,8 @@ longer updated as live CLI state. Session ZIP and Markdown files remain explicit
 
 ### Knowledge graph MVP
 
-`graph.generation.transport` controls only the shared memory client used for long-term and recent history,
-canonical-state generation, manual `/graph -fill`, and automatic turn-based graph extraction. `lmstudio-native`
-derives `/api/v1/chat` and `/api/v1/models` from `memory.http.url` (or its `backend.http.url` fallback), sends
-`reasoning: "off"` and `store: false`, and discovers the single loaded model when `memory.http.model` is empty.
-`openai-compatible` uses the configured chat-completions URL, but cannot portably guarantee that reasoning is disabled.
-Normal story generation and validation always use the OpenAI-compatible backend through `backend.http.*` and are not
-affected by this setting.
+LM Studio memory requests use the configured OpenAI-compatible endpoint with reasoning disabled. Story generation
+and validation retain their configured reasoning behavior.
 
 Version 1.2.0 introduced a small knowledge graph for mitigation of entity contagion and feature bleeding.
 The active graph is validated and stored in H2. For the CLI, a legacy `memory/knowledge-graph.json` configured through
@@ -597,6 +592,11 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.5
+- LM Studio background-memory requests now use the normal OpenAI-compatible `/v1/chat/completions` endpoint with
+  `reasoning_effort: "none"`; the separate native client and memory-transport configuration have been removed, while
+  story generation and validation remain unchanged.
 
 ### 2.0.4
 - Added Google Gemini Cloud support through Gemini's OpenAI-compatible endpoint. Storyteller automatically detects

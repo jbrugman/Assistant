@@ -31,7 +31,6 @@ import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.service.ChatClient;
-import nl.llm.storyteller.core.service.LmStudioNativeChatClient;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 
@@ -193,15 +192,10 @@ public final class ApiServer implements AutoCloseable {
   }
 
   private static ChatClient derivedStateClient(AppConfig config) {
-    if ("lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport())) {
-      return new LmStudioNativeChatClient(
-        config.memoryHttpUrl(), config.memoryHttpModel(), config.memoryHttpApiKey(),
-        nl.llm.storyteller.core.service.ChatRequestMetrics.NONE
-      );
-    }
+    boolean disableReasoning = !config.googleBackend();
     return new OpenAiCompatibleHttpClient(
       config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(),
-      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend()
+      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend(), disableReasoning
     );
   }
 

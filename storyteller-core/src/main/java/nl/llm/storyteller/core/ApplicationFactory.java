@@ -19,7 +19,6 @@ import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.FileTextMemory;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
-import nl.llm.storyteller.core.service.LmStudioNativeChatClient;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
@@ -126,7 +125,6 @@ public final class ApplicationFactory {
       backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation",
       config.googleBackend()
     );
-    boolean useNativeMemoryClient = "lmstudio-native".equalsIgnoreCase(config.graphGenerationTransport());
     ChatClient validatorDelegate = config.validationEnabled()
       ? new OpenAiCompatibleHttpClient(
         backendUrl,
@@ -149,17 +147,11 @@ public final class ApplicationFactory {
       new LlmBackendGuard("Validation backend", config.validationFailureThreshold(), config.validationCooldownSeconds())
     );
     String memoryBackendUrl = config.hasMemoryHttpUrl() ? config.memoryHttpUrl() : backendUrl;
-    ChatClient derivedStateDelegate;
-    if (useNativeMemoryClient) {
-      derivedStateDelegate = new LmStudioNativeChatClient(
-        memoryBackendUrl, config.memoryHttpModel(), config.memoryHttpApiKey(), metrics, "derived-state"
-      );
-    } else {
-      derivedStateDelegate = new OpenAiCompatibleHttpClient(
-        memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
-        "derived-state", config.googleBackend()
-      );
-    }
+    boolean disableMemoryReasoning = !config.googleBackend();
+    ChatClient derivedStateDelegate = new OpenAiCompatibleHttpClient(
+      memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
+      "derived-state", config.googleBackend(), disableMemoryReasoning
+    );
     ResilientChatClient backgroundClient = new ResilientChatClient(
       derivedStateDelegate,
       new LlmBackendGuard("Background memory backend", config.backgroundFailureThreshold(), config.backgroundCooldownSeconds())

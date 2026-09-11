@@ -34,6 +34,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
   private final boolean hideReasoningBlocks;
   private final String apiKey;
   private final boolean googleBackend;
+  private final boolean disableReasoning;
   private final HttpClient httpClient;
   private final ChatRequestMetrics metrics;
   private final String metricsPurpose;
@@ -54,7 +55,7 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     ChatRequestMetrics metrics,
     String metricsPurpose
   ) {
-    this(url, model, hideReasoningBlocks, apiKey, metrics, metricsPurpose, false);
+    this(url, model, hideReasoningBlocks, apiKey, metrics, metricsPurpose, false, false);
   }
 
   public OpenAiCompatibleHttpClient(
@@ -66,11 +67,25 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     String metricsPurpose,
     boolean googleBackend
   ) {
+    this(url, model, hideReasoningBlocks, apiKey, metrics, metricsPurpose, googleBackend, false);
+  }
+
+  public OpenAiCompatibleHttpClient(
+    String url,
+    String model,
+    boolean hideReasoningBlocks,
+    String apiKey,
+    ChatRequestMetrics metrics,
+    String metricsPurpose,
+    boolean googleBackend,
+    boolean disableReasoning
+  ) {
     this.url = Objects.requireNonNull(url);
     this.model = Objects.requireNonNull(model);
     this.hideReasoningBlocks = hideReasoningBlocks;
     this.apiKey = Objects.requireNonNull(apiKey);
     this.googleBackend = googleBackend;
+    this.disableReasoning = disableReasoning;
     this.metrics = Objects.requireNonNull(metrics);
     this.metricsPurpose = Objects.requireNonNull(metricsPurpose);
     this.httpClient = HttpClient.newBuilder().build();
@@ -148,6 +163,9 @@ public final class OpenAiCompatibleHttpClient implements ChatClient {
     }
     payload.put("messages", messages.stream().map(Message::toMap).toList());
     payload.putAll(options);
+    if (disableReasoning) {
+      payload.put("reasoning_effort", "none");
+    }
     if (googleBackend || usesGeminiOpenAiEndpoint()) {
       GEMINI_UNSUPPORTED_OPTIONS.forEach(payload::remove);
     }
