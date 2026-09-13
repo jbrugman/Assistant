@@ -56,12 +56,35 @@
                   aria-describedby="${page.hasKnowledgeGraphError() ? "knowledge-graph-error" : null}"
                   required>${page.knowledgeGraph()}</textarea>
 
+        <div class="graph-tools" aria-label="Knowledge graph actions">
+          <span>Graph tools</span>
+          <button class="compact-button" type="submit"
+                  formaction="/story/settings/graph/generate-empty"
+                  data-graph-action="generate">Generate empty</button>
+          <button class="compact-button" type="submit"
+                  formaction="/story/settings/graph/fill-fixed-protagonists"
+                  data-graph-action="fill">Fill from protagonists</button>
+          <button class="compact-button danger-button" type="submit"
+                  formaction="/story/settings/graph/reset-turn-based"
+                  data-graph-action="reset">Reset turn-based</button>
+        </div>
+
         <div class="settings-actions">
-          <a class="header-action" href="/story">Cancel</a>
           <button type="submit">Save settings</button>
         </div>
       </form>
     </main>
+    @if(page.hasNotification())
+      <div id="settings-notification" class="notification-modal" role="alertdialog" aria-modal="true"
+           aria-labelledby="settings-notification-title"
+           aria-describedby="settings-notification-message">
+        <div class="notification-modal-content">
+          <p id="settings-notification-title" class="notification-modal-title">${page.notificationTitle()}</p>
+          <p id="settings-notification-message">${page.notificationMessage()}</p>
+          <button id="settings-notification-close" type="button">Close</button>
+        </div>
+      </div>
+    @endif
     @if(page.hasYamlError())
       <script>
         const yamlEditor = document.getElementById("fixedProtagonists");
@@ -78,5 +101,47 @@
         yamlEditor.setSelectionRange(position, Math.min(position + 1, yamlEditor.value.length));
       </script>
     @endif
+    <script>
+      const settingsNotification = document.getElementById("settings-notification");
+      const settingsNotificationClose = document.getElementById("settings-notification-close");
+      const closeSettingsNotification = () => {
+        if (settingsNotification) {
+          settingsNotification.hidden = true;
+          window.history.replaceState({}, "", "/story/settings");
+        }
+      };
+      settingsNotificationClose?.addEventListener("click", closeSettingsNotification);
+      if (settingsNotification) {
+        window.setTimeout(closeSettingsNotification, 8000);
+      }
+      const settingsForm = document.querySelector(".settings-form");
+      const knowledgeGraphEditor = document.getElementById("knowledgeGraph");
+      const graphHasData = () => {
+        try {
+          const graph = JSON.parse(knowledgeGraphEditor.value);
+          return Object.keys(graph.entities || {}).length > 0 || (graph.facts || []).length > 0;
+        } catch (_) {
+          return true;
+        }
+      };
+      settingsForm.addEventListener("submit", event => {
+        const action = event.submitter?.dataset.graphAction;
+        let warning = "";
+        if (action === "reset" && graphHasData()) {
+          warning = "Remove all turn-based facts and entities? Fixed and manual graph data will be kept.";
+        } else if (action === "fill" && graphHasData()) {
+          warning = "The knowledge graph already contains data. Replace it with facts generated from Fixed protagonists?";
+        } else if (action === "generate" && graphHasData()) {
+          warning = "The knowledge graph already contains data. Replace it with a minimal empty graph?";
+        }
+        if (warning && !window.confirm(warning)) {
+          event.preventDefault();
+          return;
+        }
+        if (event.submitter) {
+          event.submitter.disabled = true;
+        }
+      });
+    </script>
   </body>
 </html>

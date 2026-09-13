@@ -8,7 +8,7 @@ import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.RecentSummaryManager;
 import nl.llm.storyteller.core.service.RecentSummaryPromptBuilder;
@@ -53,7 +53,7 @@ class PromptAssemblyServiceTest {
         FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
         FileSupport.writeTextFile(config.canonicalStateFile(), "CANONICAL STATE");
 
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(
             promptResourceLoader,
@@ -174,7 +174,7 @@ class PromptAssemblyServiceTest {
 
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
         ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);
@@ -264,7 +264,7 @@ class PromptAssemblyServiceTest {
         FileSupport.writeTextFile(config.recentSummaryFile(), "RECENT SUMMARY");
         FileSupport.writeTextFile(config.canonicalStateFile(), "CANONICAL STATE");
 
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
         ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);

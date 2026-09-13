@@ -17,6 +17,7 @@ import nl.llm.storyteller.api.session.SessionCookieService;
 import nl.llm.storyteller.api.session.SessionSettingsService;
 import nl.llm.storyteller.api.session.SessionService;
 import nl.llm.storyteller.api.story.StoryTurnService;
+import nl.llm.storyteller.api.story.SessionKnowledgeGraphService;
 
 import java.io.IOException;
 import java.util.List;
@@ -32,6 +33,7 @@ public final class WebController {
   private final SessionBundleService bundleService;
   private final SessionSettingsService settingsService;
   private final SessionMemoryRepository memoryRepository;
+  private final SessionKnowledgeGraphService knowledgeGraphService;
 
   public WebController(
     SessionService sessionService,
@@ -40,7 +42,8 @@ public final class WebController {
     StoryTurnService storyTurnService,
     SessionBundleService bundleService,
     SessionSettingsService settingsService,
-    SessionMemoryRepository memoryRepository
+    SessionMemoryRepository memoryRepository,
+    SessionKnowledgeGraphService knowledgeGraphService
   ) {
     this.sessionService = sessionService;
     this.cookieService = cookieService;
@@ -49,6 +52,7 @@ public final class WebController {
     this.bundleService = bundleService;
     this.settingsService = settingsService;
     this.memoryRepository = memoryRepository;
+    this.knowledgeGraphService = knowledgeGraphService;
   }
 
   public void register(JavalinConfig config) {
@@ -63,6 +67,9 @@ public final class WebController {
     config.routes.get("/story/images/{messageIndex}", this::storyImage);
     config.routes.get("/story/settings", this::settings);
     config.routes.post("/story/settings", this::saveSettings);
+    config.routes.post("/story/settings/graph/reset-turn-based", this::resetTurnBasedFacts);
+    config.routes.post("/story/settings/graph/fill-fixed-protagonists", this::fillFromFixedProtagonists);
+    config.routes.post("/story/settings/graph/generate-empty", this::generateEmptyGraph);
     config.routes.get("/story/memory", this::memory);
     config.routes.post("/story/turns", this::createTurn);
     config.routes.post("/story/undo", this::undoTurn);
@@ -181,8 +188,105 @@ public final class WebController {
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     var settings = settingsService.load(session.get().sessionId());
     context.render("settings.jte", Map.of(
-      "page", StorySettingsPage.valid(settings.prompts(), settingsService.formatKnowledgeGraph(settings))
+      "page", StorySettingsPage.valid(
+        settings.prompts(),
+        settingsService.formatKnowledgeGraph(settings),
+        valueOrEmpty(context.queryParam("notificationTitle")),
+        valueOrEmpty(context.queryParam("notificationMessage"))
+      )
     ));
+  }
+
+  private void resetTurnBasedFacts(Context context) throws IOException {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    if (submittedSettingsCouldNotBeSaved(context, session.get())) {
+      return;
+    }
+    try {
+      var result = knowledgeGraphService.resetTurnBasedItems(session.get().sessionId());
+      redirectToSettingsNotification(
+        context, session.get(),
+        "Turn-based facts reset",
+        "Removed " + result.factsRemoved() + " facts and " + result.entitiesRemoved() + " entities."
+      );
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Resetting turn-based knowledge graph data was interrupted.", ex);
+    } catch (RuntimeException ex) {
+      redirectToSettingsNotification(
+        context, session.get(), "Turn-based facts were not reset", ex.getMessage()
+      );
+    }
+  }
+
+  private void fillFromFixedProtagonists(Context context) throws IOException {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    if (submittedSettingsCouldNotBeSaved(context, session.get())) {
+      return;
+    }
+    try {
+      var result = knowledgeGraphService.fillFromFixedProtagonists(session.get().sessionId());
+      redirectToSettingsNotification(
+        context, session.get(),
+        "Knowledge graph filled",
+        "Generated " + result.facts() + " facts and " + result.entities() + " entities from the saved Fixed protagonists."
+      );
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Knowledge graph generation was interrupted.", ex);
+    } catch (IOException | RuntimeException ex) {
+      redirectToSettingsNotification(
+        context, session.get(), "Knowledge graph was not filled", ex.getMessage()
+      );
+    }
+  }
+
+  private void generateEmptyGraph(Context context) throws IOException {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    if (submittedSettingsCouldNotBeSaved(context, session.get())) {
+      return;
+    }
+    try {
+      var graph = knowledgeGraphService.generateEmpty(session.get().sessionId());
+      redirectToSettingsNotification(
+        context, session.get(), "Empty knowledge graph generated",
+        "Created an empty knowledge graph at revision " + graph.revision() + "."
+      );
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      throw new IOException("Generating an empty knowledge graph was interrupted.", ex);
+    } catch (RuntimeException ex) {
+      redirectToSettingsNotification(
+        context, session.get(), "Empty knowledge graph was not generated", ex.getMessage()
+      );
+    }
+  }
+
+  private void redirectToSettingsNotification(
+    Context context,
+    SessionRecord session,
+    String title,
+    String message
+  ) {
+    cookieService.write(context, session.sessionId(), session.infinite());
+    context.redirect("/story/settings?notificationTitle=" + encode(title)
+      + "&notificationMessage=" + encode(valueOrEmpty(message)), HttpStatus.SEE_OTHER);
+  }
+
+  private String encode(String value) {
+    return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8);
   }
 
   private void memory(Context context) {
@@ -203,6 +307,14 @@ public final class WebController {
       redirectToStart(context);
       return;
     }
+    if (submittedSettingsCouldNotBeSaved(context, session.get())) {
+      return;
+    }
+    cookieService.write(context, session.get().sessionId(), session.get().infinite());
+    context.redirect("/story", HttpStatus.SEE_OTHER);
+  }
+
+  private boolean submittedSettingsCouldNotBeSaved(Context context, SessionRecord session) {
     String systemPrompt = context.formParam("systemPrompt");
     String fixedProtagonists = context.formParam("fixedProtagonists");
     String rules = context.formParam("rules");
@@ -211,24 +323,23 @@ public final class WebController {
       valueOrEmpty(systemPrompt), valueOrEmpty(fixedProtagonists), valueOrEmpty(rules)
     );
     try {
-      settingsService.save(session.get().sessionId(), systemPrompt, fixedProtagonists, rules, knowledgeGraph);
+      settingsService.save(session.sessionId(), systemPrompt, fixedProtagonists, rules, knowledgeGraph);
     } catch (InvalidFixedProtagonistsException ex) {
       context.render("settings.jte", Map.of("page", StorySettingsPage.invalidYaml(
         submittedPrompts,
         valueOrEmpty(knowledgeGraph),
         ex
       )));
-      return;
+      return true;
     } catch (InvalidKnowledgeGraphException ex) {
       context.render("settings.jte", Map.of("page", StorySettingsPage.invalidKnowledgeGraph(
         submittedPrompts,
         valueOrEmpty(knowledgeGraph),
         ex
       )));
-      return;
+      return true;
     }
-    cookieService.write(context, session.get().sessionId(), session.get().infinite());
-    context.redirect("/story", HttpStatus.SEE_OTHER);
+    return false;
   }
 
   private String valueOrEmpty(String value) {
@@ -276,7 +387,7 @@ public final class WebController {
         image,
         pastMessageIndexes(context.formParams("pastExchange"))
       );
-    } catch (IOException ex) {
+    } catch (IOException _) {
       cookieService.write(context, session.get().sessionId(), session.get().infinite());
       context.status(HttpStatus.SERVICE_UNAVAILABLE);
       context.render("story.jte", Map.of(

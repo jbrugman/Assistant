@@ -763,7 +763,7 @@ Expected integration points in the current codebase:
 - `AppConfig`: expose an immutable graph-specific configuration record containing the enable flag, graph path, recent-turn count and prompt budgets. Graph classes should not receive the complete application configuration.
 - `ApplicationFactory`: construct and wire the graph facade. Consumers should receive the facade, not the store, reconciler or extraction implementation.
 - `TerminalStoryteller`: recognize `/generategraph` as a control command, call the graph management facade and report its result without adding it as a story turn.
-- `PromptResourceLoader`: load the configured ontology and graph-extraction prompt for the graph extraction adapter.
+- `PromptLoader`: load the configured ontology and graph-extraction prompt for the graph extraction adapter.
 - `PromptAssemblyService` / `StoryChatPromptBuilder`: request generation-time relevant facts through the graph facade.
 - `ValidationPromptBuilder`: request validator-time relevant hard facts through the graph facade.
 - `StorySessionService`: ensure the draft is included in the second retrieval and only the accepted response reaches history.

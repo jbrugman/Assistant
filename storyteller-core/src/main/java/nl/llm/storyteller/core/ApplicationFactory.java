@@ -23,7 +23,7 @@ import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
 import nl.llm.storyteller.core.service.OpenAiCompatibleClientFacade;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.RecentSummaryManager;
 import nl.llm.storyteller.core.service.RecentSummaryPromptBuilder;
@@ -77,7 +77,7 @@ public final class ApplicationFactory {
     KnowledgeGraphUpdateObserver graphObserver
   ) {
     PredicateCatalog predicateCatalog = PredicateCatalog.load(config.baseDir());
-    PromptResourceLoader filePrompts = new PromptResourceLoader(config);
+    PromptLoader filePrompts = new PromptLoader(config);
     return create(config, metrics, turnObserver, graphObserver, new ApplicationStorage(
       new HistoryStore(config.historyFile(), config.legacyHistoryFile()),
       new FileTextMemory(config.summaryFile()),
@@ -101,7 +101,7 @@ public final class ApplicationFactory {
     ApplicationStorage storage
   ) {
     var historyStore = storage.history();
-    PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config, storage.prompts());
+    PromptLoader promptResourceLoader = new PromptLoader(config, storage.prompts());
     PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
     StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(
       promptResourceLoader, promptTemplateService

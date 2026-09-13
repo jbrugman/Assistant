@@ -14,7 +14,7 @@ import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.model.StoryChatPromptInput;
 import nl.llm.storyteller.core.model.ValidationPromptInput;
 import nl.llm.storyteller.core.service.ChatClient;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.ResponseGuard;
 import nl.llm.storyteller.core.service.StoryChatPromptBuilder;
@@ -67,7 +67,7 @@ public final class StoryTurnService {
     ChatClient validationClient,
     Clock clock
   ) {
-    PromptResourceLoader resources = new PromptResourceLoader(config);
+    PromptLoader resources = new PromptLoader(config);
     PromptTemplateService templates = new PromptTemplateService(resources);
     this.repository = repository;
     this.settingsRepository = settingsRepository;

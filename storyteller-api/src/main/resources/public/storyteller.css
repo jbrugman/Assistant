@@ -83,6 +83,42 @@ textarea {
   margin-top: 0.5rem;
 }
 
+.graph-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: -0.25rem;
+}
+
+.graph-tools > span {
+  margin-right: 0.15rem;
+  color: #9f9287;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+button.compact-button {
+  border: 1px solid #625448;
+  background: transparent;
+  color: #d7a879;
+  padding: 0.42rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+button.compact-button:hover {
+  background: #302923;
+}
+
+button.compact-button.danger-button {
+  border: 1px solid #a75d52;
+  color: #f0b0a6;
+}
+
+button.compact-button.danger-button:hover {
+  background: #3a211d;
+}
+
 .start-page {
   display: grid;
   min-height: 100vh;

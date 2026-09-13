@@ -3,11 +3,11 @@ package nl.llm.storyteller.core.service;
 import nl.llm.storyteller.core.model.ValidationPromptInput;
 
 public final class ValidationPromptBuilder {
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
 
   public ValidationPromptBuilder(
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService
   ) {
     this.promptResourceLoader = promptResourceLoader;

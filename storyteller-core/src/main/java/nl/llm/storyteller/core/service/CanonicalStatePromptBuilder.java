@@ -11,11 +11,11 @@ public final class CanonicalStatePromptBuilder {
   private static final String USER = "user";
   private static final String EMPTY_CANONICAL_STATE = "No canonical state yet.";
 
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
 
   public CanonicalStatePromptBuilder(
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService
   ) {
     this.promptResourceLoader = promptResourceLoader;

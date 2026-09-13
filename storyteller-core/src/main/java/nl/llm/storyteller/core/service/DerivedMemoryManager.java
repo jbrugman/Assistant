@@ -11,7 +11,7 @@ abstract class DerivedMemoryManager {
   protected final StoryHistory historyStore;
   protected final ChatClient client;
   protected final nl.llm.storyteller.core.config.AppConfig config;
-  protected final PromptResourceLoader promptResourceLoader;
+  protected final PromptLoader promptResourceLoader;
   protected final PromptTemplateService promptTemplateService;
 
   private final DerivedMemoryTaskQueue taskQueue;
@@ -25,7 +25,7 @@ abstract class DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     TextMemory memory,
     DerivedMemoryTaskQueue taskQueue,

@@ -7,7 +7,7 @@ import nl.llm.storyteller.core.model.RecentSummaryPromptInput;
 import nl.llm.storyteller.core.model.SummaryPromptInput;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.ChatClient;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.RecentSummaryPromptBuilder;
 import nl.llm.storyteller.core.service.SummaryPromptBuilder;
@@ -37,7 +37,7 @@ public final class SessionMemoryService implements AutoCloseable {
     AppConfig config,
     ChatClient client
   ) {
-    PromptResourceLoader resources = new PromptResourceLoader(config);
+    PromptLoader resources = new PromptLoader(config);
     PromptTemplateService templates = new PromptTemplateService(resources);
     this.memoryRepository = memoryRepository;
     this.settingsRepository = settingsRepository;

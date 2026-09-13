@@ -15,14 +15,14 @@ public final class TurnManager {
   private static final Pattern ACTOR_PREFIX_PATTERN = Pattern.compile("^\\(([^)]+)\\)");
 
   private final nl.llm.storyteller.core.config.AppConfig config;
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
   private final GameModeDefinitionParser gameModeDefinitionParser;
   private final TurnStateRepository turnStateStore;
 
   public TurnManager(
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     GameModeDefinitionParser gameModeDefinitionParser,
     TurnStateRepository turnStateStore

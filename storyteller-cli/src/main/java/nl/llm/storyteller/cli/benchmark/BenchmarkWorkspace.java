@@ -3,7 +3,7 @@ package nl.llm.storyteller.cli.benchmark;
 import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.config.AppConfigLoader;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -127,7 +127,7 @@ final class BenchmarkWorkspace implements AutoCloseable {
   }
 
   private static void copyValidationPrompts(ApplicationContext sourceContext, Path directory) throws IOException {
-    PromptResourceLoader prompts = new PromptResourceLoader(sourceContext.config());
+    PromptLoader prompts = new PromptLoader(sourceContext.config());
     Path systemPrompts = Files.createDirectories(directory.resolve("systemprompts"));
     write(systemPrompts.resolve("validationsystemprompt.md"), prompts.loadValidationSystemPrompt());
     write(systemPrompts.resolve("validationrequesttemplate.md"), prompts.loadValidationRequestTemplate());

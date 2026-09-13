@@ -7,7 +7,7 @@ import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
 import nl.llm.storyteller.core.service.FileTextMemory;
 import nl.llm.storyteller.core.service.HistoryStore;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.TurnStateStore;
 import nl.llm.storyteller.core.service.StoryPrompts;
 import nl.llm.storyteller.db.bundle.SessionBundle;
@@ -56,7 +56,7 @@ public final class JdbcApplicationStorageFactory {
 
   private static void createSession(Database database, AppConfig config, KnowledgeGraphValidator graphValidator) {
     Instant now = Instant.now();
-    PromptResourceLoader resources = new PromptResourceLoader(config);
+    PromptLoader resources = new PromptLoader(config);
     HistoryStore history = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
     new JdbcSessionBundleRepository(database).create(
       new SessionRecord(CLI_SESSION_ID, "CLI story", now, now, now, now.plus(3650, ChronoUnit.DAYS), true),

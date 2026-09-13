@@ -183,6 +183,19 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
+    HttpResponse<String> resetTurnBasedFacts = client.send(
+      HttpRequest.newBuilder(uri("/story/settings/graph/reset-turn-based"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Cookie", cookiePair)
+        .POST(HttpRequest.BodyPublishers.ofString(settingsForm(
+          "System before reset",
+          "fixed_protagonists:\n  Valerie:\n    role: Protagonist",
+          "Rules before reset",
+          EMPTY_GRAPH
+        )))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
     HttpResponse<String> memory = client.send(
       HttpRequest.newBuilder(uri("/story/memory"))
         .header("Cookie", cookiePair)
@@ -245,6 +258,19 @@ class ApiServerTest {
     assertEquals(200, settings.statusCode());
     assertTrue(settings.body().contains("Story settings"));
     assertTrue(settings.body().contains("Knowledge graph (JSON)"));
+    assertTrue(settings.body().contains("formaction=\"/story/settings/graph/generate-empty\""));
+    assertTrue(settings.body().contains("Generate empty"));
+    assertTrue(settings.body().contains("formaction=\"/story/settings/graph/fill-fixed-protagonists\""));
+    assertTrue(settings.body().contains("Fill from protagonists"));
+    assertTrue(settings.body().contains("formaction=\"/story/settings/graph/reset-turn-based\""));
+    assertTrue(settings.body().contains("Reset turn-based"));
+    assertTrue(settings.body().contains("Replace it with a minimal empty graph?"));
+    assertTrue(settings.body().contains("Replace it with facts generated from Fixed protagonists?"));
+    assertTrue(settings.body().contains("Remove all turn-based facts and entities?"));
+    assertFalse(settings.body().contains(">Cancel</a>"));
+    assertEquals(303, resetTurnBasedFacts.statusCode());
+    assertTrue(resetTurnBasedFacts.headers().firstValue("Location").orElseThrow()
+      .contains("notificationTitle=Turn-based+facts+reset"));
     assertFalse(settings.body().contains("Canonical state"));
     assertEquals(200, memory.statusCode());
     assertTrue(memory.body().contains("Mid-term history"));

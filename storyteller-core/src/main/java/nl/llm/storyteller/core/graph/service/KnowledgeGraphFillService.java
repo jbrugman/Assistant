@@ -1,18 +1,18 @@
 package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 public final class KnowledgeGraphFillService {
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final KnowledgeGraphGeneration generator;
   private final DerivedMemoryTaskQueue taskQueue;
 
   public KnowledgeGraphFillService(
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     KnowledgeGraphGeneration generator,
     DerivedMemoryTaskQueue taskQueue
   ) {

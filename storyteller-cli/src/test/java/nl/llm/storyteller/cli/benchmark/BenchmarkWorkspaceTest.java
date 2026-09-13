@@ -3,7 +3,7 @@ package nl.llm.storyteller.cli.benchmark;
 import nl.llm.storyteller.core.ApplicationContext;
 import nl.llm.storyteller.core.TestAppConfigFactory;
 import nl.llm.storyteller.core.config.AppConfigLoader;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,7 +33,7 @@ class BenchmarkWorkspaceTest {
     var options = BenchmarkOptions.parse("/benchmark -gemma-4-26b-a4b-nl-vision-mlx --turns=10");
 
     try (BenchmarkWorkspace workspace = BenchmarkWorkspace.create(sourceContext, options)) {
-      PromptResourceLoader prompts = new PromptResourceLoader(workspace.config());
+      PromptLoader prompts = new PromptLoader(workspace.config());
 
       assertEquals("gemma-4-26b-a4b-nl-vision-mlx", workspace.config().chatModel());
       assertEquals("gemma-4-26b-a4b-nl-vision-mlx", workspace.config().validatorModel());
@@ -80,7 +80,7 @@ class BenchmarkWorkspaceTest {
       sourceContext,
       BenchmarkOptions.parse("/benchmark --turns=10")
     )) {
-      PromptResourceLoader prompts = new PromptResourceLoader(workspace.config());
+      PromptLoader prompts = new PromptLoader(workspace.config());
 
       assertEquals("Return a corrected REPLACE response directly.", prompts.loadValidationSystemPrompt());
       assertEquals("Validate exactly: %s %s %s %s", prompts.loadValidationRequestTemplate());

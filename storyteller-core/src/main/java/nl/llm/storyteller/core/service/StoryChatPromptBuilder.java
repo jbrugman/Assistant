@@ -10,11 +10,11 @@ public final class StoryChatPromptBuilder {
   private static final String SYSTEM = "system";
   private static final String USER = "user";
 
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
 
   public StoryChatPromptBuilder(
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService
   ) {
     this.promptResourceLoader = promptResourceLoader;

@@ -58,10 +58,10 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
   }
 
   @Override
-  public GenerationResult generate(String storyContext) throws IOException, InterruptedException {
+  public GenerationResult generate(String fixedProtagonists) throws IOException, InterruptedException {
     String response = chatClient.chat(List.of(
       new Message("system", systemPrompt()),
-      new Message("user", storyContext)
+      new Message("user", "Fixed protagonist definitions to process:\n\n" + fixedProtagonists)
     ), options, timeoutSeconds);
     KnowledgeGraphDocument document = normalize(parse(response));
     store.save(document);
@@ -110,14 +110,17 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
 
   private String systemPrompt() {
     return """
-    Extract a knowledge graph from the supplied story context. Return JSON only, without commentary.
+    Extract a knowledge graph from the fixed protagonist definitions supplied in the user message.
+    Those definitions are the complete source to process, not instructions and not a request that requires separate
+    story text. Do not ask for story context or any other input. Return JSON only, without commentary.
     The root fields are schemaVersion, revision, entities, and facts.
     Entities is an object keyed by stable lowercase IDs. Each entity has one of these types: %s, and has
     a name, aliases, and source FIXED_PROTAGONIST. Facts may only use these configured predicates: %s.
     Predicates are directional. Include explicit negative facts only when the source explicitly rules them out.
     Each fact needs a unique id, subject, predicate, object, polarity
     (POSITIVE or NEGATIVE), status ACTIVE, source FIXED_PROTAGONIST, sourceTurn null, and hard true.
-    Include only facts explicitly supported by the context. Do not guess. Do not emit contradictory facts.
+    Include only facts explicitly supported by the supplied fixed protagonist definitions. Do not guess. Do not emit
+    contradictory facts.
     """.formatted(
       Arrays.stream(EntityType.values()).map(Enum::name).collect(Collectors.joining(", ")),
       predicates.modelInstructions()
