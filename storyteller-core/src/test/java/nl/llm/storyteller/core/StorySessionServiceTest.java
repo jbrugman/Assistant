@@ -7,7 +7,7 @@ import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.GameModeDefinitionParser;
 import nl.llm.storyteller.core.service.HistoryStore;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.RecentSummaryManager;
 import nl.llm.storyteller.core.service.RecentSummaryPromptBuilder;
@@ -46,7 +46,7 @@ class StorySessionServiceTest {
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.appendTurn("Earlier prompt", "Earlier reply");
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
         ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);
@@ -143,7 +143,7 @@ class StorySessionServiceTest {
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
         historyStore.appendTurn("Original prompt", "Bad answer");
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         StoryChatPromptBuilder storyChatPromptBuilder = new StoryChatPromptBuilder(promptResourceLoader, promptTemplateService);
         ValidationPromptBuilder validationPromptBuilder = new ValidationPromptBuilder(promptResourceLoader, promptTemplateService);

@@ -32,7 +32,7 @@ import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.OpenAiCompatibleClientFacade;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -104,7 +104,7 @@ public final class ApiServer implements AutoCloseable {
     );
     new SchemaInitializer(database).initialize();
 
-    PromptResourceLoader promptResources = new PromptResourceLoader(coreConfig);
+    PromptLoader promptResources = new PromptLoader(coreConfig);
     SessionPrompts defaultPrompts = new SessionPrompts(
       promptResources.loadSystemPrompt(),
       promptResources.loadFixedProtagonists(),
@@ -129,9 +129,12 @@ public final class ApiServer implements AutoCloseable {
     SessionMemoryService memoryService = new SessionMemoryService(
       memoryRepository, settingsRepository, coreConfig, backgroundClient
     );
+    SessionKnowledgeGraphService knowledgeGraphService = new SessionKnowledgeGraphService(
+      database, coreConfig, graphClient
+    );
     SessionDerivedStateService derivedStateService = new SessionDerivedStateService(
       memoryService,
-      new SessionKnowledgeGraphService(database, coreConfig, graphClient)
+      knowledgeGraphService
     );
     StoryTurnService storyTurnService = new StoryTurnService(
       storyRepository, settingsRepository, memoryRepository, derivedStateService,
@@ -151,7 +154,8 @@ public final class ApiServer implements AutoCloseable {
       storyTurnService,
       bundleService,
       new SessionSettingsService(settingsRepository, graphValidator),
-      memoryRepository
+      memoryRepository,
+      knowledgeGraphService
     );
     ApiTlsMaterial tlsMaterial = config.tls().enabled() ? ApiTlsMaterial.prepare(config.tls()) : null;
     Javalin server = Javalin.create(javalinConfig -> {

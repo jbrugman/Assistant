@@ -13,7 +13,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder
   ) {
@@ -27,7 +27,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
     DerivedMemoryTaskQueue taskQueue
@@ -40,7 +40,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
     TextMemory memory,
@@ -54,7 +54,7 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
     TextMemory memory,

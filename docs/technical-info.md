@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.6-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.7-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.6-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.7-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.6`.
+The local default build version is `2.0.7`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.6-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.7-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -499,7 +499,7 @@ The runtime responsibilities are now split more explicitly:
 - [`PromptAssemblyService.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptAssemblyService.java): coordinates prompt building from prompts, memory, and recent turns
 
 Prompt responsibilities are now split more explicitly:
-- [`PromptResourceLoader.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptResourceLoader.java): loads raw prompt resources
+- [`PromptLoader.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptLoader.java): loads session prompts and fixed prompt resources
 - [`PromptTemplateService.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/PromptTemplateService.java): formats reusable prompt fragments
 - [`StoryChatPromptBuilder.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/StoryChatPromptBuilder.java): builds the main storyteller chat stack
 - [`ValidationPromptBuilder.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/ValidationPromptBuilder.java): builds validator system and user payloads
@@ -592,6 +592,17 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.7
+- Added compact Story settings actions to generate a minimal empty graph, rebuild the graph from the saved
+  **Fixed protagonists**, or remove only turn-based facts and entities. Graph actions first validate and save the
+  submitted settings, and warn before replacing or removing existing graph data.
+- Fixed-protagonist graph generation now identifies the saved definitions as the complete source to process, preventing
+  models from incorrectly waiting for separate story context.
+- Resetting turn-based graph data now forces one graph extraction after the next completed turn, including when undo
+  leaves fewer turns than the configured extraction batch size.
+- Renamed `PromptResourceLoader` to `PromptLoader` to reflect that story prompts may come from the active H2 session,
+  while fixed prompt templates may still come from configured files or bundled resources.
 
 ### 2.0.6
 - Added a Responses-first OpenAI-compatible facade with separate route packages and a per-endpoint cached Chat

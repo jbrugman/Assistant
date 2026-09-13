@@ -11,11 +11,11 @@ public final class SummaryPromptBuilder {
   private static final String USER = "user";
   private static final String EMPTY_SUMMARY = "No summary yet.";
 
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
   private final PromptTemplateService promptTemplateService;
 
   public SummaryPromptBuilder(
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService
   ) {
     this.promptResourceLoader = promptResourceLoader;

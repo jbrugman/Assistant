@@ -3,16 +3,20 @@ package nl.llm.storyteller.core.graph.service;
 import nl.llm.storyteller.core.graph.model.FactSource;
 import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
 import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphStore;
+import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.service.ChatClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class KnowledgeGraphGeneratorTest {
   @TempDir Path tempDir;
@@ -26,7 +30,10 @@ class KnowledgeGraphGeneratorTest {
   void validatesPersistsAndPublishesModelResult() throws Exception {
     KnowledgeGraphStore store = new KnowledgeGraphStore(tempDir.resolve("graph.json"));
     ReadOnlyKnowledgeGraphService service = new ReadOnlyKnowledgeGraphService(store);
-    ChatClient client = (messages, options, timeout) -> """
+    AtomicReference<List<Message>> suppliedMessages = new AtomicReference<>();
+    ChatClient client = (messages, options, timeout) -> {
+      suppliedMessages.set(messages);
+      return """
       {
         "schemaVersion": 99,
         "revision": 99,
@@ -36,6 +43,7 @@ class KnowledgeGraphGeneratorTest {
         "facts": []
       }
       """;
+    };
 
     var result = new KnowledgeGraphGenerator(client, store, service, Map.of(), 10).generate("fixed data");
 
@@ -44,6 +52,9 @@ class KnowledgeGraphGeneratorTest {
     assertEquals(1, store.load().schemaVersion());
     assertEquals(FactSource.FIXED_PROTAGONIST, store.load().entities().get("character.valerie").source());
     assertEquals(1, service.current().revision());
+    assertEquals("Fixed protagonist definitions to process:\n\nfixed data",
+      suppliedMessages.get().getLast().content());
+    assertTrue(suppliedMessages.get().getFirst().content().contains("Do not ask for story context"));
   }
 
   @Test

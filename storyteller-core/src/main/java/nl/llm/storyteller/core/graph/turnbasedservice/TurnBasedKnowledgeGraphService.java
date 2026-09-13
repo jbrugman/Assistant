@@ -91,8 +91,15 @@ public final class TurnBasedKnowledgeGraphService {
   }
 
   public void startUpdateIfNeeded() {
+    startUpdateIfNeeded(false);
+  }
+
+  public void startUpdateIfNeeded(boolean force) {
     List<Message> messages = historyStore.load().messages();
     int completedTurns = messages.size() / 2;
+    if (completedTurns == 0) {
+      return;
+    }
     int lastProcessedTurn = store.load().facts().stream()
       .filter(fact -> fact.source() == FactSource.TURNBASED)
       .map(Fact::sourceTurn)
@@ -100,7 +107,7 @@ public final class TurnBasedKnowledgeGraphService {
       .mapToInt(Integer::intValue)
       .max()
       .orElse(0);
-    if (completedTurns - lastProcessedTurn < batchTurns) {
+    if (!force && completedTurns - lastProcessedTurn < batchTurns) {
       return;
     }
 

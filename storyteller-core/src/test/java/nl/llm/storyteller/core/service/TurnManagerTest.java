@@ -106,7 +106,7 @@ class TurnManagerTest {
             """.formatted(turnBasedEnabled));
 
         nl.llm.storyteller.core.config.AppConfig config = TestAppConfigFactory.load(baseDirectory);
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         TurnStateStore turnStateStore = new TurnStateStore(config.turnStateFile());
         TurnManager turnManager = new TurnManager(
             config,

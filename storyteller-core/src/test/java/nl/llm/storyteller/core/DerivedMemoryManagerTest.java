@@ -9,7 +9,7 @@ import nl.llm.storyteller.core.service.CanonicalStateManager;
 import nl.llm.storyteller.core.service.CanonicalStatePromptBuilder;
 import nl.llm.storyteller.core.service.ChatClient;
 import nl.llm.storyteller.core.service.HistoryStore;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
 import nl.llm.storyteller.core.service.RecentSummaryManager;
 import nl.llm.storyteller.core.service.RecentSummaryPromptBuilder;
@@ -267,7 +267,7 @@ class DerivedMemoryManagerTest {
         writeOverride(baseDirectory, "systemprompts/canonicalstatesystemprompt.md", "CANONICAL SYSTEM");
 
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
 
         assertDerivedPromptShape(
@@ -295,7 +295,7 @@ class DerivedMemoryManagerTest {
 
         nl.llm.storyteller.core.config.AppConfig config = nl.llm.storyteller.core.config.AppConfigLoader.load(baseDirectory, null);
         HistoryStore historyStore = new HistoryStore(config.historyFile(), config.legacyHistoryFile());
-        PromptResourceLoader promptResourceLoader = new PromptResourceLoader(config);
+        PromptLoader promptResourceLoader = new PromptLoader(config);
         PromptTemplateService promptTemplateService = new PromptTemplateService(promptResourceLoader);
         return new TestContext(config, historyStore, promptResourceLoader, promptTemplateService);
     }
@@ -393,7 +393,7 @@ class DerivedMemoryManagerTest {
     private record TestContext(
         nl.llm.storyteller.core.config.AppConfig config,
         HistoryStore historyStore,
-        PromptResourceLoader promptResourceLoader,
+        PromptLoader promptResourceLoader,
         PromptTemplateService promptTemplateService
     ) {}
 

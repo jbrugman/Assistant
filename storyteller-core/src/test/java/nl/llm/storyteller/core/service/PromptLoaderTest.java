@@ -12,7 +12,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class PromptResourceLoaderTest {
+class PromptLoaderTest {
   @ParameterizedTest
   @MethodSource("sessionPrompts")
   @DisplayName("""
@@ -22,10 +22,10 @@ class PromptResourceLoaderTest {
     """)
   void shouldLoadEditableStoryPromptsFromSession(
     String expected,
-    Function<PromptResourceLoader, String> loader
+    Function<PromptLoader, String> loader
   ) {
     var config = TestAppConfigFactory.load(Path.of("."));
-    var resources = new PromptResourceLoader(
+    var resources = new PromptLoader(
       config,
       () -> new StoryPrompts("DATABASE SYSTEM", "DATABASE PROTAGONISTS", "DATABASE RULES")
     );
@@ -37,9 +37,9 @@ class PromptResourceLoaderTest {
 
   private static Stream<Arguments> sessionPrompts() {
     return Stream.of(
-      Arguments.of("DATABASE SYSTEM", (Function<PromptResourceLoader, String>) PromptResourceLoader::loadSystemPrompt),
-      Arguments.of("DATABASE PROTAGONISTS", (Function<PromptResourceLoader, String>) PromptResourceLoader::loadFixedProtagonists),
-      Arguments.of("DATABASE RULES", (Function<PromptResourceLoader, String>) PromptResourceLoader::loadRulesPrompt)
+      Arguments.of("DATABASE SYSTEM", (Function<PromptLoader, String>) PromptLoader::loadSystemPrompt),
+      Arguments.of("DATABASE PROTAGONISTS", (Function<PromptLoader, String>) PromptLoader::loadFixedProtagonists),
+      Arguments.of("DATABASE RULES", (Function<PromptLoader, String>) PromptLoader::loadRulesPrompt)
     );
   }
 }

@@ -2,7 +2,7 @@ package nl.llm.storyteller.core.graph.service;
 
 import nl.llm.storyteller.core.TestAppConfigFactory;
 import nl.llm.storyteller.core.service.DerivedMemoryTaskQueue;
-import nl.llm.storyteller.core.service.PromptResourceLoader;
+import nl.llm.storyteller.core.service.PromptLoader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,7 +39,7 @@ class KnowledgeGraphFillServiceTest {
     var config = TestAppConfigFactory.load(tempDir);
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
       var service = new KnowledgeGraphFillService(
-        new PromptResourceLoader(config),
+        new PromptLoader(config),
         input -> {
           received.set(input);
           return new KnowledgeGraphGenerator.GenerationResult(1, 0, 1);
@@ -73,7 +73,7 @@ class KnowledgeGraphFillServiceTest {
       queue.submit(() -> await(releaseEarlierTask, earlierTaskStarted));
       assertTrue(earlierTaskStarted.await(5, TimeUnit.SECONDS));
       var service = new KnowledgeGraphFillService(
-        new PromptResourceLoader(config),
+        new PromptLoader(config),
         input -> {
           generationStarted.countDown();
           return new KnowledgeGraphGenerator.GenerationResult(1, 0, 1);
@@ -114,7 +114,7 @@ class KnowledgeGraphFillServiceTest {
 
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
       var service = new KnowledgeGraphFillService(
-        new PromptResourceLoader(config),
+        new PromptLoader(config),
         input -> {
           throw expected;
         },

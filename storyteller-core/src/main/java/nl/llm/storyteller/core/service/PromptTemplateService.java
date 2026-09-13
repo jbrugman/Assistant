@@ -1,9 +1,9 @@
 package nl.llm.storyteller.core.service;
 
 public final class PromptTemplateService {
-  private final PromptResourceLoader promptResourceLoader;
+  private final PromptLoader promptResourceLoader;
 
-  public PromptTemplateService(PromptResourceLoader promptResourceLoader) {
+  public PromptTemplateService(PromptLoader promptResourceLoader) {
     this.promptResourceLoader = promptResourceLoader;
   }
 

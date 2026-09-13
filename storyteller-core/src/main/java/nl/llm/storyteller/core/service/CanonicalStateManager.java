@@ -14,7 +14,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder
   ) {
@@ -28,7 +28,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
     DerivedMemoryTaskQueue taskQueue
@@ -41,7 +41,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
     TextMemory memory,
@@ -55,7 +55,7 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     StoryHistory historyStore,
     ChatClient client,
     nl.llm.storyteller.core.config.AppConfig config,
-    PromptResourceLoader promptResourceLoader,
+    PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
     TextMemory memory,

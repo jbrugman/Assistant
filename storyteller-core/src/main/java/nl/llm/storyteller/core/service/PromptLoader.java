@@ -2,15 +2,15 @@ package nl.llm.storyteller.core.service;
 
 import nl.llm.storyteller.core.FileSupport;
 
-public final class PromptResourceLoader {
+public final class PromptLoader {
   private final nl.llm.storyteller.core.config.AppConfig config;
   private final StoryPromptSource storyPromptSource;
 
-  public PromptResourceLoader(nl.llm.storyteller.core.config.AppConfig config) {
+  public PromptLoader(nl.llm.storyteller.core.config.AppConfig config) {
     this(config, null);
   }
 
-  public PromptResourceLoader(
+  public PromptLoader(
     nl.llm.storyteller.core.config.AppConfig config,
     StoryPromptSource storyPromptSource
   ) {
