@@ -28,6 +28,7 @@ public final class OpenAiCompatibleClientFacade implements ChatClient {
   private final String metricsPurpose;
   private final OpenAiRoute responses;
   private final OpenAiRoute chatCompletions;
+  private final boolean preferResponses;
   private final AtomicReference<ResponsesCapabilityCache.Support> responsesSupport;
 
   public OpenAiCompatibleClientFacade(
@@ -45,7 +46,8 @@ public final class OpenAiCompatibleClientFacade implements ChatClient {
       hideReasoningBlocks, metrics, metricsPurpose,
       new ResponsesRoute(url, model, apiKey, disableReasoning),
       new ChatCompletionsRoute(url, model, apiKey, googleBackend, disableReasoning),
-      RESPONSES_CAPABILITIES.forEndpoint(url)
+      RESPONSES_CAPABILITIES.forEndpoint(url),
+      !model.isBlank()
     );
   }
 
@@ -54,13 +56,13 @@ public final class OpenAiCompatibleClientFacade implements ChatClient {
     OpenAiRoute responses, OpenAiRoute chatCompletions
   ) {
     this(hideReasoningBlocks, metrics, metricsPurpose, responses, chatCompletions,
-      new AtomicReference<>(ResponsesCapabilityCache.Support.UNKNOWN));
+      new AtomicReference<>(ResponsesCapabilityCache.Support.UNKNOWN), true);
   }
 
-  private OpenAiCompatibleClientFacade(
+  OpenAiCompatibleClientFacade(
     boolean hideReasoningBlocks, ChatRequestMetrics metrics, String metricsPurpose,
     OpenAiRoute responses, OpenAiRoute chatCompletions,
-    AtomicReference<ResponsesCapabilityCache.Support> responsesSupport
+    AtomicReference<ResponsesCapabilityCache.Support> responsesSupport, boolean preferResponses
   ) {
     this.hideReasoningBlocks = hideReasoningBlocks;
     this.metrics = Objects.requireNonNull(metrics);
@@ -68,6 +70,7 @@ public final class OpenAiCompatibleClientFacade implements ChatClient {
     this.responses = Objects.requireNonNull(responses);
     this.chatCompletions = Objects.requireNonNull(chatCompletions);
     this.responsesSupport = Objects.requireNonNull(responsesSupport);
+    this.preferResponses = preferResponses;
   }
 
   @Override
@@ -81,7 +84,7 @@ public final class OpenAiCompatibleClientFacade implements ChatClient {
 
   private OpenAiRouteResult execute(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
     throws IOException, InterruptedException {
-    if (responsesSupport.get() == ResponsesCapabilityCache.Support.UNSUPPORTED) {
+    if (!preferResponses || responsesSupport.get() == ResponsesCapabilityCache.Support.UNSUPPORTED) {
       return chatCompletions.execute(messages, options, timeoutSeconds);
     }
     try {

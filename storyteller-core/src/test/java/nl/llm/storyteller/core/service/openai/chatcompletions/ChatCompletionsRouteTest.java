@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service.openai.chatcompletions;
 
 import nl.llm.storyteller.core.model.Message;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -12,7 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatCompletionsRouteTest {
   @Test
-  void buildsAuthenticatedChatCompletionsRequest() throws Exception {
+  @DisplayName("""
+    Given an API key,
+    When a Chat Completions request is built,
+    Then it should contain a bearer authorization header
+    """)
+  void shouldBuildAuthenticatedChatCompletionsRequest() throws Exception {
     ChatCompletionsRoute route = new ChatCompletionsRoute(
       "https://example.test/v1/chat/completions", "test-model", "secret", false, false
     );
@@ -23,7 +29,12 @@ class ChatCompletionsRouteTest {
   }
 
   @Test
-  void filtersGeminiOptions() {
+  @DisplayName("""
+    Given a Gemini OpenAI-compatible endpoint,
+    When a Chat Completions payload is built,
+    Then unsupported sampler options should be omitted
+    """)
+  void shouldFilterGeminiOptions() {
     ChatCompletionsRoute route = new ChatCompletionsRoute(
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini", "", false, false
     );
@@ -38,7 +49,12 @@ class ChatCompletionsRouteTest {
   }
 
   @Test
-  void disablesReasoningOnlyWhenRequested() {
+  @DisplayName("""
+    Given a background-memory route with reasoning disabled,
+    When a Chat Completions payload is built,
+    Then reasoning effort should be none without adding storage options
+    """)
+  void shouldDisableReasoningOnlyWhenRequested() {
     ChatCompletionsRoute route = new ChatCompletionsRoute(
       "http://localhost:1234/v1/chat/completions", "gemma", "", false, true
     );

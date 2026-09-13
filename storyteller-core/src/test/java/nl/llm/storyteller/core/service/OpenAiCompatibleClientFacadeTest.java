@@ -4,6 +4,7 @@ import nl.llm.storyteller.core.model.Message;
 import nl.llm.storyteller.core.service.openai.OpenAiRoute;
 import nl.llm.storyteller.core.service.openai.OpenAiRouteResult;
 import nl.llm.storyteller.core.service.openai.UnsupportedResponsesEndpointException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -18,7 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 
 class OpenAiCompatibleClientFacadeTest {
   @Test
-  void keepsCapabilityStateSeparateForDifferentChatAndMemoryServers() {
+  @DisplayName("""
+    Given different chat and memory backend URLs,
+    When their Responses capability state is requested,
+    Then each backend should have an independent cached state
+    """)
+  void shouldKeepCapabilityStateSeparateForDifferentChatAndMemoryServers() {
     ResponsesCapabilityCache cache = new ResponsesCapabilityCache();
 
     assertNotSame(
@@ -37,7 +43,12 @@ class OpenAiCompatibleClientFacadeTest {
     "<|thinking|>hidden</|thinking|>Visible;Visible",
     "<|channel>thought hidden<channel|>Visible;Visible"
   }, delimiter = ';')
-  void stripsReasoningBlocks(String response, String expected) {
+  @DisplayName("""
+    Given model output containing a reasoning block,
+    When the facade sanitizes the response,
+    Then only visible output should remain
+    """)
+  void shouldStripReasoningBlocks(String response, String expected) {
     OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
       true, ChatRequestMetrics.NONE, "test", (_, _, _) -> new OpenAiRouteResult(response, 1),
       (_, _, _) -> new OpenAiRouteResult("fallback", 1)
@@ -47,7 +58,12 @@ class OpenAiCompatibleClientFacadeTest {
   }
 
   @Test
-  void cachesUnsupportedResponsesRouteAndFallsBackToChatCompletions() throws Exception {
+  @DisplayName("""
+    Given a backend without a Responses endpoint,
+    When multiple requests are submitted,
+    Then the facade should cache the failure and use Chat Completions
+    """)
+  void shouldCacheUnsupportedResponsesRouteAndFallBackToChatCompletions() throws Exception {
     AtomicInteger responsesCalls = new AtomicInteger();
     AtomicInteger chatCalls = new AtomicInteger();
     OpenAiRoute responses = (_, _, _) -> {
@@ -69,7 +85,12 @@ class OpenAiCompatibleClientFacadeTest {
   }
 
   @Test
-  void keepsUsingResponsesAfterSuccessfulCapabilityCheck() throws Exception {
+  @DisplayName("""
+    Given a backend supporting Responses,
+    When multiple requests are submitted,
+    Then the facade should continue using the Responses route
+    """)
+  void shouldKeepUsingResponsesAfterSuccessfulCapabilityCheck() throws Exception {
     AtomicInteger responsesCalls = new AtomicInteger();
     OpenAiRoute responses = (_, _, _) -> new OpenAiRouteResult("response-" + responsesCalls.incrementAndGet(), 1);
     OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
@@ -79,5 +100,27 @@ class OpenAiCompatibleClientFacadeTest {
 
     assertEquals("response-1", facade.chat(List.of(new Message("user", "one")), Map.of(), 10));
     assertEquals("response-2", facade.chat(List.of(new Message("user", "two")), Map.of(), 10));
+  }
+
+  @Test
+  @DisplayName("""
+    Given no explicit model selection,
+    When a request is submitted,
+    Then the facade should use Chat Completions directly
+    """)
+  void shouldUseChatCompletionsDirectlyWithoutExplicitModelSelection() throws Exception {
+    AtomicInteger responsesCalls = new AtomicInteger();
+    OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
+      true, ChatRequestMetrics.NONE, "test",
+      (_, _, _) -> {
+        responsesCalls.incrementAndGet();
+        return new OpenAiRouteResult("responses", 1);
+      },
+      (_, _, _) -> new OpenAiRouteResult("chat", 1),
+      new java.util.concurrent.atomic.AtomicReference<>(ResponsesCapabilityCache.Support.UNKNOWN), false
+    );
+
+    assertEquals("chat", facade.chat(List.of(new Message("user", "hello")), Map.of(), 10));
+    assertEquals(0, responsesCalls.get());
   }
 }

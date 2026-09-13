@@ -185,8 +185,12 @@ class TurnBasedKnowledgeGraphServiceTest {
   }
 
   @Test
-  @DisplayName("Turn-based extraction must neither retain nor create residence facts")
-  void excludesResidenceFactsFromTurnBasedGraphData() {
+  @DisplayName("""
+    Given existing and newly extracted turn-based residence facts,
+    When the graph update is merged,
+    Then turn-based residence facts should be removed while authoritative residence remains
+    """)
+  void shouldExcludeResidenceFactsFromTurnBasedGraphData() {
     TestContext context = context();
     EntityId valerie = new EntityId("character.valerie");
     EntityId home = new EntityId("location.home");

@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service.openai.responses;
 
 import nl.llm.storyteller.core.model.Message;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -12,7 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResponsesRouteTest {
   @Test
-  void derivesResponsesUrlAndMapsOptions() {
+  @DisplayName("""
+    Given a Chat Completions URL and generation options,
+    When a Responses payload is built,
+    Then the Responses URL and equivalent option names should be used
+    """)
+  void shouldDeriveResponsesUrlAndMapOptions() {
     ResponsesRoute route = new ResponsesRoute(
       "http://localhost:1234/v1/chat/completions", "gemma", "", true
     );
@@ -29,7 +35,12 @@ class ResponsesRouteTest {
   }
 
   @Test
-  void mapsVisionInputToResponsesContentTypes() {
+  @DisplayName("""
+    Given a message containing text and an image,
+    When a Responses payload is built,
+    Then both inputs should use the Responses content types
+    """)
+  void shouldMapVisionInputToResponsesContentTypes() {
     ResponsesRoute route = new ResponsesRoute(
       "http://localhost:1234/v1/chat/completions", "vision", "", false
     );

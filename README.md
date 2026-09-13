@@ -30,7 +30,10 @@ lightweight terminal-based workflows.
   MLX serving.
 
 OpenAI-compatible requests prefer `/v1/responses`. Storyteller caches backend capability and falls back to
-`/v1/chat/completions` only when the Responses endpoint is explicitly unavailable.
+`/v1/chat/completions` only when the Responses endpoint is explicitly unavailable. The Responses endpoint requires an
+explicit model selection: set `model.chat` and, when validation uses a different model, `model.validator`. When a
+separate memory server is configured, set `memory.http.model` for that server. A client without an explicit model uses
+Chat Completions directly so the backend can retain its loaded/default-model behavior.
 
 ## History
 Storyteller started as a small assistant app and gradually evolved into a dedicated storytelling tool.
@@ -75,8 +78,8 @@ http://localhost:1234/v1/chat/completions
 ```
 
 When `backend.type=openai-compatible`, start the external LLM server before Storyteller and make sure an LLM is loaded
-or selectable there. If `model.chat` and `model.validator` are empty, Storyteller does not request a model by name and
-the backend uses its currently loaded/default LLM. This manual startup requirement does not apply to the managed
+or selectable there. Configure model names explicitly to use `/v1/responses`. Empty model fields use Chat Completions
+and leave model selection to the backend. This manual startup requirement does not apply to the managed
 `llama-server` and MLX backend types: Storyteller starts those configured services itself.
 
 ## Build
