@@ -21,7 +21,7 @@ import nl.llm.storyteller.core.service.FileTextMemory;
 import nl.llm.storyteller.core.service.LlmBackendGuard;
 import nl.llm.storyteller.core.service.ManagedLlamaServer;
 import nl.llm.storyteller.core.service.ManagedMlxServer;
-import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
+import nl.llm.storyteller.core.service.OpenAiCompatibleClientFacade;
 import nl.llm.storyteller.core.service.PromptAssemblyService;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 import nl.llm.storyteller.core.service.PromptTemplateService;
@@ -121,12 +121,12 @@ public final class ApplicationFactory {
     ManagedLlamaServer managedLlamaServer = startManagedLlamaServerIfConfigured(config);
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
     String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
-    OpenAiCompatibleHttpClient chatDelegate = new OpenAiCompatibleHttpClient(
+    OpenAiCompatibleClientFacade chatDelegate = new OpenAiCompatibleClientFacade(
       backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation",
       config.googleBackend()
     );
     ChatClient validatorDelegate = config.validationEnabled()
-      ? new OpenAiCompatibleHttpClient(
+      ? new OpenAiCompatibleClientFacade(
         backendUrl,
         config.validatorModel(),
         config.hideReasoningBlocks(),
@@ -148,7 +148,7 @@ public final class ApplicationFactory {
     );
     String memoryBackendUrl = config.hasMemoryHttpUrl() ? config.memoryHttpUrl() : backendUrl;
     boolean disableMemoryReasoning = !config.googleBackend();
-    ChatClient derivedStateDelegate = new OpenAiCompatibleHttpClient(
+    ChatClient derivedStateDelegate = new OpenAiCompatibleClientFacade(
       memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
       "derived-state", config.googleBackend(), disableMemoryReasoning
     );

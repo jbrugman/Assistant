@@ -32,18 +32,18 @@ class SessionKnowledgeGraphServiceTest {
           "aliases": [],
           "source": "TURNBASED"
         },
-        "location.paris": {
-          "type": "LOCATION",
-          "name": "Paris",
+        "item.compass": {
+          "type": "ITEM",
+          "name": "Compass",
           "aliases": [],
           "source": "TURNBASED"
         }
       },
       "facts": [{
-        "id": "fact.alice_lives_paris",
+        "id": "fact.alice_possesses_compass",
         "subject": "character.alice",
-        "predicate": "LIVES",
-        "object": "location.paris",
+        "predicate": "POSSESSES",
+        "object": "item.compass",
         "polarity": "POSITIVE",
         "status": "ACTIVE",
         "source": "TURNBASED",

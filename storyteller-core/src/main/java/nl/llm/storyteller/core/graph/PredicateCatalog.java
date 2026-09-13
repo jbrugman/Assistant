@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class PredicateCatalog {
@@ -60,7 +61,12 @@ public final class PredicateCatalog {
   }
 
   public String modelInstructions() {
+    return modelInstructionsExcluding(Set.of());
+  }
+
+  public String modelInstructionsExcluding(Set<PredicateId> excluded) {
     return definitions.values().stream()
+      .filter(definition -> !excluded.contains(definition.id()))
       .map(definition -> definition.id() + " (" + definition.subjectType() + " to " + definition.objectType() + ")")
       .collect(Collectors.joining(", "));
   }

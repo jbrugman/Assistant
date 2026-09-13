@@ -33,6 +33,9 @@ import java.util.stream.Collectors;
 
 public final class TurnBasedKnowledgeGraphService {
   private static final PredicateId WEARS = new PredicateId("WEARS");
+  private static final Set<PredicateId> NON_TURN_BASED_PREDICATES = Set.of(
+    new PredicateId("LIVES"), new PredicateId("LIVES_WITH")
+  );
 
   private final StoryHistory historyStore;
   private final ChatClient chatClient;
@@ -164,15 +167,30 @@ public final class TurnBasedKnowledgeGraphService {
     int latestTurn
   ) {
     Map<String, Entity> entities = new LinkedHashMap<>(current.entities());
+    List<Fact> candidateFacts = candidate.facts().stream()
+      .filter(fact -> !NON_TURN_BASED_PREDICATES.contains(fact.predicate()))
+      .toList();
+    Set<EntityId> candidateReferences = candidateFacts.stream()
+      .flatMap(fact -> java.util.stream.Stream.of(fact.subject(), fact.object()))
+      .collect(Collectors.toSet());
     candidate.entities().forEach((id, entity) -> {
       Entity existing = entities.get(id);
-      if (existing == null || existing.source() == FactSource.TURNBASED) {
+      if (candidateReferences.contains(new EntityId(id))
+        && (existing == null || existing.source() == FactSource.TURNBASED)) {
         entities.put(id, new Entity(entity.type(), entity.name(), entity.aliases(), FactSource.TURNBASED));
       }
     });
 
     List<Fact> facts = new ArrayList<>(current.facts());
-    Set<EntityId> refreshedWearers = candidate.facts().stream()
+    Set<EntityId> removedResidenceEntities = facts.stream()
+      .filter(fact -> fact.source() == FactSource.TURNBASED)
+      .filter(fact -> NON_TURN_BASED_PREDICATES.contains(fact.predicate()))
+      .flatMap(fact -> java.util.stream.Stream.of(fact.subject(), fact.object()))
+      .collect(Collectors.toSet());
+    facts.removeIf(fact -> fact.source() == FactSource.TURNBASED
+      && NON_TURN_BASED_PREDICATES.contains(fact.predicate()));
+
+    Set<EntityId> refreshedWearers = candidateFacts.stream()
       .filter(fact -> WEARS.equals(fact.predicate()) && fact.polarity() == Polarity.POSITIVE)
       .map(Fact::subject)
       .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -185,7 +203,7 @@ public final class TurnBasedKnowledgeGraphService {
       && WEARS.equals(fact.predicate())
       && refreshedWearers.contains(fact.subject()));
 
-    for (Fact candidateFact : candidate.facts()) {
+    for (Fact candidateFact : candidateFacts) {
       Fact normalized = new Fact(
         candidateFact.id(),
         candidateFact.subject(),
@@ -216,6 +234,14 @@ public final class TurnBasedKnowledgeGraphService {
         garment.equals(fact.subject()) || garment.equals(fact.object()));
       if (entity != null && entity.source() == FactSource.TURNBASED && !stillReferenced) {
         entities.remove(garment.value());
+      }
+    });
+    removedResidenceEntities.forEach(entityId -> {
+      Entity entity = entities.get(entityId.value());
+      boolean stillReferenced = facts.stream().anyMatch(fact ->
+        entityId.equals(fact.subject()) || entityId.equals(fact.object()));
+      if (entity != null && entity.source() == FactSource.TURNBASED && !stillReferenced) {
+        entities.remove(entityId.value());
       }
     });
 
@@ -256,19 +282,19 @@ public final class TurnBasedKnowledgeGraphService {
             "aliases": [],
             "source": "TURNBASED"
           },
-          "location.paris": {
-            "type": "LOCATION",
-            "name": "Paris",
+          "item.compass": {
+            "type": "ITEM",
+            "name": "compass",
             "aliases": [],
             "source": "TURNBASED"
           }
         },
         "facts": [
           {
-            "id": "fact.alice_lives_paris",
+            "id": "fact.alice_possesses_compass",
             "subject": "character.alice",
-            "predicate": "LIVES",
-            "object": "location.paris",
+            "predicate": "POSSESSES",
+            "object": "item.compass",
             "polarity": "POSITIVE",
             "status": "ACTIVE",
             "source": "TURNBASED",
@@ -277,7 +303,7 @@ public final class TurnBasedKnowledgeGraphService {
           }
         ]
       }
-      The example only demonstrates the schema. Do not copy Alice or Paris unless the supplied turns support them.
+      The example only demonstrates the schema. Do not copy Alice or the compass unless the supplied turns support them.
       `entities` must be a JSON object keyed by entity ID, never an array and never a name-to-type map.
       Entity and fact IDs must be lowercase identifiers matching [a-z][a-z0-9]*(?:[._-][a-z0-9]+)*.
       Every entity requires type, name, aliases, and source. Every fact requires id, subject, predicate,
@@ -292,13 +318,16 @@ public final class TurnBasedKnowledgeGraphService {
       affection does not by itself establish LOVES, FRIENDS_WITH, TRUSTS, FEELS_SAFE_WITH,
       PROTECTIVE_OF, or another relationship predicate. Emit such a relationship only when the
       supplied turns explicitly establish that relationship as a fact. When in doubt, omit it.
+      Never emit LIVES or LIVES_WITH from story turns. Current location, travel, passing through a
+      place, visiting, staying somewhere temporarily, and co-presence belong in canonical state,
+      not in the knowledge graph. Residence facts are maintained only as fixed or manual graph data.
       Represent clothing with WEARS from a CHARACTER to an ITEM. Create one ITEM entity and one
       WEARS fact per distinct garment or outfit description; never put an array or multiple garments
       in a single fact object. When the supplied turns change a character's clothing, return the
       character's complete resulting outfit as WEARS facts, including unchanged garments that remain
       worn. Omission from that resulting set means a previous TURNBASED garment is no longer worn.
       Turn-based data is generated context with lower authority than manual or fixed-protagonist data.
-      """.formatted(predicates.modelInstructions());
+      """.formatted(predicates.modelInstructionsExcluding(NON_TURN_BASED_PREDICATES));
   }
 
   private String responseSnippet(String response) {

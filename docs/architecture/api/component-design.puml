@@ -33,7 +33,7 @@ package "storyteller-core (reused)" #DCFCE7 {
   [StoryChatPromptBuilder]
   [ValidationPromptBuilder]
   [ResponseGuard]
-  [OpenAiCompatibleHttpClient]
+  [OpenAiCompatibleClientFacade]
 }
 
 database "Shared H2 database" as H2
@@ -56,7 +56,7 @@ Client --> [ApiServer / Javalin] : HTTP / HTTPS
 [SessionSettingsService] --> [JDBC Repositories]
 [API StoryTurnService] --> [SessionMemoryService] : schedule background refresh
 [SessionMemoryService] --> [JDBC Repositories]
-[SessionMemoryService] --> [OpenAiCompatibleHttpClient]
+[SessionMemoryService] --> [OpenAiCompatibleClientFacade]
 [API StoryTurnService] --> [JDBC Repositories]
 [SessionBundleService] --> [JDBC Repositories]
 [JDBC Repositories] --> H2 : sessions, prompts, messages, images
@@ -64,9 +64,11 @@ Client --> [ApiServer / Javalin] : HTTP / HTTPS
 [API StoryTurnService] --> [StoryChatPromptBuilder]
 [API StoryTurnService] --> [ValidationPromptBuilder]
 [API StoryTurnService] --> [ResponseGuard]
-[API StoryTurnService] --> [OpenAiCompatibleHttpClient]
-[ResponseGuard] --> [OpenAiCompatibleHttpClient]
-[OpenAiCompatibleHttpClient] --> Backend
+[API StoryTurnService] --> [OpenAiCompatibleClientFacade]
+[ResponseGuard] --> [OpenAiCompatibleClientFacade]
+[OpenAiCompatibleClientFacade] --> [ResponsesRoute]
+[OpenAiCompatibleClientFacade] --> [ChatCompletionsRoute]
+[OpenAiCompatibleClientFacade] --> Backend
 
 note bottom of [API StoryTurnService]
 This is API-specific orchestration.

@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.5-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.6-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.5-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.6-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.5`.
+The local default build version is `2.0.6`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.5-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.6-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -490,7 +490,7 @@ independently.
 The runtime responsibilities are now split more explicitly:
 - [`AssistantApp.java`](../storyteller-cli/src/main/java/nl/llm/storyteller/cli/AssistantApp.java): minimal CLI entrypoint and resource lifecycle
 - [`ApplicationFactory.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/ApplicationFactory.java): assembles the reusable core dependency graph
-- [`OpenAiCompatibleHttpClient.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleHttpClient.java): shared chat-completions adapter for LM Studio, Ollama, hosted APIs, llama-server, and mlx-vlm
+- [`OpenAiCompatibleClientFacade.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/OpenAiCompatibleClientFacade.java): Responses-first facade with cached Chat Completions fallback
 - [`ManagedLlamaServer.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/ManagedLlamaServer.java): optional local llama-server process lifecycle and readiness handling
 - [`ManagedMlxServer.java`](../storyteller-core/src/main/java/nl/llm/storyteller/core/service/ManagedMlxServer.java): optional local mlx-vlm process lifecycle and readiness handling
 - [`TerminalStoryteller.java`](../storyteller-cli/src/main/java/nl/llm/storyteller/cli/TerminalStoryteller.java): JLine input loop, shortcuts, command handling, and UI error policy
@@ -592,6 +592,13 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.6
+- Added a Responses-first OpenAI-compatible facade with separate route packages and a per-endpoint cached Chat
+  Completions fallback for backends that return HTTP 404, 405, or 501 from `/v1/responses`. Chat and memory backends
+  are detected independently when they use different URLs.
+- Prevent turn-based graph extraction from treating travel, visits, or temporary location as `LIVES` or `LIVES_WITH`;
+  residence remains fixed/manual graph data, while current location remains canonical state.
 
 ### 2.0.5
 - LM Studio background-memory requests now use the normal OpenAI-compatible `/v1/chat/completions` endpoint with
