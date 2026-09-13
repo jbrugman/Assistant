@@ -29,6 +29,9 @@ lightweight terminal-based workflows.
 - Support for local or hosted OpenAI-compatible endpoints, Google Gemini Cloud, managed `llama-server`, and managed
   MLX serving.
 
+OpenAI-compatible requests prefer `/v1/responses`. Storyteller caches backend capability and falls back to
+`/v1/chat/completions` only when the Responses endpoint is explicitly unavailable.
+
 ## History
 Storyteller started as a small assistant app and gradually evolved into a dedicated storytelling tool.
 

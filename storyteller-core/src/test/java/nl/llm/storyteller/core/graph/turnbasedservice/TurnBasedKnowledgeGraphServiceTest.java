@@ -46,7 +46,7 @@ class TurnBasedKnowledgeGraphServiceTest {
     TestContext context = context();
     AtomicReference<List<Message>> request = new AtomicReference<>();
     CountDownLatch completed = new CountDownLatch(1);
-    ChatClient client = (messages, options, timeout) -> {
+    ChatClient client = (messages, _, _) -> {
       request.set(messages);
       completed.countDown();
       return """
@@ -68,7 +68,7 @@ class TurnBasedKnowledgeGraphServiceTest {
         """;
     };
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
-      TurnBasedKnowledgeGraphService service = service(context, client, queue, 3);
+      TurnBasedKnowledgeGraphService service = service(context, client, queue);
       appendTurn(context.historyStore(), 1);
       service.startUpdateIfNeeded();
       appendTurn(context.historyStore(), 2);
@@ -80,7 +80,7 @@ class TurnBasedKnowledgeGraphServiceTest {
       service.startUpdateIfNeeded();
 
       assertTrue(completed.await(5, TimeUnit.SECONDS));
-      awaitRevision(context.store(), 1);
+      assertTrue(queue.awaitIdle(5, TimeUnit.SECONDS));
       KnowledgeGraphDocument graph = context.store().load();
       assertEquals(FactSource.TURNBASED, graph.entities().get("character.valerie").source());
       assertEquals(FactSource.TURNBASED, graph.entities().get("item.microphone").source());
@@ -96,6 +96,9 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertTrue(systemPrompt.contains("Treat interactions as events, not proof of an enduring interpersonal relationship"));
       assertTrue(systemPrompt.contains("Talking,\nflirting, kissing"));
       assertTrue(systemPrompt.contains("When in doubt, omit it"));
+      assertTrue(systemPrompt.contains("Never emit LIVES or LIVES_WITH from story turns"));
+      assertFalse(systemPrompt.contains("LIVES (CHARACTER to LOCATION)"));
+      assertFalse(systemPrompt.contains("LIVES_WITH (CHARACTER to CHARACTER)"));
       assertTrue(systemPrompt.contains("Represent clothing with WEARS from a CHARACTER to an ITEM"));
       assertTrue(systemPrompt.contains("one ITEM entity and one\nWEARS fact per distinct garment"));
       assertTrue(prompt.contains("USER: Turn 1"));
@@ -128,7 +131,7 @@ class TurnBasedKnowledgeGraphServiceTest {
     };
 
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
-      service(context, client, queue, 3).startUpdateIfNeeded();
+      service(context, client, queue).startUpdateIfNeeded();
 
       assertTrue(requested.await(5, TimeUnit.SECONDS));
     }
@@ -169,7 +172,7 @@ class TurnBasedKnowledgeGraphServiceTest {
       List.of(fact("fact.generated", valerie, microphone, Polarity.NEGATIVE, FactSource.TURNBASED, false))
     );
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
-      TurnBasedKnowledgeGraphService service = service(context, (messages, options, timeout) -> "", queue, 3);
+      TurnBasedKnowledgeGraphService service = service(context, (_, _, _) -> "", queue);
 
       KnowledgeGraphDocument merged = service.merge(current, candidate, 3);
 
@@ -178,6 +181,39 @@ class TurnBasedKnowledgeGraphServiceTest {
       assertEquals(current.entities().get(chris.value()), merged.entities().get(chris.value()));
       assertEquals(current.entities().get(piano.value()), merged.entities().get(piano.value()));
       assertEquals(List.of(fixedFact, manualFact), merged.facts());
+    }
+  }
+
+  @Test
+  @DisplayName("Turn-based extraction must neither retain nor create residence facts")
+  void excludesResidenceFactsFromTurnBasedGraphData() {
+    TestContext context = context();
+    EntityId valerie = new EntityId("character.valerie");
+    EntityId home = new EntityId("location.home");
+    EntityId marseille = new EntityId("location.marseille");
+    EntityId calanques = new EntityId("location.calanques");
+    Fact fixedHome = fact("fact.valerie_home", valerie, new PredicateId("LIVES"), home,
+      Polarity.POSITIVE, FactSource.FIXED_PROTAGONIST, true);
+    Fact pollutedResidence = fact("fact.valerie_marseille", valerie, new PredicateId("LIVES"), marseille,
+      Polarity.POSITIVE, FactSource.TURNBASED, false);
+    KnowledgeGraphDocument current = new KnowledgeGraphDocument(1, 4, Map.of(
+      valerie.value(), new Entity(EntityType.CHARACTER, "Valerie", List.of(), FactSource.FIXED_PROTAGONIST),
+      home.value(), new Entity(EntityType.LOCATION, "Home", List.of(), FactSource.FIXED_PROTAGONIST),
+      marseille.value(), new Entity(EntityType.LOCATION, "Marseille", List.of(), FactSource.TURNBASED)
+    ), List.of(fixedHome, pollutedResidence));
+    KnowledgeGraphDocument candidate = new KnowledgeGraphDocument(1, 0, Map.of(
+      calanques.value(), new Entity(EntityType.LOCATION, "Calanques", List.of(), FactSource.TURNBASED)
+    ), List.of(fact("fact.valerie_calanques", valerie, new PredicateId("LIVES"), calanques,
+      Polarity.POSITIVE, FactSource.TURNBASED, false)));
+
+    try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
+      KnowledgeGraphDocument merged = service(context, (_, _, _) -> "", queue)
+        .merge(current, candidate, 6);
+
+      assertEquals(List.of(fixedHome), merged.facts());
+      assertFalse(merged.entities().containsKey(marseille.value()));
+      assertFalse(merged.entities().containsKey(calanques.value()));
+      assertTrue(merged.entities().containsKey(home.value()));
     }
   }
 
@@ -207,7 +243,7 @@ class TurnBasedKnowledgeGraphServiceTest {
     ), List.of(fact("fact.sweater", valerie, new PredicateId("WEARS"), sweater,
       Polarity.POSITIVE, FactSource.TURNBASED, false)));
     try (DerivedMemoryTaskQueue queue = new DerivedMemoryTaskQueue()) {
-      TurnBasedKnowledgeGraphService service = service(context, (messages, options, timeout) -> "", queue, 3);
+      TurnBasedKnowledgeGraphService service = service(context, (_, _, _) -> "", queue);
 
       KnowledgeGraphDocument merged = service.merge(current, candidate, 6);
 
@@ -233,7 +269,7 @@ class TurnBasedKnowledgeGraphServiceTest {
     appendTurn(context.historyStore(), 3);
     AtomicInteger succeeded = new AtomicInteger();
     AtomicInteger skipped = new AtomicInteger();
-    ChatClient client = (messages, options, timeout) -> {
+    ChatClient client = (_, _, _) -> {
       context.store().update(current -> new KnowledgeGraphDocument(
         current.schemaVersion(), current.revision() + 1, current.entities(), current.facts()
       ));
@@ -288,12 +324,11 @@ class TurnBasedKnowledgeGraphServiceTest {
   private TurnBasedKnowledgeGraphService service(
     TestContext context,
     ChatClient client,
-    DerivedMemoryTaskQueue queue,
-    int batchTurns
+    DerivedMemoryTaskQueue queue
   ) {
     return new TurnBasedKnowledgeGraphService(
       context.historyStore(), client, context.store(), context.graphService(), context.predicates(), queue,
-      batchTurns, Map.of(), 10
+      3, Map.of(), 10
     );
   }
 
@@ -325,16 +360,6 @@ class TurnBasedKnowledgeGraphServiceTest {
       id, subject, predicate, object, polarity,
       FactStatus.ACTIVE, source, null, hard
     );
-  }
-
-  private void awaitRevision(KnowledgeGraphStore store, long revision) throws InterruptedException {
-    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-    while (store.load().revision() != revision) {
-      if (System.nanoTime() >= deadline) {
-        throw new AssertionError("Knowledge graph was not updated within the timeout.");
-      }
-      Thread.sleep(10);
-    }
   }
 
   private record TestContext(

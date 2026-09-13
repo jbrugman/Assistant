@@ -31,7 +31,7 @@ import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
 import nl.llm.storyteller.core.service.ChatClient;
-import nl.llm.storyteller.core.service.OpenAiCompatibleHttpClient;
+import nl.llm.storyteller.core.service.OpenAiCompatibleClientFacade;
 import nl.llm.storyteller.core.service.PromptResourceLoader;
 
 import java.io.IOException;
@@ -185,7 +185,7 @@ public final class ApiServer implements AutoCloseable {
   }
 
   private static ChatClient openAiClient(AppConfig config, String model) {
-    return new OpenAiCompatibleHttpClient(
+    return new OpenAiCompatibleClientFacade(
       config.openAiCompatibleUrl(), model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey(),
       nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "generation", config.googleBackend()
     );
@@ -193,7 +193,7 @@ public final class ApiServer implements AutoCloseable {
 
   private static ChatClient derivedStateClient(AppConfig config) {
     boolean disableReasoning = !config.googleBackend();
-    return new OpenAiCompatibleHttpClient(
+    return new OpenAiCompatibleClientFacade(
       config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(),
       nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend(), disableReasoning
     );
