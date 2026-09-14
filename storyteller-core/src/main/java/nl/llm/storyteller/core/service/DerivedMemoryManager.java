@@ -94,6 +94,7 @@ abstract class DerivedMemoryManager {
     try {
       List<Message> prompt = buildUpdateMessages(job.existingContent(), job.pendingMessages());
       String updatedContent = client.chat(
+        purpose(),
         prompt,
         config.summaryOptions(),
         config.summaryRequestTimeoutSeconds()
@@ -121,6 +122,8 @@ abstract class DerivedMemoryManager {
   }
 
   protected abstract boolean isDisabled();
+
+  protected abstract String purpose();
 
   protected abstract DerivedMemoryJob prepareJob();
 

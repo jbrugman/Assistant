@@ -122,8 +122,8 @@ public final class ApplicationFactory {
     ManagedMlxServer managedMlxServer = startManagedMlxServerIfConfigured(config);
     String backendUrl = resolveBackendUrl(config, managedLlamaServer, managedMlxServer);
     OpenAiCompatibleClientFacade chatDelegate = new OpenAiCompatibleClientFacade(
-      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "generation",
-      config.googleBackend()
+      backendUrl, config.chatModel(), config.hideReasoningBlocks(), config.openAiCompatibleApiKey(), metrics, "chat",
+      config.googleBackend(), false, config.logModelUsage()
     );
     ChatClient validatorDelegate = config.validationEnabled()
       ? new OpenAiCompatibleClientFacade(
@@ -133,7 +133,9 @@ public final class ApplicationFactory {
         config.openAiCompatibleApiKey(),
         metrics,
         "validation",
-        config.googleBackend()
+        config.googleBackend(),
+        false,
+        config.logModelUsage()
       )
       : (_, _, _) -> {
         throw new IllegalStateException("Validation client is disabled by validation.enabled=false.");
@@ -150,7 +152,7 @@ public final class ApplicationFactory {
     boolean disableMemoryReasoning = !config.googleBackend();
     ChatClient derivedStateDelegate = new OpenAiCompatibleClientFacade(
       memoryBackendUrl, config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(), metrics,
-      "derived-state", config.googleBackend(), disableMemoryReasoning
+      "derived-state", config.googleBackend(), disableMemoryReasoning, config.logModelUsage()
     );
     ResilientChatClient backgroundClient = new ResilientChatClient(
       derivedStateDelegate,

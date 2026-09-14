@@ -12,6 +12,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -122,5 +124,93 @@ class OpenAiCompatibleClientFacadeTest {
 
     assertEquals("chat", facade.chat(List.of(new Message("user", "hello")), Map.of(), 10));
     assertEquals(0, responsesCalls.get());
+  }
+
+  @Test
+  @DisplayName("""
+    Given an oMLX background-memory backend,
+    When a request is submitted with reasoning disabled,
+    Then Gemma thinking should also be disabled through the chat template arguments
+    """)
+  void shouldDisableOmlxThinkingForBackgroundRequests() throws Exception {
+    AtomicReference<Map<String, Object>> suppliedOptions = new AtomicReference<>();
+    OpenAiRoute responses = (_, options, _) -> {
+      suppliedOptions.set(options);
+      return new OpenAiRouteResult("OK", 1);
+    };
+    OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
+      true,
+      ChatRequestMetrics.NONE,
+      "derived-state",
+      responses,
+      (_, _, _) -> new OpenAiRouteResult("fallback", 1),
+      new AtomicReference<>(ResponsesCapabilityCache.Support.UNKNOWN),
+      true,
+      true,
+      () -> true
+    );
+
+    facade.chat(List.of(new Message("user", "hello")), Map.of(
+      "temperature", 0,
+      "chat_template_kwargs", Map.of("preserve_thinking", true)
+    ), 10);
+
+    assertEquals(Map.of("enable_thinking", false, "preserve_thinking", true),
+      suppliedOptions.get().get("chat_template_kwargs"));
+    assertEquals(0, suppliedOptions.get().get("temperature"));
+  }
+
+  @Test
+  @DisplayName("""
+    Given a background backend whose model-list probe is unavailable,
+    When a request is submitted,
+    Then optional backend detection should not block the model request
+    """)
+  void shouldContinueWhenBackendDetectionIsUnavailable() throws Exception {
+    AtomicReference<Map<String, Object>> suppliedOptions = new AtomicReference<>();
+    OpenAiRoute responses = (_, options, _) -> {
+      suppliedOptions.set(options);
+      return new OpenAiRouteResult("OK", 1);
+    };
+    OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
+      true,
+      ChatRequestMetrics.NONE,
+      "derived-state",
+      responses,
+      (_, _, _) -> new OpenAiRouteResult("fallback", 1),
+      new AtomicReference<>(ResponsesCapabilityCache.Support.UNKNOWN),
+      true,
+      true,
+      () -> {
+        throw new java.io.IOException("models unavailable");
+      }
+    );
+
+    assertEquals("OK", facade.chat(List.of(new Message("user", "hello")), Map.of(), 10));
+    assertEquals(Map.of(), suppliedOptions.get());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a request-specific model purpose,
+    When the facade records completed-request metrics,
+    Then it should retain that specific purpose and the returned output-token count
+    """)
+  void shouldRecordRequestSpecificPurpose() throws Exception {
+    AtomicReference<String> recordedPurpose = new AtomicReference<>();
+    AtomicLong recordedTokens = new AtomicLong();
+    ChatRequestMetrics metrics = (purpose, tokens, _) -> {
+      recordedPurpose.set(purpose);
+      recordedTokens.set(tokens);
+    };
+    OpenAiCompatibleClientFacade facade = new OpenAiCompatibleClientFacade(
+      true, metrics, "derived-state", (_, _, _) -> new OpenAiRouteResult("OK", 17, 3),
+      (_, _, _) -> new OpenAiRouteResult("fallback", 1)
+    );
+
+    facade.chat("short-memory", List.of(new Message("user", "hello")), Map.of(), 10);
+
+    assertEquals("short-memory", recordedPurpose.get());
+    assertEquals(17, recordedTokens.get());
   }
 }

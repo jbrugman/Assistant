@@ -30,19 +30,6 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
     PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     RecentSummaryPromptBuilder recentSummaryPromptBuilder,
-    DerivedMemoryTaskQueue taskQueue
-  ) {
-    this(historyStore, client, config, promptResourceLoader, promptTemplateService, recentSummaryPromptBuilder,
-      new FileTextMemory(config.recentSummaryFile()), taskQueue, false);
-  }
-
-  public RecentSummaryManager(
-    StoryHistory historyStore,
-    ChatClient client,
-    nl.llm.storyteller.core.config.AppConfig config,
-    PromptLoader promptResourceLoader,
-    PromptTemplateService promptTemplateService,
-    RecentSummaryPromptBuilder recentSummaryPromptBuilder,
     TextMemory memory,
     DerivedMemoryTaskQueue taskQueue
   ) {
@@ -76,6 +63,11 @@ public final class RecentSummaryManager extends DerivedMemoryManager {
   @Override
   protected boolean isDisabled() {
     return config.recentSummaryMaxTurns() <= config.maxRecentTurns();
+  }
+
+  @Override
+  protected String purpose() {
+    return "short-memory";
   }
 
   @Override

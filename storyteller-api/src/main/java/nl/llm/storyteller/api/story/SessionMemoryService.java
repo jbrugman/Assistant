@@ -71,7 +71,7 @@ public final class SessionMemoryService implements AutoCloseable {
     }
     List<Message> pending = memory.messages().subList(cursor, cutoff);
     String fixedProtagonists = settingsRepository.load(sessionId).prompts().fixedProtagonists();
-    String content = chat(summaryPromptBuilder.build(
+    String content = chat("long-memory", summaryPromptBuilder.build(
       new SummaryPromptInput(memory.summary(), formatHistory(pending)), fixedProtagonists
     ));
     memoryRepository.updateSummary(sessionId, memory, content, cutoff);
@@ -94,7 +94,7 @@ public final class SessionMemoryService implements AutoCloseable {
       return;
     }
     String fixedProtagonists = settingsRepository.load(sessionId).prompts().fixedProtagonists();
-    String content = chat(recentSummaryPromptBuilder.build(
+    String content = chat("short-memory", recentSummaryPromptBuilder.build(
       new RecentSummaryPromptInput(memory.recentSummary(), formatHistory(window)), fixedProtagonists
     ));
     memoryRepository.updateRecentSummary(sessionId, memory, content, cutoff);
@@ -109,14 +109,14 @@ public final class SessionMemoryService implements AutoCloseable {
     }
     List<Message> pending = memory.messages().subList(cursor, cutoff);
     String fixedProtagonists = settingsRepository.load(sessionId).prompts().fixedProtagonists();
-    String content = chat(canonicalStatePromptBuilder.build(
+    String content = chat("canonical-state", canonicalStatePromptBuilder.build(
       new CanonicalStatePromptInput(memory.canonicalState(), formatHistory(pending)), fixedProtagonists
     ));
     memoryRepository.updateCanonicalState(sessionId, memory, content, cutoff);
   }
 
-  private String chat(List<Message> messages) throws IOException, InterruptedException {
-    return client.chat(messages, config.summaryOptions(), config.summaryRequestTimeoutSeconds());
+  private String chat(String purpose, List<Message> messages) throws IOException, InterruptedException {
+    return client.chat(purpose, messages, config.summaryOptions(), config.summaryRequestTimeoutSeconds());
   }
 
   private List<Message> recentTurns(List<Message> messages, int limitTurns) {

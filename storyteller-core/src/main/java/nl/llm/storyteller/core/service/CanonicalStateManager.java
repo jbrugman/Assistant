@@ -31,19 +31,6 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
     PromptLoader promptResourceLoader,
     PromptTemplateService promptTemplateService,
     CanonicalStatePromptBuilder canonicalStatePromptBuilder,
-    DerivedMemoryTaskQueue taskQueue
-  ) {
-    this(historyStore, client, config, promptResourceLoader, promptTemplateService, canonicalStatePromptBuilder,
-      new FileTextMemory(config.canonicalStateFile()), taskQueue, false);
-  }
-
-  public CanonicalStateManager(
-    StoryHistory historyStore,
-    ChatClient client,
-    nl.llm.storyteller.core.config.AppConfig config,
-    PromptLoader promptResourceLoader,
-    PromptTemplateService promptTemplateService,
-    CanonicalStatePromptBuilder canonicalStatePromptBuilder,
     TextMemory memory,
     DerivedMemoryTaskQueue taskQueue
   ) {
@@ -77,6 +64,11 @@ public final class CanonicalStateManager extends DerivedMemoryManager {
   @Override
   protected boolean isDisabled() {
     return false;
+  }
+
+  @Override
+  protected String purpose() {
+    return "canonical-state";
   }
 
   @Override
