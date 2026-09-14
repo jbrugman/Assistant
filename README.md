@@ -47,8 +47,9 @@ A LLM handled a meaningful share of the routine implementation work, while I rem
 ### Important: background processing and reasoning
 
 Long-term history, recent history, canonical-state generation, manual `/graph -fill`, and automatic turn-based graph
-updates should not spend tokens on model reasoning. With LM Studio, these memory requests therefore send
-`reasoning_effort: "none"` through the normal OpenAI-compatible endpoint. Story generation and validation do not.
+updates should not spend tokens on model reasoning. These requests send `reasoning_effort: "none"`; when the memory
+server identifies itself as oMLX, they additionally send `chat_template_kwargs.enable_thinking=false`, which oMLX
+requires to disable Gemma 4 thinking. Story generation and validation do not receive these overrides.
 
 ## Architecture
 
@@ -170,12 +171,16 @@ model.validator=
 memory.http.model=
 memory.http.url=
 memory.http.apikey=
+logging.modelUsage=false
 ```
 
 The memory settings configure the shared client for long-term and short-term summaries, canonical state, and graph
 generation. Leave them empty to fall back to `model.chat`, `backend.http.url`, and `backend.http.apiKey` respectively.
 Main chat, validation, and memory all use the OpenAI-compatible client configured through `backend.http.*`, with
 `model.chat`, `model.validator`, and the optional `memory.http.*` overrides.
+Set `logging.modelUsage=true` to log the output-token and thinking-token counts returned for each completed model
+request. Log entries identify chat, validation, long-term memory, short-term memory, canonical state, and knowledge
+graph requests; prompts and responses are not logged.
 Leave the model fields empty to use the model already loaded by the backend. CLI, API, and web sessions store their
 story state in H2 through `storyteller-db`.
 

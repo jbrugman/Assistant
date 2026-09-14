@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service.openai.responses;
 
 import nl.llm.storyteller.core.model.Message;
+import nl.llm.storyteller.core.service.openai.OpenAiRouteResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -54,5 +55,25 @@ class ResponsesRouteTest {
     List<Map<String, Object>> content = (List<Map<String, Object>>) input.getFirst().get("content");
     assertEquals("input_text", content.getFirst().get("type"));
     assertEquals("input_image", content.getLast().get("type"));
+  }
+
+  @Test
+  @DisplayName("""
+    Given a Responses response containing reasoning usage,
+    When the response is parsed,
+    Then output and thinking tokens should be retained
+    """)
+  void shouldRetainResponsesThinkingTokens() {
+    ResponsesRoute route = new ResponsesRoute(
+      "http://localhost:1234/v1/chat/completions", "gemma", "", false
+    );
+
+    OpenAiRouteResult result = route.parseResponse("""
+      {"output":[{"type":"message","content":[{"type":"output_text","text":"OK"}]}],
+      "usage":{"output_tokens":14,"output_tokens_details":{"reasoning_tokens":11}}}
+      """);
+
+    assertEquals(14, result.outputTokens());
+    assertEquals(11, result.reasoningTokens());
   }
 }

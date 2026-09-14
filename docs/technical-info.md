@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.7-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.8-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.7-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.8-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.7`.
+The local default build version is `2.0.8`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.7-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.8-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -348,7 +348,8 @@ longer updated as live CLI state. Session ZIP and Markdown files remain explicit
 
 ### Knowledge graph MVP
 
-LM Studio memory requests use the configured OpenAI-compatible endpoint with reasoning disabled. Story generation
+LM Studio and oMLX memory requests use the configured OpenAI-compatible endpoint with reasoning disabled. oMLX is
+detected from `/v1/models` and additionally receives `chat_template_kwargs.enable_thinking=false`. Story generation
 and validation retain their configured reasoning behavior.
 
 Version 1.2.0 introduced a small knowledge graph for mitigation of entity contagion and feature bleeding.
@@ -592,6 +593,15 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.8
+- Background-memory clients now detect oMLX through the configured server's `/v1/models` response and add
+  `chat_template_kwargs.enable_thinking=false`; `reasoning_effort=none` alone does not disable Gemma 4 thinking in
+  oMLX. Detection uses the independently configured memory server.
+- Added optional per-request model-usage logging for chat, validation, long-term memory, short-term memory, canonical
+  state, turn-based knowledge-graph extraction, and manual knowledge-graph fill. Enable it with
+  `logging.modelUsage=true`; each completed request reports the output-token and thinking-token counts returned by the
+  model server without logging story content.
 
 ### 2.0.7
 - Added compact Story settings actions to generate a minimal empty graph, rebuild the graph from the saved

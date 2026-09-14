@@ -17,7 +17,7 @@
   </modules>
 
   <properties>
-    <revision>2.0.7</revision>
+    <revision>2.0.8</revision>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.22.2</jackson.version>

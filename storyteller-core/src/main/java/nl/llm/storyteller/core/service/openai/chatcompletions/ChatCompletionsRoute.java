@@ -63,12 +63,21 @@ public final class ChatCompletionsRoute implements OpenAiRoute {
       }
       throw new IOException("OpenAI-compatible backend returned HTTP " + response.statusCode() + ": " + body);
     }
+    return parseResponse(body);
+  }
+
+  OpenAiRouteResult parseResponse(String body) {
     JsonNode data = parse(body);
     JsonNode content = data.path("choices").path(0).path("message").path("content");
     if (content.isMissingNode()) {
       throw new IllegalArgumentException("OpenAI-compatible response does not contain choices[0].message.content.");
     }
-    return new OpenAiRouteResult(content.asText(), data.path("usage").path("completion_tokens").asLong(-1));
+    JsonNode usage = data.path("usage");
+    return new OpenAiRouteResult(
+      content.asText(),
+      usage.path("completion_tokens").asLong(-1),
+      usage.path("completion_tokens_details").path("reasoning_tokens").asLong(-1)
+    );
   }
 
   public HttpRequest buildRequest(List<Message> messages, Map<String, Object> options, int timeoutSeconds)

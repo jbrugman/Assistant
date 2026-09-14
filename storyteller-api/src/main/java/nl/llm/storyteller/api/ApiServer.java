@@ -52,13 +52,13 @@ public final class ApiServer implements AutoCloseable {
 
   public static ApiServer create(ApiConfig config) {
     AppConfig coreConfig = AppConfig.load();
-    ChatClient chatClient = openAiClient(coreConfig, coreConfig.chatModel());
+    ChatClient chatClient = openAiClient(coreConfig, coreConfig.chatModel(), "chat");
     ChatClient derivedStateClient = derivedStateClient(coreConfig);
     return create(
       config,
       coreConfig,
       chatClient,
-      openAiClient(coreConfig, coreConfig.validatorModel()),
+      openAiClient(coreConfig, coreConfig.validatorModel(), "validation"),
       derivedStateClient,
       derivedStateClient
     );
@@ -188,10 +188,11 @@ public final class ApiServer implements AutoCloseable {
     return new ApiServer(config, server, derivedStateService);
   }
 
-  private static ChatClient openAiClient(AppConfig config, String model) {
+  private static ChatClient openAiClient(AppConfig config, String model, String purpose) {
     return new OpenAiCompatibleClientFacade(
       config.openAiCompatibleUrl(), model, config.hideReasoningBlocks(), config.openAiCompatibleApiKey(),
-      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "generation", config.googleBackend()
+      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, purpose, config.googleBackend(), false,
+      config.logModelUsage()
     );
   }
 
@@ -199,7 +200,8 @@ public final class ApiServer implements AutoCloseable {
     boolean disableReasoning = !config.googleBackend();
     return new OpenAiCompatibleClientFacade(
       config.memoryHttpUrl(), config.memoryHttpModel(), config.hideReasoningBlocks(), config.memoryHttpApiKey(),
-      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend(), disableReasoning
+      nl.llm.storyteller.core.service.ChatRequestMetrics.NONE, "derived-state", config.googleBackend(), disableReasoning,
+      config.logModelUsage()
     );
   }
 

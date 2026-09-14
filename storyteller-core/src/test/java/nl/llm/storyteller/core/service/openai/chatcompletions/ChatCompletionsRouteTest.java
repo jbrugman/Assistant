@@ -1,6 +1,7 @@
 package nl.llm.storyteller.core.service.openai.chatcompletions;
 
 import nl.llm.storyteller.core.model.Message;
+import nl.llm.storyteller.core.service.openai.OpenAiRouteResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -64,5 +65,25 @@ class ChatCompletionsRouteTest {
 
     assertEquals("none", payload.get("reasoning_effort"));
     assertFalse(payload.containsKey("store"));
+  }
+
+  @Test
+  @DisplayName("""
+    Given a Chat Completions response containing reasoning usage,
+    When the response is parsed,
+    Then output and thinking tokens should be retained
+    """)
+  void shouldRetainChatCompletionsThinkingTokens() {
+    ChatCompletionsRoute route = new ChatCompletionsRoute(
+      "http://localhost:1234/v1/chat/completions", "gemma", "", false, false
+    );
+
+    OpenAiRouteResult result = route.parseResponse("""
+      {"choices":[{"message":{"content":"OK"}}],"usage":{"completion_tokens":12,
+      "completion_tokens_details":{"reasoning_tokens":9}}}
+      """);
+
+    assertEquals(12, result.outputTokens());
+    assertEquals(9, result.reasoningTokens());
   }
 }

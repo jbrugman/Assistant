@@ -21,4 +21,10 @@ public final class ResilientChatClient implements ChatClient {
     throws IOException, InterruptedException {
     return guard.execute(() -> delegate.chat(messages, options, timeoutSeconds));
   }
+
+  @Override
+  public String chat(String purpose, List<Message> messages, Map<String, Object> options, int timeoutSeconds)
+    throws IOException, InterruptedException {
+    return guard.execute(() -> delegate.chat(purpose, messages, options, timeoutSeconds));
+  }
 }

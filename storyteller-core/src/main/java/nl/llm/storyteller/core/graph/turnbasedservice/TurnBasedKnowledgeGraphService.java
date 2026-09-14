@@ -125,6 +125,7 @@ public final class TurnBasedKnowledgeGraphService {
       KnowledgeGraphDocument current = store.load();
       long startingRevision = current.revision();
       rawResponse = chatClient.chat(
+        "knowledge-graph-turn",
         List.of(
           new Message("system", systemPrompt()),
           new Message("user", userPrompt(current, turns))

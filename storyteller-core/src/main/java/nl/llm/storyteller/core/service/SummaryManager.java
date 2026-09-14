@@ -82,6 +82,11 @@ public final class SummaryManager extends DerivedMemoryManager {
   }
 
   @Override
+  protected String purpose() {
+    return "long-memory";
+  }
+
+  @Override
   protected DerivedMemoryJob prepareJob() {
     HistoryState state = historyStore.load();
     List<Message> recent = historyStore.recentMessages(config.recentSummaryMaxTurns());

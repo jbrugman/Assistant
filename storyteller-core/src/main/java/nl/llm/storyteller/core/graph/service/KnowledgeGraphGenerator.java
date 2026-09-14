@@ -59,7 +59,7 @@ public final class KnowledgeGraphGenerator implements KnowledgeGraphGeneration {
 
   @Override
   public GenerationResult generate(String fixedProtagonists) throws IOException, InterruptedException {
-    String response = chatClient.chat(List.of(
+    String response = chatClient.chat("knowledge-graph-fill", List.of(
       new Message("system", systemPrompt()),
       new Message("user", "Fixed protagonist definitions to process:\n\n" + fixedProtagonists)
     ), options, timeoutSeconds);

@@ -64,8 +64,17 @@ public final class ResponsesRoute implements OpenAiRoute {
       }
       throw new IOException("OpenAI-compatible Responses backend returned HTTP " + response.statusCode() + ": " + body);
     }
+    return parseResponse(body);
+  }
+
+  OpenAiRouteResult parseResponse(String body) {
     JsonNode data = parse(body);
-    return new OpenAiRouteResult(outputText(data), data.path("usage").path("output_tokens").asLong(-1));
+    JsonNode usage = data.path("usage");
+    return new OpenAiRouteResult(
+      outputText(data),
+      usage.path("output_tokens").asLong(-1),
+      usage.path("output_tokens_details").path("reasoning_tokens").asLong(-1)
+    );
   }
 
   public Map<String, Object> buildPayload(List<Message> messages, Map<String, Object> options) {

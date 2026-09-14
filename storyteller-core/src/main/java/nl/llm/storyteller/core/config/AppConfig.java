@@ -384,6 +384,10 @@ public final class AppConfig {
     return runtimeText.hideReasoningBlocks();
   }
 
+  public boolean logModelUsage() {
+    return runtimeText.logModelUsage();
+  }
+
   public boolean validationEnabled() {
     return runtimeText.validationEnabled();
   }
@@ -563,6 +567,7 @@ public final class AppConfig {
         source.requiredBoolean("validation.enabled"),
         source.requiredString("validation.outputMode"),
         source.requiredBoolean("response.hideReasoningBlocks"),
+        source.requiredBoolean("logging.modelUsage"),
         source.requiredString("response.validationFailClosedMessage"),
         source.requiredString("command.continueStory"),
         source.requiredString("command.resetStory"),
@@ -721,6 +726,7 @@ public final class AppConfig {
     boolean validationEnabled,
     String validationOutputMode,
     boolean hideReasoningBlocks,
+    boolean logModelUsage,
     String validationFailClosedMessage,
     String continueStoryCommand,
     String resetStoryCommand,

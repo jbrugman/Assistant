@@ -9,4 +9,9 @@ import java.util.Map;
 public interface ChatClient {
   String chat(List<Message> messages, Map<String, Object> options, int timeoutSeconds)
     throws IOException, InterruptedException;
+
+  default String chat(String purpose, List<Message> messages, Map<String, Object> options, int timeoutSeconds)
+    throws IOException, InterruptedException {
+    return chat(messages, options, timeoutSeconds);
+  }
 }
