@@ -1,5 +1,6 @@
 target/
 /storyteller-api/jte-classes/
+CLAUDE.md
 
 # IDE
 .idea/
@@ -11,6 +12,7 @@ target/
 # Local runtime data
 history.json
 summary.md
+memory/tls/*
 /application.config
 /systemprompts/application.config
 *.mv.db

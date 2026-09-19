@@ -239,6 +239,14 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
+    HttpResponse<String> edited = client.send(
+      HttpRequest.newBuilder(uri("/v1/sessions/" + cookiePair.substring(cookiePair.indexOf('=') + 1)
+        + "/messages/1/edit"))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString("{\"content\":\"Edited library response\"}"))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
     HttpResponse<String> story = client.send(
       HttpRequest.newBuilder(uri("/story")).header("Cookie", cookiePair).GET().build(),
       HttpResponse.BodyHandlers.ofString()
@@ -282,10 +290,15 @@ class ApiServerTest {
     assertTrue(rejectedSettings.body().contains("Should not be saved"));
     assertTrue(rejectedSettings.body().contains("setSelectionRange"));
     assertEquals(303, submitted.statusCode());
+    assertEquals(200, edited.statusCode());
     assertEquals(200, story.statusCode());
     assertTrue(story.body().contains("The Library"));
     assertTrue(story.body().contains("Open the door"));
-    assertTrue(story.body().contains("A door opens in the old library."));
+    assertFalse(story.body().contains("A door opens in the old library."));
+    assertTrue(story.body().contains("Edited library response"));
+    assertTrue(story.body().contains("action=\"/story/messages/1/edit\""));
+    assertTrue(story.body().contains("Save response"));
+    assertEquals(1, storyClient.requests().size());
     assertTrue(story.body().contains("class=\"prompt-thumbnail\""));
     assertTrue(story.body().contains("href=\"/story/images/0\""));
     assertTrue(story.body().contains("id=\"image-lightbox\""));
@@ -335,7 +348,7 @@ class ApiServerTest {
     );
 
     assertEquals(303, undone.statusCode());
-    assertFalse(undoneStory.body().contains("A door opens in the old library."));
+    assertFalse(undoneStory.body().contains("Edited library response"));
     assertTrue(undoneStory.body().contains("data-undo-available=\"false\""));
 
     HttpResponse<String> infinite = client.send(

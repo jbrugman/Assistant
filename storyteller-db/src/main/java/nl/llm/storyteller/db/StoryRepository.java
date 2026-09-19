@@ -25,5 +25,7 @@ public interface StoryRepository {
     Instant updatedAt
   );
 
+  boolean updateAssistantMessage(String sessionId, int messageIndex, String content, Instant updatedAt);
+
   boolean undoLastTurn(String sessionId, Instant updatedAt);
 }

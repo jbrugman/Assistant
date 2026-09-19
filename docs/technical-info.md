@@ -128,14 +128,14 @@ Markdown, YAML, and JSON memory files are no longer the CLI's live persistence m
 ```bash
 cd ~/Assistant
 mvn -q package
-java -jar storyteller-cli/target/storyteller-cli-2.0.8-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.9-all.jar
 ```
 
 The CLI jar does not contain Javalin, Jetty, or the API implementation. It does include H2 and the shared JDBC
 repositories through the `storyteller-db` module. Run the independent API application with:
 
 ```bash
-java -jar storyteller-api/target/storyteller-api-2.0.8-all.jar
+java -jar storyteller-api/target/storyteller-api-2.0.9-all.jar
 ```
 
 Alternatively, start the API directly through Maven from the project root:
@@ -189,7 +189,7 @@ After creating a session, submit a story prompt through `POST /v1/sessions/{sess
 `{"prompt":"Continue into the forest."}`. The response contains the generated story text and the persisted user and
 assistant message indices.
 
-The local default build version is `2.0.8`.
+The local default build version is `2.0.9`.
 GitHub releases use automatic patch versioning on every eligible push to `main` within the active `v2.0.x` release line,
 starting with `v2.0.0` and incrementing the patch number for later releases.
 Eligible pushes to `main`, including normal merges from pull requests, automatically build a release jar and publish it to GitHub Releases.
@@ -234,7 +234,7 @@ If an `application.config` file exists next to the native executable, it is load
 ```bash
 cd ~/Assistant
 mvn -q -pl storyteller-cli -am package
-java -jar storyteller-cli/target/storyteller-cli-2.0.8-all.jar
+java -jar storyteller-cli/target/storyteller-cli-2.0.9-all.jar
 ```
 
 ## Terminal Shortcuts
@@ -593,6 +593,10 @@ Not yet.
 ```
 
 ## Changelog
+
+### 2.0.9
+- Added a simple web/API action to edit a persisted assistant response text directly in H2. The edit is a direct user
+  change: it does not call the model, run validation, apply story rules, or refresh derived memory/knowledge graph data.
 
 ### 2.0.8
 - Background-memory clients now detect oMLX through the configured server's `/v1/models` response and add

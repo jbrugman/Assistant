@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static nl.llm.storyteller.api.input.TextInputNormalizer.requiredMultiline;
 
@@ -149,6 +150,13 @@ public final class StoryTurnService {
 
   private String normalizePrompt(String prompt) {
     return requiredMultiline(prompt, "Prompt", MAX_PROMPT_LENGTH);
+  }
+
+  public synchronized Optional<String> editAssistantResponse(String sessionId, int messageIndex, String content) {
+    String normalizedContent = requiredMultiline(content, "Response", MAX_PROMPT_LENGTH);
+    return repository.updateAssistantMessage(sessionId, messageIndex, normalizedContent, clock.instant())
+      ? Optional.of(normalizedContent)
+      : Optional.empty();
   }
 
   private String relevantPastStory(String sessionId, List<Integer> requestedIndexes) {
