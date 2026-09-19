@@ -425,6 +425,54 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.response-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.response-edit {
+  margin: -0.2rem 0 0.75rem auto;
+}
+
+.response-edit summary {
+  border: 1px solid #625448;
+  border-radius: 10px;
+  color: #d7a879;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  list-style: none;
+  padding: 0.32rem 0.55rem;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.response-edit summary::-webkit-details-marker {
+  display: none;
+}
+
+.response-edit summary:hover {
+  background: #302923;
+}
+
+.response-edit form {
+  display: inline-block;
+  gap: 0.55rem;
+  width: 100%;
+  margin-top: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid #4c433d;
+  border-radius: 10px;
+  background: #171513;
+}
+
+.response-edit textarea {
+  min-height: 10rem;
+  resize: vertical;
+}
+
 .past-reference {
   display: flex;
   align-items: center;

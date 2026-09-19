@@ -72,6 +72,7 @@ public final class WebController {
     config.routes.post("/story/settings/graph/generate-empty", this::generateEmptyGraph);
     config.routes.get("/story/memory", this::memory);
     config.routes.post("/story/turns", this::createTurn);
+    config.routes.post("/story/messages/{messageIndex}/edit", this::editAssistantMessage);
     config.routes.post("/story/undo", this::undoTurn);
     config.routes.post("/story/infinite", this::toggleInfinite);
     config.routes.post("/story/stop", this::stopStory);
@@ -416,6 +417,22 @@ public final class WebController {
       return;
     }
     storyTurnService.undoLastTurn(session.get().sessionId());
+    cookieService.write(context, session.get().sessionId(), session.get().infinite());
+    context.redirect("/story", HttpStatus.SEE_OTHER);
+  }
+
+  private void editAssistantMessage(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    int messageIndex = parseMessageIndex(context.pathParam("messageIndex"));
+    if (storyTurnService.editAssistantResponse(
+      session.get().sessionId(), messageIndex, context.formParam("content")
+    ).isEmpty()) {
+      throw new IllegalArgumentException("Assistant message was not found.");
+    }
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.redirect("/story", HttpStatus.SEE_OTHER);
   }

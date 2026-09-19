@@ -23,8 +23,27 @@
       <div class="message-content">${exchange.prompt()}</div>
     </div>
     <div class="exchange-response">
-      <p class="message-role">Response</p>
+      <div class="response-title-row">
+        <p class="message-role">Response</p>
+        <details class="response-edit">
+          <summary>Edit</summary>
+          <form method="post" action="/story/messages/${exchange.messageIndex() + 1}/edit">
+            <label for="response-edit-${exchange.messageIndex()}">Response text</label>
+            <textarea id="response-edit-${exchange.messageIndex()}" name="content" rows="8"
+                      maxlength="100000" required>${exchange.response()}</textarea>
+            <button type="submit" class="compact-button">Save response</button>
+          </form>
+        </details>
+      </div>
       <div class="message-content">${exchange.response()}</div>
     </div>
   </article>
 @endfor
+<script>
+  document.querySelectorAll(".response-edit").forEach(details => {
+    const summary = details.querySelector("summary");
+    details.addEventListener("toggle", () => {
+      summary.textContent = details.open ? "Cancel" : "Edit";
+    });
+  });
+</script>

@@ -159,6 +159,37 @@ class JdbcStoryRepositoryTest {
 
   @Test
   @DisplayName("""
+    Given a stored story turn,
+    When its assistant response is edited,
+    Then only the assistant message should be updated
+    """)
+  void shouldUpdateAssistantMessageOnly() {
+    Database database = new Database("jdbc:h2:file:" + temporaryDirectory.resolve("edit-response"), "sa", "");
+    new SchemaInitializer(database).initialize();
+    JdbcSessionRepository sessionRepository = new JdbcSessionRepository(database);
+    JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
+    Instant now = Instant.parse("2026-09-16T08:00:00Z");
+    sessionRepository.create(new SessionRecord(
+      "edit-session", "Edit story", now, now, now, now.plusSeconds(3600), false
+    ), SessionPrompts.empty());
+    StoryTurnRecord turn = storyRepository.appendTurn("edit-session", "Original prompt", "Original response", null, now);
+
+    assertTrue(storyRepository.updateAssistantMessage(
+      "edit-session", turn.assistantMessageIndex(), "Edited response", now.plusSeconds(1)
+    ));
+    assertFalse(storyRepository.updateAssistantMessage(
+      "edit-session", turn.userMessageIndex(), "Edited prompt", now.plusSeconds(2)
+    ));
+
+    List<StoryMessageRecord> messages = storyRepository.loadMessagesBefore(
+      "edit-session", Integer.MAX_VALUE, 2
+    );
+    assertEquals("Original prompt", messages.getFirst().content());
+    assertEquals("Edited response", messages.getLast().content());
+  }
+
+  @Test
+  @DisplayName("""
     Given several persisted story exchanges,
     When selected user-message indexes are loaded as past context,
     Then only complete exchanges owned by that session should be returned chronologically

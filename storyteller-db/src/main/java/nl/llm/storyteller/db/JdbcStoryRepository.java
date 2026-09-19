@@ -181,6 +181,45 @@ public final class JdbcStoryRepository implements StoryRepository {
     }
   }
 
+  @Override
+  public boolean updateAssistantMessage(String sessionId, int messageIndex, String content, Instant updatedAt) {
+    try (Connection connection = database.openConnection()) {
+      connection.setAutoCommit(false);
+      return updateAssistantMessageInTransaction(connection, sessionId, messageIndex, content, updatedAt);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not update story message " + messageIndex + " for session "
+        + sessionId + ".", ex);
+    }
+  }
+
+  private boolean updateAssistantMessageInTransaction(
+    Connection connection,
+    String sessionId,
+    int messageIndex,
+    String content,
+    Instant updatedAt
+  ) throws SQLException {
+    try {
+      int updatedMessages;
+      try (PreparedStatement statement = connection.prepareStatement(StoryQueries.UPDATE_ASSISTANT_MESSAGE)) {
+        statement.setString(1, content);
+        statement.setString(2, sessionId);
+        statement.setInt(3, messageIndex);
+        updatedMessages = statement.executeUpdate();
+      }
+      if (updatedMessages != 1) {
+        connection.rollback();
+        return false;
+      }
+      updateSession(connection, sessionId, updatedAt);
+      connection.commit();
+      return true;
+    } catch (SQLException ex) {
+      rollback(connection, ex);
+      throw ex;
+    }
+  }
+
   private boolean undoInTransaction(Connection connection, String sessionId, Instant updatedAt)
     throws SQLException {
     try {
