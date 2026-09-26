@@ -115,6 +115,22 @@ public final class SessionMemoryService implements AutoCloseable {
     memoryRepository.updateCanonicalState(sessionId, memory, content, cutoff);
   }
 
+  public SessionMemory load(String sessionId) {
+    return memoryRepository.load(sessionId);
+  }
+
+  public void resetMidTermMemory(String sessionId) {
+    memoryRepository.resetMidTermMemory(sessionId);
+  }
+
+  public void resetLongTermMemory(String sessionId) {
+    memoryRepository.resetLongTermMemory(sessionId);
+  }
+
+  public void resetCanonicalState(String sessionId) {
+    memoryRepository.resetCanonicalState(sessionId);
+  }
+
   private String chat(String purpose, List<Message> messages) throws IOException, InterruptedException {
     return client.chat(purpose, messages, config.summaryOptions(), config.summaryRequestTimeoutSeconds());
   }

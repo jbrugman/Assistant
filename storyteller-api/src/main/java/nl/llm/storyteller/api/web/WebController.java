@@ -6,11 +6,11 @@ import io.javalin.http.Context;
 import io.javalin.http.HttpStatus;
 import io.javalin.http.UploadedFile;
 import nl.llm.storyteller.api.bundle.SessionBundleService;
+import nl.llm.storyteller.api.story.SessionMemoryService;
+import nl.llm.storyteller.api.story.StoryService;
 import nl.llm.storyteller.db.SessionPrompts;
-import nl.llm.storyteller.db.SessionMemoryRepository;
 import nl.llm.storyteller.db.SessionRecord;
 import nl.llm.storyteller.db.StoryImage;
-import nl.llm.storyteller.db.StoryRepository;
 import nl.llm.storyteller.api.session.InvalidFixedProtagonistsException;
 import nl.llm.storyteller.api.session.InvalidKnowledgeGraphException;
 import nl.llm.storyteller.api.session.SessionCookieService;
@@ -28,30 +28,30 @@ public final class WebController {
   private static final int STORY_PAGE_MESSAGES = 10;
   private final SessionService sessionService;
   private final SessionCookieService cookieService;
-  private final StoryRepository storyRepository;
+  private final StoryService storyService;
   private final StoryTurnService storyTurnService;
   private final SessionBundleService bundleService;
   private final SessionSettingsService settingsService;
-  private final SessionMemoryRepository memoryRepository;
+  private final SessionMemoryService memoryService;
   private final SessionKnowledgeGraphService knowledgeGraphService;
 
   public WebController(
     SessionService sessionService,
     SessionCookieService cookieService,
-    StoryRepository storyRepository,
+    StoryService storyService,
     StoryTurnService storyTurnService,
     SessionBundleService bundleService,
     SessionSettingsService settingsService,
-    SessionMemoryRepository memoryRepository,
+    SessionMemoryService memoryService,
     SessionKnowledgeGraphService knowledgeGraphService
   ) {
     this.sessionService = sessionService;
     this.cookieService = cookieService;
-    this.storyRepository = storyRepository;
+    this.storyService = storyService;
     this.storyTurnService = storyTurnService;
     this.bundleService = bundleService;
     this.settingsService = settingsService;
-    this.memoryRepository = memoryRepository;
+    this.memoryService = memoryService;
     this.knowledgeGraphService = knowledgeGraphService;
   }
 
@@ -71,6 +71,9 @@ public final class WebController {
     config.routes.post("/story/settings/graph/fill-fixed-protagonists", this::fillFromFixedProtagonists);
     config.routes.post("/story/settings/graph/generate-empty", this::generateEmptyGraph);
     config.routes.get("/story/memory", this::memory);
+    config.routes.post("/story/memory/reset/mid-term", this::resetMidTermMemory);
+    config.routes.post("/story/memory/reset/long-term", this::resetLongTermMemory);
+    config.routes.post("/story/memory/reset/canonical-state", this::resetCanonicalState);
     config.routes.post("/story/turns", this::createTurn);
     config.routes.post("/story/messages/{messageIndex}/edit", this::editAssistantMessage);
     config.routes.post("/story/undo", this::undoTurn);
@@ -170,7 +173,7 @@ public final class WebController {
       return;
     }
     int messageIndex = parseMessageIndex(context.pathParam("messageIndex"));
-    Optional<StoryImage> image = storyRepository.loadImage(session.get().sessionId(), messageIndex);
+    Optional<StoryImage> image = storyService.loadImage(session.get().sessionId(), messageIndex);
     if (image.isEmpty()) {
       context.status(HttpStatus.NOT_FOUND);
       return;
@@ -298,8 +301,85 @@ public final class WebController {
     }
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.render("memory.jte", Map.of(
-      "page", new StoryMemoryPage(memoryRepository.load(session.get().sessionId()))
+      "page", new StoryMemoryPage(memoryService.load(session.get().sessionId()))
     ));
+  }
+
+  private void resetMidTermMemory(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    try {
+      memoryService.resetMidTermMemory(session.get().sessionId());
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Mid-term memory reset",
+        "Mid-term memory has been cleared."
+      );
+    } catch (RuntimeException ex) {
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Mid-term memory was not reset",
+        ex.getMessage()
+      );
+    }
+  }
+
+  private void resetLongTermMemory(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    try {
+      memoryService.resetLongTermMemory(session.get().sessionId());
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Long-term memory reset",
+        "Long-term memory has been cleared."
+      );
+    } catch (RuntimeException ex) {
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Long-term memory was not reset",
+        ex.getMessage()
+      );
+    }
+  }
+
+  private void resetCanonicalState(Context context) {
+    Optional<SessionRecord> session = activeSession(context);
+    if (session.isEmpty()) {
+      redirectToStart(context);
+      return;
+    }
+    try {
+      memoryService.resetCanonicalState(session.get().sessionId());
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Canonical state reset",
+        "Canonical state has been cleared."
+      );
+    } catch (RuntimeException ex) {
+      redirectToMemoryNotification(
+        context, session.get(),
+        "Canonical state was not reset",
+        ex.getMessage()
+      );
+    }
+  }
+
+  private void redirectToMemoryNotification(
+    Context context,
+    SessionRecord session,
+    String title,
+    String message
+  ) {
+    cookieService.write(context, session.sessionId(), session.infinite());
+    context.redirect("/story/memory?notificationTitle=" + encode(title)
+      + "&notificationMessage=" + encode(valueOrEmpty(message)), HttpStatus.SEE_OTHER);
   }
 
   private void saveSettings(Context context) {
@@ -450,7 +530,7 @@ public final class WebController {
   private StoryPage storyPage(SessionRecord session, int beforeMessageIndex) {
     return StoryPage.from(
       session,
-      storyRepository.loadMessagesBefore(session.sessionId(), beforeMessageIndex, STORY_PAGE_MESSAGES),
+      storyService.loadMessagesBefore(session.sessionId(), beforeMessageIndex, STORY_PAGE_MESSAGES),
       storyTurnService.referenceBeforeMessageIndex(session.sessionId())
     );
   }

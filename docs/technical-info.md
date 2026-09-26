@@ -594,6 +594,11 @@ Not yet.
 
 ## Changelog
 
+### 2.0.10
+- Added reset buttons for mid-term memory, long-term memory, and canonical state to the memory screen.
+  Each button clears the respective memory section and resets its cursor to zero, allowing the user
+  to start fresh with derived memory generation.
+
 ### 2.0.9
 - Added a simple web/API action to edit a persisted assistant response text directly in H2. The edit is a direct user
   change: it does not call the model, run validation, apply story rules, or refresh derived memory/knowledge graph data.

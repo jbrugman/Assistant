@@ -53,6 +53,111 @@ class SessionMemoryServiceTest {
     assertTrue(client.requests.stream().allMatch(request -> request.getFirst().content().contains("Edited fixed")));
   }
 
+  @Test
+  @DisplayName("""
+    Given a session with mid-term memory,
+    When the mid-term memory is reset,
+    Then the recent summary and cursor should be cleared
+    """)
+  void shouldResetMidTermMemory() throws Exception {
+    List<Message> messages = new ArrayList<>();
+    for (int turn = 1; turn <= 18; turn++) {
+      messages.add(new Message("user", "Prompt " + turn));
+      messages.add(new Message("assistant", "Response " + turn));
+    }
+    SessionMemory initialMemory = new SessionMemory(
+      "Existing mid-term summary", "Existing recent summary", "Existing canonical",
+      10, 32, 36, messages
+    );
+    MemoryRepository memoryRepository = new MemoryRepository(initialMemory);
+    SettingsRepository settingsRepository = new SettingsRepository();
+    String sessionId = "session-id";
+
+    try (SessionMemoryService service = new SessionMemoryService(
+      memoryRepository, settingsRepository, AppConfig.load(), new SequencedChatClient(List.of())
+    )) {
+      service.resetMidTermMemory(sessionId);
+    }
+
+    SessionMemory stored = memoryRepository.load(sessionId);
+    assertEquals("Existing mid-term summary", stored.summary());
+    assertEquals(10, stored.summaryCursor());
+    assertEquals("", stored.recentSummary());
+    assertEquals(0, stored.recentSummaryCursor());
+    assertEquals("Existing canonical", stored.canonicalState());
+    assertEquals(36, stored.canonicalStateCursor());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a session with long-term memory,
+    When the long-term memory is reset,
+    Then the summary and cursor should be cleared
+    """)
+  void shouldResetLongTermMemory() throws Exception {
+    List<Message> messages = new ArrayList<>();
+    for (int turn = 1; turn <= 18; turn++) {
+      messages.add(new Message("user", "Prompt " + turn));
+      messages.add(new Message("assistant", "Response " + turn));
+    }
+    SessionMemory initialMemory = new SessionMemory(
+      "Existing mid-term summary", "Existing recent summary", "Existing canonical",
+      10, 32, 36, messages
+    );
+    MemoryRepository memoryRepository = new MemoryRepository(initialMemory);
+    SettingsRepository settingsRepository = new SettingsRepository();
+    String sessionId = "session-id";
+
+    try (SessionMemoryService service = new SessionMemoryService(
+      memoryRepository, settingsRepository, AppConfig.load(), new SequencedChatClient(List.of())
+    )) {
+      service.resetLongTermMemory(sessionId);
+    }
+
+    SessionMemory stored = memoryRepository.load(sessionId);
+    assertEquals("", stored.summary());
+    assertEquals(0, stored.summaryCursor());
+    assertEquals("Existing recent summary", stored.recentSummary());
+    assertEquals(32, stored.recentSummaryCursor());
+    assertEquals("Existing canonical", stored.canonicalState());
+    assertEquals(36, stored.canonicalStateCursor());
+  }
+
+  @Test
+  @DisplayName("""
+    Given a session with canonical state,
+    When the canonical state is reset,
+    Then the canonical state and cursor should be cleared
+    """)
+  void shouldResetCanonicalState() throws Exception {
+    List<Message> messages = new ArrayList<>();
+    for (int turn = 1; turn <= 18; turn++) {
+      messages.add(new Message("user", "Prompt " + turn));
+      messages.add(new Message("assistant", "Response " + turn));
+    }
+    SessionMemory initialMemory = new SessionMemory(
+      "Existing mid-term summary", "Existing recent summary", "Existing canonical",
+      10, 32, 36, messages
+    );
+    MemoryRepository memoryRepository = new MemoryRepository(initialMemory);
+    SettingsRepository settingsRepository = new SettingsRepository();
+    String sessionId = "session-id";
+
+    try (SessionMemoryService service = new SessionMemoryService(
+      memoryRepository, settingsRepository, AppConfig.load(), new SequencedChatClient(List.of())
+    )) {
+      service.resetCanonicalState(sessionId);
+    }
+
+    SessionMemory stored = memoryRepository.load(sessionId);
+    assertEquals("Existing mid-term summary", stored.summary());
+    assertEquals(10, stored.summaryCursor());
+    assertEquals("Existing recent summary", stored.recentSummary());
+    assertEquals(32, stored.recentSummaryCursor());
+    assertEquals("", stored.canonicalState());
+    assertEquals(0, stored.canonicalStateCursor());
+  }
+
   private static final class MemoryRepository implements SessionMemoryRepository {
     private SessionMemory memory;
 
@@ -96,6 +201,33 @@ class SessionMemoryServiceTest {
       memory = new SessionMemory(
         memory.summary(), memory.recentSummary(), content, memory.summaryCursor(),
         memory.recentSummaryCursor(), cursor, memory.messages()
+      );
+      return true;
+    }
+
+    @Override
+    public boolean resetMidTermMemory(String sessionId) {
+      memory = new SessionMemory(
+        memory.summary(), "", memory.canonicalState(), memory.summaryCursor(),
+        0, memory.canonicalStateCursor(), memory.messages()
+      );
+      return true;
+    }
+
+    @Override
+    public boolean resetLongTermMemory(String sessionId) {
+      memory = new SessionMemory(
+        "", memory.recentSummary(), memory.canonicalState(), 0,
+        memory.recentSummaryCursor(), memory.canonicalStateCursor(), memory.messages()
+      );
+      return true;
+    }
+
+    @Override
+    public boolean resetCanonicalState(String sessionId) {
+      memory = new SessionMemory(
+        memory.summary(), memory.recentSummary(), "", memory.summaryCursor(),
+        memory.recentSummaryCursor(), 0, memory.messages()
       );
       return true;
     }
