@@ -16,6 +16,9 @@ final class SessionMemoryQueries {
   static final String UPDATE_SUMMARY = update("summary_content", "summary_cursor");
   static final String UPDATE_RECENT_SUMMARY = update("recent_summary_content", "recent_summary_cursor");
   static final String UPDATE_CANONICAL_STATE = update("canonical_state_content", "canonical_state_cursor");
+  static final String RESET_MID_TERM = reset("recent_summary_content", "recent_summary_cursor");
+  static final String RESET_LONG_TERM = reset("summary_content", "summary_cursor");
+  static final String RESET_CANONICAL_STATE = reset("canonical_state_content", "canonical_state_cursor");
 
   private SessionMemoryQueries() {
   }
@@ -29,5 +32,13 @@ final class SessionMemoryQueries {
         AND COALESCE(%s, '') = ?
         AND ? <= (SELECT COUNT(*) FROM story_message WHERE session_id = ?)
       """.formatted(contentColumn, cursorColumn, cursorColumn, contentColumn);
+  }
+
+  private static String reset(String contentColumn, String cursorColumn) {
+    return """
+      UPDATE session_memory
+      SET %s = '', %s = 0
+      WHERE session_id = ?
+      """.formatted(contentColumn, cursorColumn);
   }
 }

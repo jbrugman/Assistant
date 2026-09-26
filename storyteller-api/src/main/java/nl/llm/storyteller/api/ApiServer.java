@@ -26,6 +26,7 @@ import nl.llm.storyteller.api.story.StoryTurnService;
 import nl.llm.storyteller.api.story.SessionDerivedStateService;
 import nl.llm.storyteller.api.story.SessionKnowledgeGraphService;
 import nl.llm.storyteller.api.story.SessionMemoryService;
+import nl.llm.storyteller.api.story.StoryService;
 import nl.llm.storyteller.api.web.WebController;
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
@@ -147,14 +148,15 @@ public final class ApiServer implements AutoCloseable {
     SessionBundleService bundleService = new SessionBundleService(
       new JdbcSessionBundleRepository(database), config.sessionInactivityTimeout(), defaultPrompts
     );
+    StoryService storyService = new StoryService(storyRepository);
     WebController webController = new WebController(
       sessionService,
       cookieService,
-      storyRepository,
+      storyService,
       storyTurnService,
       bundleService,
       new SessionSettingsService(settingsRepository, graphValidator),
-      memoryRepository,
+      memoryService,
       knowledgeGraphService
     );
     ApiTlsMaterial tlsMaterial = config.tls().enabled() ? ApiTlsMaterial.prepare(config.tls()) : null;

@@ -73,6 +73,21 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
     );
   }
 
+  @Override
+  public boolean resetMidTermMemory(String sessionId) {
+    return reset(SessionMemoryQueries.RESET_MID_TERM, sessionId);
+  }
+
+  @Override
+  public boolean resetLongTermMemory(String sessionId) {
+    return reset(SessionMemoryQueries.RESET_LONG_TERM, sessionId);
+  }
+
+  @Override
+  public boolean resetCanonicalState(String sessionId) {
+    return reset(SessionMemoryQueries.RESET_CANONICAL_STATE, sessionId);
+  }
+
   private MemoryContent loadContent(Connection connection, String sessionId) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(SessionMemoryQueries.SELECT_MEMORY)) {
       statement.setString(1, sessionId);
@@ -125,6 +140,16 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
       return statement.executeUpdate() == 1;
     } catch (SQLException ex) {
       throw new DatabaseException("Could not update memory for session " + sessionId + ".", ex);
+    }
+  }
+
+  private boolean reset(String sql, String sessionId) {
+    try (Connection connection = database.openConnection();
+         PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, sessionId);
+      return statement.executeUpdate() == 1;
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not reset memory for session " + sessionId + ".", ex);
     }
   }
 

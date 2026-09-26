@@ -36,6 +36,19 @@
         <label for="canonicalState">Canonical state · processed messages: ${page.memory().canonicalStateCursor()}</label>
         <textarea id="canonicalState" rows="16" readonly
                   placeholder="No canonical state has been generated yet.">${page.memory().canonicalState()}</textarea>
+
+        <form class="memory-actions" method="POST" aria-label="Memory reset actions" style="display: flex; gap: 0.5rem; align-items: center;">
+          <span>Memory reset</span>
+          <button class="compact-button danger-button" type="submit"
+                  formaction="/story/memory/reset/mid-term"
+                  data-memory-action="reset-mid-term">Reset mid-term</button>
+          <button class="compact-button danger-button" type="submit"
+                  formaction="/story/memory/reset/long-term"
+                  data-memory-action="reset-long-term">Reset long-term</button>
+          <button class="compact-button danger-button" type="submit"
+                  formaction="/story/memory/reset/canonical-state"
+                  data-memory-action="reset-canonical-state">Reset canonical state</button>
+        </form>
       </section>
     </main>
   </body>

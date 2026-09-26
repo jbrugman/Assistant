@@ -10,4 +10,10 @@ public interface SessionMemoryRepository {
   boolean updateRecentSummary(String sessionId, SessionMemory expected, String content, int cursor);
 
   boolean updateCanonicalState(String sessionId, SessionMemory expected, String content, int cursor);
+
+  boolean resetMidTermMemory(String sessionId);
+
+  boolean resetLongTermMemory(String sessionId);
+
+  boolean resetCanonicalState(String sessionId);
 }
