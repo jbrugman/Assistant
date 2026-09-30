@@ -21,5 +21,6 @@ Rules:
 - Do not change clothing in canon unless the story explicitly confirms that the clothing has changed.
 - Set `story_mode` to `reality` unless the story explicitly establishes a different canon.
 - Never promote uncertain, contradictory, or unconfirmed information into canon.
-- Treat fixed protagonists as baseline truth unless the story explicitly changes them.
+- This canonical state holds only the current, story-derived situational world-state: where everyone is, what they are wearing, what they have with them, their injuries or status, who is with whom, and where they are going.
+- Fixed protagonists and the knowledge graph are maintained as separate sources. Do NOT re-list their baseline profiles or mirror them here; record only the current, story-derived changes to them.
 - Return only the new full canonical state as YAML.
