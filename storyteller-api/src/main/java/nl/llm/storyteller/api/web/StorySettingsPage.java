@@ -7,6 +7,7 @@ import nl.llm.storyteller.db.SessionPrompts;
 public record StorySettingsPage(
   SessionPrompts prompts,
   String knowledgeGraph,
+  Double temperature,
   String yamlError,
   int yamlErrorLine,
   int yamlErrorColumn,
@@ -17,28 +18,31 @@ public record StorySettingsPage(
   static StorySettingsPage valid(
     SessionPrompts prompts,
     String knowledgeGraph,
+    Double temperature,
     String notificationTitle,
     String notificationMessage
   ) {
     return new StorySettingsPage(
-      prompts, knowledgeGraph, "", 0, 0, "", notificationTitle, notificationMessage
+      prompts, knowledgeGraph, temperature, "", 0, 0, "", notificationTitle, notificationMessage
     );
   }
 
   static StorySettingsPage invalidYaml(
     SessionPrompts prompts,
     String knowledgeGraph,
+    Double temperature,
     InvalidFixedProtagonistsException error
   ) {
-    return new StorySettingsPage(prompts, knowledgeGraph, error.getMessage(), error.line(), error.column(), "", "", "");
+    return new StorySettingsPage(prompts, knowledgeGraph, temperature, error.getMessage(), error.line(), error.column(), "", "", "");
   }
 
   static StorySettingsPage invalidKnowledgeGraph(
     SessionPrompts prompts,
     String knowledgeGraph,
+    Double temperature,
     InvalidKnowledgeGraphException error
   ) {
-    return new StorySettingsPage(prompts, knowledgeGraph, "", 0, 0, error.getMessage(), "", "");
+    return new StorySettingsPage(prompts, knowledgeGraph, temperature, "", 0, 0, error.getMessage(), "", "");
   }
 
   public boolean hasYamlError() {

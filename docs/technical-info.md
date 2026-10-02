@@ -593,6 +593,10 @@ Not yet.
 ```
 
 ## Changelog
+### 2.0.11
+- Improved mid-term memory and canonical state so the data is not repeated over the knowledge base and summary.
+- Added a new dial to set the chat temperature for your story, so the LLM gets more or less creative in its responses. 
+  The dial is available in the web interface and the API, and can be set in the `application.config` file with `chat.temperature`
 
 ### 2.0.10
 - Added reset buttons for mid-term memory, long-term memory, and canonical state to the memory screen.

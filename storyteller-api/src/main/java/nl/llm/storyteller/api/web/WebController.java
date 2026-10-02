@@ -34,6 +34,7 @@ public final class WebController {
   private final SessionSettingsService settingsService;
   private final SessionMemoryService memoryService;
   private final SessionKnowledgeGraphService knowledgeGraphService;
+  private final double defaultTemperature;
 
   public WebController(
     SessionService sessionService,
@@ -43,7 +44,8 @@ public final class WebController {
     SessionBundleService bundleService,
     SessionSettingsService settingsService,
     SessionMemoryService memoryService,
-    SessionKnowledgeGraphService knowledgeGraphService
+    SessionKnowledgeGraphService knowledgeGraphService,
+    double defaultTemperature
   ) {
     this.sessionService = sessionService;
     this.cookieService = cookieService;
@@ -53,6 +55,7 @@ public final class WebController {
     this.settingsService = settingsService;
     this.memoryService = memoryService;
     this.knowledgeGraphService = knowledgeGraphService;
+    this.defaultTemperature = defaultTemperature;
   }
 
   public void register(JavalinConfig config) {
@@ -195,6 +198,7 @@ public final class WebController {
       "page", StorySettingsPage.valid(
         settings.prompts(),
         settingsService.formatKnowledgeGraph(settings),
+        effectiveTemperature(settings.temperature()),
         valueOrEmpty(context.queryParam("notificationTitle")),
         valueOrEmpty(context.queryParam("notificationMessage"))
       )
@@ -391,8 +395,37 @@ public final class WebController {
     if (submittedSettingsCouldNotBeSaved(context, session.get())) {
       return;
     }
+    String temperatureParam = context.formParam("temperature");
+    Double temperature = parseTemperature(temperatureParam);
+    settingsService.save(
+      session.get().sessionId(),
+      context.formParam("systemPrompt"),
+      context.formParam("fixedProtagonists"),
+      context.formParam("rules"),
+      context.formParam("knowledgeGraph"),
+      temperature
+    );
     cookieService.write(context, session.get().sessionId(), session.get().infinite());
     context.redirect("/story", HttpStatus.SEE_OTHER);
+  }
+
+  private Double parseTemperature(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      double d = Double.parseDouble(value);
+      if (d < 0.0 || d > 2.0) {
+        return null;
+      }
+      return d;
+    } catch (NumberFormatException ex) {
+      return null;
+    }
+  }
+
+  private double effectiveTemperature(Double temperature) {
+    return temperature != null ? temperature : defaultTemperature;
   }
 
   private boolean submittedSettingsCouldNotBeSaved(Context context, SessionRecord session) {
@@ -400,15 +433,18 @@ public final class WebController {
     String fixedProtagonists = context.formParam("fixedProtagonists");
     String rules = context.formParam("rules");
     String knowledgeGraph = context.formParam("knowledgeGraph");
+    String temperatureParam = context.formParam("temperature");
+    Double temperature = parseTemperature(temperatureParam);
     SessionPrompts submittedPrompts = new SessionPrompts(
       valueOrEmpty(systemPrompt), valueOrEmpty(fixedProtagonists), valueOrEmpty(rules)
     );
     try {
-      settingsService.save(session.sessionId(), systemPrompt, fixedProtagonists, rules, knowledgeGraph);
+      settingsService.save(session.sessionId(), systemPrompt, fixedProtagonists, rules, knowledgeGraph, temperature);
     } catch (InvalidFixedProtagonistsException ex) {
       context.render("settings.jte", Map.of("page", StorySettingsPage.invalidYaml(
         submittedPrompts,
         valueOrEmpty(knowledgeGraph),
+        effectiveTemperature(temperature),
         ex
       )));
       return true;
@@ -416,6 +452,7 @@ public final class WebController {
       context.render("settings.jte", Map.of("page", StorySettingsPage.invalidKnowledgeGraph(
         submittedPrompts,
         valueOrEmpty(knowledgeGraph),
+        effectiveTemperature(temperature),
         ex
       )));
       return true;

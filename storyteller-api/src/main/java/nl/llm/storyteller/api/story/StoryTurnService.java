@@ -114,9 +114,15 @@ public final class StoryTurnService {
         userMessage.role(), userMessage.content(), image.dataUrl()
       ));
     }
+    java.util.Map<String, Object> options = config.chatOptions();
+    Double sessionTemperature = settings.temperature();
+    if (sessionTemperature != null) {
+      options = new java.util.HashMap<>(options);
+      options.put("temperature", sessionTemperature);
+    }
     String draftResponse = chatClient.chat(
       messages,
-      config.chatOptions(),
+      options,
       config.requestTimeoutSeconds()
     );
     String response = validate(userInput, draftResponse, prompts);

@@ -783,3 +783,43 @@ textarea {
 .story-page.single-column .exchange .message-role {
   display: block;
 }
+
+/* Temperature slider */
+.temperature-fieldset {
+  border: 1px solid #37312d;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-top: 0.5rem;
+}
+
+.temperature-fieldset > label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.setting-hint {
+  font-size: 0.82rem;
+  color: #a89f95;
+  margin: 0 0 0.7rem 0;
+}
+
+.temperature-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.temperature-control input[type="range"] {
+  flex: 1;
+  accent-color: #d7a879;
+  cursor: pointer;
+}
+
+.temperature-control output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  min-width: 3rem;
+  text-align: right;
+  color: #d7a879;
+}
