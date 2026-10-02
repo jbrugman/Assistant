@@ -56,6 +56,29 @@
                   aria-describedby="${page.hasKnowledgeGraphError() ? "knowledge-graph-error" : null}"
                   required>${page.knowledgeGraph()}</textarea>
 
+        <fieldset class="temperature-fieldset">
+          <label for="temperature">Chat temperature</label>
+          <p class="setting-hint">
+            Controls randomness in the story. Lower values are more deterministic, higher values are more creative.
+            Range: 0 (exact) to 2 (maximally diverse).
+          </p>
+          <div class="temperature-control">
+            @if(page.temperature() != null)
+              <input type="range" id="temperature" name="temperature" min="0" max="2" step="0.01"
+                     value="${page.temperature()}" />
+            @else
+              <input type="range" id="temperature" name="temperature" min="0" max="2" step="0.01" />
+            @endif
+            <output id="temperatureValue" for="temperature">
+              @if(page.temperature() != null)
+                ${String.format("%.2f", page.temperature())}
+              @else
+                default
+              @endif
+            </output>
+          </div>
+        </fieldset>
+
         <div class="graph-tools" aria-label="Knowledge graph actions">
           <span>Graph tools</span>
           <button class="compact-button" type="submit"
@@ -142,6 +165,16 @@
           event.submitter.disabled = true;
         }
       });
+    </script>
+    <script>
+      const temperatureSlider = document.getElementById("temperature");
+      const temperatureValue = document.getElementById("temperatureValue");
+      if (temperatureSlider) {
+        temperatureSlider.addEventListener("input", () => {
+          const val = parseFloat(temperatureSlider.value);
+          temperatureValue.textContent = isNaN(val) ? "default" : val.toFixed(2);
+        });
+      }
     </script>
   </body>
 </html>

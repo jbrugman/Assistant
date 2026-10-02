@@ -38,7 +38,7 @@ class SessionSettingsServiceTest {
     ));
     SessionSettingsService service = new SessionSettingsService(repository, new KnowledgeGraphValidator());
 
-    service.save(SESSION_ID, " New system ", VALID_YAML, " New rules ", EMPTY_GRAPH);
+    service.save(SESSION_ID, " New system ", VALID_YAML, " New rules ", EMPTY_GRAPH, null);
 
     assertEquals(new SessionSettings(
       new SessionPrompts("New system", VALID_YAML.strip(), "New rules"),
@@ -64,7 +64,7 @@ class SessionSettingsServiceTest {
 
     InvalidFixedProtagonistsException error = assertThrows(
       InvalidFixedProtagonistsException.class,
-      () -> service.save(SESSION_ID, "New system", yaml, "New rules", EMPTY_GRAPH)
+      () -> service.save(SESSION_ID, "New system", yaml, "New rules", EMPTY_GRAPH, null)
     );
 
     assertTrue(error.line() > 0);
@@ -88,7 +88,7 @@ class SessionSettingsServiceTest {
 
     assertThrows(
       InvalidKnowledgeGraphException.class,
-      () -> service.save(SESSION_ID, "New system", VALID_YAML, "New rules", "{invalid")
+      () -> service.save(SESSION_ID, "New system", VALID_YAML, "New rules", "{invalid", null)
     );
 
     assertEquals(original, repository.settings);
@@ -109,6 +109,16 @@ class SessionSettingsServiceTest {
     @Override
     public void save(String sessionId, SessionSettings settings) {
       this.settings = settings;
+    }
+
+    @Override
+    public Double getTemperature(String sessionId) {
+      return settings != null ? settings.temperature() : null;
+    }
+
+    @Override
+    public void setTemperature(String sessionId, Double temperature) {
+      // no-op for tests
     }
   }
 }

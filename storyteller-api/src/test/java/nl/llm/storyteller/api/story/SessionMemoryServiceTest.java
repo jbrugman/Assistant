@@ -245,6 +245,15 @@ class SessionMemoryServiceTest {
     @Override
     public void save(String sessionId, SessionSettings settings) {
     }
+
+    @Override
+    public Double getTemperature(String sessionId) {
+      return null;
+    }
+
+    @Override
+    public void setTemperature(String sessionId, Double temperature) {
+    }
   }
 
   private static final class SequencedChatClient implements ChatClient {

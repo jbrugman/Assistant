@@ -9,6 +9,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -520,6 +522,79 @@ class ApiServerTest {
     assertTrue(systemMessage.contains("[Earlier exchange, messages 0-1]"));
     assertTrue(systemMessage.contains("Prompt 0"));
     assertTrue(systemMessage.contains("Response zero"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "'', , 0.6",
+    "chat.temperature=0.85, , 0.85",
+    "chat.temperature=0.85, 0.0, 0.0",
+    "chat.temperature=0.85, 1.3, 1.3"
+  })
+  @DisplayName("Settings show the saved temperature or the effective configuration when unset")
+  void shouldRenderEffectiveTemperature(String override, String savedTemperature, double expected) throws Exception {
+    Path coreOverride = temporaryDirectory.resolve("temperature.config");
+    Files.writeString(coreOverride, override);
+    ChatClient chatClient = (_, _, _) -> "Unused";
+    server = ApiServer.create(
+      config(), AppConfigLoader.load(temporaryDirectory, coreOverride), chatClient, chatClient
+    );
+    server.start();
+    HttpClient client = HttpClient.newHttpClient();
+    HttpResponse<String> created = client.send(
+      HttpRequest.newBuilder(uri("/web/sessions"))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString("title=Temperature"))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    assertEquals(303, created.statusCode());
+    String cookie = created.headers().firstValue("Set-Cookie").orElseThrow().split(";", 2)[0];
+    String temperatureField = savedTemperature == null ? "" : "&temperature=" + savedTemperature;
+    String protagonists = "fixed_protagonists:\n  Valerie:\n    role: Protagonist";
+    HttpResponse<String> saved = client.send(
+      HttpRequest.newBuilder(uri("/story/settings"))
+        .header("Cookie", cookie)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .POST(HttpRequest.BodyPublishers.ofString(
+          settingsForm("System", protagonists, "Rules", EMPTY_GRAPH) + temperatureField
+        ))
+        .build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    assertEquals(303, saved.statusCode());
+    HttpResponse<String> settings = client.send(
+      HttpRequest.newBuilder(uri("/story/settings")).header("Cookie", cookie).GET().build(),
+      HttpResponse.BodyHandlers.ofString()
+    );
+    assertTemperature(settings, expected);
+
+    for (String invalidForm : List.of(
+      settingsForm("System", "fixed_protagonists: [broken", "Rules", EMPTY_GRAPH),
+      settingsForm("System", protagonists, "Rules", "{broken")
+    )) {
+      HttpResponse<String> rejected = client.send(
+        HttpRequest.newBuilder(uri("/story/settings"))
+          .header("Cookie", cookie)
+          .header("Content-Type", "application/x-www-form-urlencoded")
+          .POST(HttpRequest.BodyPublishers.ofString(invalidForm + temperatureField))
+          .build(),
+        HttpResponse.BodyHandlers.ofString()
+      );
+      assertTemperature(rejected, expected);
+    }
+  }
+
+  private void assertTemperature(HttpResponse<String> response, double expected) {
+    assertEquals(200, response.statusCode());
+    var slider = java.util.regex.Pattern.compile("<input[^>]*id=\"temperature\"[^>]*>")
+      .matcher(response.body());
+    assertTrue(slider.find(), "Temperature slider must be rendered");
+    assertTrue(slider.group().contains("value=\"" + expected + "\""), slider.group());
+    var output = java.util.regex.Pattern.compile("<output[^>]*id=\"temperatureValue\"[^>]*>(.*?)</output>",
+      java.util.regex.Pattern.DOTALL).matcher(response.body());
+    assertTrue(output.find(), "Temperature value must be rendered");
+    assertEquals(String.format("%.2f", expected), output.group(1).trim());
   }
 
   private String settingsForm(

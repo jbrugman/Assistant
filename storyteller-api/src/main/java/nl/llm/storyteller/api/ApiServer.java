@@ -113,10 +113,16 @@ public final class ApiServer implements AutoCloseable {
     );
     JdbcSessionPromptRepository promptRepository = new JdbcSessionPromptRepository(database);
     promptRepository.initializeMissing(defaultPrompts);
+    JdbcSessionSettingsRepository settingsRepository = new JdbcSessionSettingsRepository(database);
+    Double defaultTemperature = (Double) coreConfig.chatOptions().get("temperature");
     SessionService sessionService = new SessionService(
       new JdbcSessionRepository(database),
+      settingsRepository,
+      java.time.Clock.systemUTC(),
       config.sessionInactivityTimeout(),
-      defaultPrompts
+      () -> java.util.UUID.randomUUID().toString(),
+      defaultPrompts,
+      defaultTemperature
     );
     sessionService.deleteExpired();
     SessionCookieService cookieService = new SessionCookieService(
@@ -124,7 +130,6 @@ public final class ApiServer implements AutoCloseable {
     );
     SessionController sessionController = new SessionController(sessionService, cookieService);
     JdbcStoryRepository storyRepository = new JdbcStoryRepository(database);
-    JdbcSessionSettingsRepository settingsRepository = new JdbcSessionSettingsRepository(database);
     KnowledgeGraphValidator graphValidator = new KnowledgeGraphValidator(PredicateCatalog.load(coreConfig.baseDir()));
     JdbcSessionMemoryRepository memoryRepository = new JdbcSessionMemoryRepository(database);
     SessionMemoryService memoryService = new SessionMemoryService(
@@ -157,7 +162,8 @@ public final class ApiServer implements AutoCloseable {
       bundleService,
       new SessionSettingsService(settingsRepository, graphValidator),
       memoryService,
-      knowledgeGraphService
+      knowledgeGraphService,
+      defaultTemperature
     );
     ApiTlsMaterial tlsMaterial = config.tls().enabled() ? ApiTlsMaterial.prepare(config.tls()) : null;
     Javalin server = Javalin.create(javalinConfig -> {

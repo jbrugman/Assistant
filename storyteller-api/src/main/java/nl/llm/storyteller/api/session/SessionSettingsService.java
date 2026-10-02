@@ -31,7 +31,8 @@ public final class SessionSettingsService {
     String systemPrompt,
     String fixedProtagonists,
     String rules,
-    String knowledgeGraph
+    String knowledgeGraph,
+    Double temperature
   ) {
     SessionPrompts prompts = new SessionPrompts(
       requiredMultiline(systemPrompt, "System prompt", MAX_PROMPT_LENGTH),
@@ -39,7 +40,7 @@ public final class SessionSettingsService {
       requiredMultiline(rules, "Rules", MAX_PROMPT_LENGTH)
     );
     FixedProtagonistsValidator.validate(prompts.fixedProtagonists());
-    repository.save(sessionId, new SessionSettings(prompts, parseKnowledgeGraph(knowledgeGraph)));
+    repository.save(sessionId, new SessionSettings(prompts, parseKnowledgeGraph(knowledgeGraph), temperature));
   }
 
   public String formatKnowledgeGraph(SessionSettings settings) {

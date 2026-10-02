@@ -1,12 +1,15 @@
 package nl.llm.storyteller.api.session;
 
+import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.db.SessionPrompts;
 import nl.llm.storyteller.db.SessionRecord;
 import nl.llm.storyteller.db.SessionRepository;
+import nl.llm.storyteller.db.SessionSettingsRepository;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -17,10 +20,12 @@ public final class SessionService {
   private static final int MAX_TITLE_LENGTH = 255;
 
   private final SessionRepository repository;
+  private final SessionSettingsRepository settingsRepository;
   private final Clock clock;
   private final Duration inactivityTimeout;
   private final Supplier<String> idSupplier;
   private final SessionPrompts defaultPrompts;
+  private final Double defaultTemperature;
 
   public SessionService(
     SessionRepository repository,
@@ -29,25 +34,31 @@ public final class SessionService {
   ) {
     this(
       repository,
+      null,
       Clock.systemUTC(),
       inactivityTimeout,
       () -> UUID.randomUUID().toString(),
-      defaultPrompts
+      defaultPrompts,
+      null
     );
   }
 
-  SessionService(
+  public SessionService(
     SessionRepository repository,
+    SessionSettingsRepository settingsRepository,
     Clock clock,
     Duration inactivityTimeout,
     Supplier<String> idSupplier,
-    SessionPrompts defaultPrompts
+    SessionPrompts defaultPrompts,
+    Double defaultTemperature
   ) {
     this.repository = repository;
+    this.settingsRepository = settingsRepository;
     this.clock = clock;
     this.inactivityTimeout = inactivityTimeout;
     this.idSupplier = idSupplier;
     this.defaultPrompts = defaultPrompts;
+    this.defaultTemperature = defaultTemperature;
   }
 
   public SessionRecord create(String title) {
@@ -63,6 +74,9 @@ public final class SessionService {
       false
     );
     repository.create(session, defaultPrompts);
+    if (settingsRepository != null && defaultTemperature != null) {
+      settingsRepository.setTemperature(session.sessionId(), defaultTemperature);
+    }
     return session;
   }
 

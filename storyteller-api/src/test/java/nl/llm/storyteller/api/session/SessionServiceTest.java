@@ -183,10 +183,12 @@ class SessionServiceTest {
   private SessionService service(SessionRepository repository) {
     return new SessionService(
       repository,
+      null,
       Clock.fixed(NOW, ZoneOffset.UTC),
       Duration.ofHours(1),
       () -> "generated-session-id",
-      DEFAULT_PROMPTS
+      DEFAULT_PROMPTS,
+      null
     );
   }
 

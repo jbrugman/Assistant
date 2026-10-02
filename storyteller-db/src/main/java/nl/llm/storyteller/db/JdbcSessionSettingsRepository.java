@@ -1,11 +1,19 @@
 package nl.llm.storyteller.db;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public final class JdbcSessionSettingsRepository implements SessionSettingsRepository {
+  private static final String SELECT_SESSION_CONFIGURATION_TEMPERATURE = """
+    SELECT temperature FROM session_configuration WHERE session_id = ?
+    """;
+  private static final String UPDATE_SESSION_CONFIGURATION_TEMPERATURE = """
+    UPDATE session_configuration SET temperature = ? WHERE session_id = ?
+    """;
+
   private final Database database;
   private final JdbcSessionBundleRepository bundleRepository;
 
@@ -17,7 +25,11 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
   @Override
   public SessionSettings load(String sessionId) {
     try (Connection connection = database.openConnection()) {
-      return new SessionSettings(loadPrompts(connection, sessionId), bundleRepository.loadGraph(connection, sessionId));
+      return new SessionSettings(
+        loadPrompts(connection, sessionId),
+        bundleRepository.loadGraph(connection, sessionId),
+        loadTemperature(connection, sessionId)
+      );
     } catch (SQLException ex) {
       throw new DatabaseException("Could not load settings for session " + sessionId + ".", ex);
     }
@@ -30,6 +42,41 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
       saveInTransaction(connection, sessionId, settings);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not save settings for session " + sessionId + ".", ex);
+    }
+  }
+
+  @Override
+  public Double getTemperature(String sessionId) {
+    try (Connection connection = database.openConnection()) {
+      return loadTemperature(connection, sessionId);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not load temperature for session " + sessionId + ".", ex);
+    }
+  }
+
+  @Override
+  public void setTemperature(String sessionId, Double temperature) {
+    try (Connection connection = database.openConnection();
+         PreparedStatement statement = connection.prepareStatement(UPDATE_SESSION_CONFIGURATION_TEMPERATURE)) {
+      BigDecimal bd = temperature != null ? BigDecimal.valueOf(temperature) : null;
+      statement.setBigDecimal(1, bd);
+      statement.setString(2, sessionId);
+      requireUpdated(statement, "Session configuration does not exist: " + sessionId);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not set temperature for session " + sessionId + ".", ex);
+    }
+  }
+
+  private Double loadTemperature(Connection connection, String sessionId) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(SELECT_SESSION_CONFIGURATION_TEMPERATURE)) {
+      statement.setString(1, sessionId);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (resultSet.next()) {
+          BigDecimal bd = resultSet.getBigDecimal("temperature");
+          return bd != null ? bd.doubleValue() : null;
+        }
+        return null;
+      }
     }
   }
 
@@ -54,10 +101,21 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
       );
       updatePrompt(connection, sessionId, SessionPrompts.RULES_NAME, settings.prompts().rules());
       bundleRepository.replaceGraph(connection, sessionId, settings.knowledgeGraph());
+      updateTemperatureInTransaction(connection, sessionId, settings.temperature());
       connection.commit();
     } catch (SQLException ex) {
       rollback(connection, ex);
       throw ex;
+    }
+  }
+
+  private void updateTemperatureInTransaction(Connection connection, String sessionId, Double temperature)
+    throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement(UPDATE_SESSION_CONFIGURATION_TEMPERATURE)) {
+      BigDecimal bd = temperature != null ? BigDecimal.valueOf(temperature) : null;
+      statement.setBigDecimal(1, bd);
+      statement.setString(2, sessionId);
+      requireUpdated(statement, "Session configuration does not exist: " + sessionId);
     }
   }
 
