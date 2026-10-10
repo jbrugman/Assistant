@@ -45,9 +45,9 @@ public final class JdbcSessionRepository implements SessionRepository {
     SessionPrompts prompts
   ) throws SQLException {
     try {
-      insertSession(connection, session);
+      insertSession(connection, session, database.encryption());
       insertDefaults(connection, session.sessionId());
-      SessionPromptPersistenceSupport.insertPrompts(connection, session.sessionId(), prompts);
+      SessionPromptPersistenceSupport.insertPrompts(connection, database.encryption(), session.sessionId(), prompts);
       connection.commit();
     } catch (SQLException ex) {
       rollback(connection, ex);
@@ -115,14 +115,18 @@ public final class JdbcSessionRepository implements SessionRepository {
   private void insertDefaults(Connection connection, String sessionId) throws SQLException {
     insertSessionId(connection, INSERT_SESSION_CONFIGURATION, sessionId);
     insertSessionId(connection, INSERT_SESSION_MEMORY, sessionId);
-    insertSessionId(connection, INSERT_TURN_STATE, sessionId);
+    try (PreparedStatement statement = connection.prepareStatement(INSERT_TURN_STATE)) {
+      statement.setString(1, sessionId);
+      statement.setString(2, database.encryption().encrypt(sessionId, "turn_state.trigger_word", ""));
+      statement.executeUpdate();
+    }
     insertSessionId(connection, INSERT_KNOWLEDGE_GRAPH, sessionId);
   }
 
   private SessionRecord readSession(ResultSet resultSet) throws SQLException {
     return new SessionRecord(
       resultSet.getString("session_id"),
-      resultSet.getString("title"),
+      database.encryption().decrypt(resultSet.getString("session_id"), "story_session.title", resultSet.getString("title")),
       resultSet.getTimestamp("created_at").toInstant(),
       resultSet.getTimestamp("updated_at").toInstant(),
       resultSet.getTimestamp("last_accessed_at").toInstant(),

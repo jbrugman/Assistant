@@ -45,14 +45,14 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
   @Override
   public boolean updateSummary(String sessionId, SessionMemory expected, String content, int cursor) {
     return update(
-      SessionMemoryQueries.UPDATE_SUMMARY, sessionId, expected.summaryCursor(), expected.summary(), content, cursor
+      SessionMemoryQueries.UPDATE_SUMMARY, "summary_content", sessionId, expected.summaryCursor(), expected.summary(), content, cursor
     );
   }
 
   @Override
   public boolean updateRecentSummary(String sessionId, SessionMemory expected, String content, int cursor) {
     return update(
-      SessionMemoryQueries.UPDATE_RECENT_SUMMARY,
+      SessionMemoryQueries.UPDATE_RECENT_SUMMARY, "recent_summary_content",
       sessionId,
       expected.recentSummaryCursor(),
       expected.recentSummary(),
@@ -64,7 +64,7 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
   @Override
   public boolean updateCanonicalState(String sessionId, SessionMemory expected, String content, int cursor) {
     return update(
-      SessionMemoryQueries.UPDATE_CANONICAL_STATE,
+      SessionMemoryQueries.UPDATE_CANONICAL_STATE, "canonical_state_content",
       sessionId,
       expected.canonicalStateCursor(),
       expected.canonicalState(),
@@ -75,17 +75,17 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
 
   @Override
   public boolean resetMidTermMemory(String sessionId) {
-    return reset(SessionMemoryQueries.RESET_MID_TERM, sessionId);
+    return reset(SessionMemoryQueries.RESET_MID_TERM, "recent_summary_content", sessionId);
   }
 
   @Override
   public boolean resetLongTermMemory(String sessionId) {
-    return reset(SessionMemoryQueries.RESET_LONG_TERM, sessionId);
+    return reset(SessionMemoryQueries.RESET_LONG_TERM, "summary_content", sessionId);
   }
 
   @Override
   public boolean resetCanonicalState(String sessionId) {
-    return reset(SessionMemoryQueries.RESET_CANONICAL_STATE, sessionId);
+    return reset(SessionMemoryQueries.RESET_CANONICAL_STATE, "canonical_state_content", sessionId);
   }
 
   private MemoryContent loadContent(Connection connection, String sessionId) throws SQLException {
@@ -96,9 +96,9 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
           throw new SQLException("Session memory does not exist for session " + sessionId + ".");
         }
         return new MemoryContent(
-          resultSet.getString("summary_content"),
-          resultSet.getString("recent_summary_content"),
-          resultSet.getString("canonical_state_content"),
+          database.encryption().decrypt(sessionId, "session_memory.summary_content", resultSet.getString("summary_content")),
+          database.encryption().decrypt(sessionId, "session_memory.recent_summary_content", resultSet.getString("recent_summary_content")),
+          database.encryption().decrypt(sessionId, "session_memory.canonical_state_content", resultSet.getString("canonical_state_content")),
           resultSet.getInt("summary_cursor"),
           resultSet.getInt("recent_summary_cursor"),
           resultSet.getInt("canonical_state_cursor")
@@ -113,7 +113,7 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
       try (ResultSet resultSet = statement.executeQuery()) {
         List<Message> messages = new ArrayList<>();
         while (resultSet.next()) {
-          messages.add(new Message(resultSet.getString("message_role"), resultSet.getString("content")));
+          messages.add(new Message(resultSet.getString("message_role"), database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString("content"))));
         }
         return List.copyOf(messages);
       }
@@ -122,6 +122,7 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
 
   private boolean update(
     String sql,
+    String column,
     String sessionId,
     int expectedCursor,
     String expectedContent,
@@ -129,12 +130,26 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
     int cursor
   ) {
     try (Connection connection = database.openConnection();
+         PreparedStatement select = connection.prepareStatement(
+           "SELECT " + column + " FROM session_memory WHERE session_id = ?");
          PreparedStatement statement = connection.prepareStatement(sql)) {
-      statement.setString(1, content);
+      select.setString(1, sessionId);
+      String storedContent;
+      try (ResultSet resultSet = select.executeQuery()) {
+        if (!resultSet.next()) {
+          return false;
+        }
+        storedContent = resultSet.getString(1);
+      }
+      String plaintext = database.encryption().decrypt(sessionId, "session_memory." + column, storedContent);
+      if (!java.util.Objects.equals(plaintext == null ? "" : plaintext, expectedContent)) {
+        return false;
+      }
+      statement.setString(1, database.encryption().encrypt(sessionId, "session_memory." + column, content));
       statement.setInt(2, cursor);
       statement.setString(3, sessionId);
       statement.setInt(4, expectedCursor);
-      statement.setString(5, expectedContent);
+      statement.setString(5, storedContent == null ? "" : storedContent);
       statement.setInt(6, cursor);
       statement.setString(7, sessionId);
       return statement.executeUpdate() == 1;
@@ -143,10 +158,11 @@ public final class JdbcSessionMemoryRepository implements SessionMemoryRepositor
     }
   }
 
-  private boolean reset(String sql, String sessionId) {
+  private boolean reset(String sql, String column, String sessionId) {
     try (Connection connection = database.openConnection();
          PreparedStatement statement = connection.prepareStatement(sql)) {
-      statement.setString(1, sessionId);
+      statement.setString(1, database.encryption().encrypt(sessionId, "session_memory." + column, ""));
+      statement.setString(2, sessionId);
       return statement.executeUpdate() == 1;
     } catch (SQLException ex) {
       throw new DatabaseException("Could not reset memory for session " + sessionId + ".", ex);

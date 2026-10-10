@@ -154,7 +154,7 @@ public final class JdbcStoryHistory implements StoryHistory {
       try (ResultSet resultSet = statement.executeQuery()) {
         List<Message> messages = new ArrayList<>();
         while (resultSet.next()) {
-          messages.add(new Message(resultSet.getString("message_role"), resultSet.getString("content")));
+          messages.add(new Message(resultSet.getString("message_role"), database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString("content"))));
         }
         return List.copyOf(messages);
       }
@@ -185,7 +185,7 @@ public final class JdbcStoryHistory implements StoryHistory {
         statement.setString(1, sessionId);
         statement.setInt(2, index);
         statement.setString(3, message.role());
-        statement.setString(4, message.content());
+        statement.setString(4, database.encryption().encrypt(sessionId, "story_message.content", message.content()));
         statement.addBatch();
       }
       statement.executeBatch();

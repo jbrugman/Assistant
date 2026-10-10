@@ -45,7 +45,7 @@ public final class JdbcStoryRepository implements StoryRepository {
       statement.setString(1, sessionId);
       statement.setInt(2, maximumMessages);
       try (ResultSet resultSet = statement.executeQuery()) {
-        List<Message> messages = readMessages(resultSet);
+        List<Message> messages = readMessages(resultSet, sessionId);
         return List.copyOf(messages.reversed());
       }
     } catch (SQLException ex) {
@@ -70,7 +70,7 @@ public final class JdbcStoryRepository implements StoryRepository {
           messages.add(new StoryMessageRecord(
             resultSet.getInt(MESSAGE_INDEX),
             resultSet.getString(MESSAGE_ROLE),
-            resultSet.getString(CONTENT),
+            database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString(CONTENT)),
             resultSet.getBytes(IMAGE_CONTENT) != null
           ));
         }
@@ -92,7 +92,7 @@ public final class JdbcStoryRepository implements StoryRepository {
           return Optional.empty();
         }
         String mediaType = resultSet.getString(IMAGE_MEDIA_TYPE);
-        byte[] content = resultSet.getBytes(IMAGE_CONTENT);
+        byte[] content = database.encryption().decrypt(sessionId, "story_message.image_content", resultSet.getBytes(IMAGE_CONTENT));
         return content == null || mediaType == null
           ? Optional.empty()
           : Optional.of(new StoryImage(mediaType, content));
@@ -130,8 +130,8 @@ public final class JdbcStoryRepository implements StoryRepository {
         while (resultSet.next()) {
           exchanges.add(new PastStoryExchange(
             resultSet.getInt(MESSAGE_INDEX),
-            resultSet.getString("prompt"),
-            resultSet.getString("response")
+            database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString("prompt")),
+            database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString("response"))
           ));
         }
         return List.copyOf(exchanges);
@@ -141,13 +141,13 @@ public final class JdbcStoryRepository implements StoryRepository {
     }
   }
 
-  private List<Message> readMessages(ResultSet resultSet) throws SQLException {
+  private List<Message> readMessages(ResultSet resultSet, String sessionId) throws SQLException {
     List<Message> messages = new ArrayList<>();
     while (resultSet.next()) {
       String role = resultSet.getString(MESSAGE_ROLE);
-      String content = resultSet.getString(CONTENT);
+      String content = database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString(CONTENT));
       String mediaType = resultSet.getString(IMAGE_MEDIA_TYPE);
-      byte[] imageContent = resultSet.getBytes(IMAGE_CONTENT);
+      byte[] imageContent = database.encryption().decrypt(sessionId, "story_message.image_content", resultSet.getBytes(IMAGE_CONTENT));
       messages.add(imageContent == null || mediaType == null
         ? new Message(role, content)
         : Message.withImage(role, content, new StoryImage(mediaType, imageContent).dataUrl()));
@@ -202,7 +202,7 @@ public final class JdbcStoryRepository implements StoryRepository {
     try {
       int updatedMessages;
       try (PreparedStatement statement = connection.prepareStatement(StoryQueries.UPDATE_ASSISTANT_MESSAGE)) {
-        statement.setString(1, content);
+        statement.setString(1, database.encryption().encrypt(sessionId, "story_message.content", content));
         statement.setString(2, sessionId);
         statement.setInt(3, messageIndex);
         updatedMessages = statement.executeUpdate();
@@ -341,13 +341,13 @@ public final class JdbcStoryRepository implements StoryRepository {
       statement.setString(1, sessionId);
       statement.setInt(2, messageIndex);
       statement.setString(3, role);
-      statement.setString(4, content);
+      statement.setString(4, database.encryption().encrypt(sessionId, "story_message.content", content));
       if (image == null) {
         statement.setNull(5, java.sql.Types.VARCHAR);
         statement.setNull(6, java.sql.Types.BLOB);
       } else {
         statement.setString(5, image.mediaType());
-        statement.setBytes(6, image.content());
+        statement.setBytes(6, database.encryption().encrypt(sessionId, "story_message.image_content", image.content()));
       }
       statement.executeUpdate();
     }

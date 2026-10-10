@@ -84,7 +84,7 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
     try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.SELECT_PROMPTS)) {
       statement.setString(1, sessionId);
       try (ResultSet resultSet = statement.executeQuery()) {
-        return SessionPromptPersistenceSupport.readPrompts(resultSet);
+        return SessionPromptPersistenceSupport.readPrompts(resultSet, database.encryption(), sessionId);
       }
     }
   }
@@ -121,7 +121,7 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
 
   private void updatePrompt(Connection connection, String sessionId, String name, String content) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.UPDATE_PROMPT)) {
-      statement.setString(1, content);
+      statement.setString(1, database.encryption().encrypt(sessionId, "session_prompt_override.override_content", content));
       statement.setString(2, sessionId);
       statement.setString(3, name);
       requireUpdated(statement, "Session prompt does not exist: " + name);

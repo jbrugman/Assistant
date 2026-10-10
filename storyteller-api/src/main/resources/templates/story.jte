@@ -103,6 +103,7 @@
       <form id="composer" method="post" action="/story/turns" enctype="multipart/form-data" class="composer">
         <label for="prompt">What happens next?</label>
         <textarea id="prompt" name="prompt" rows="3" maxlength="100000" required autofocus>${page.submittedPrompt()}</textarea>
+        <p id="image-error" role="alert" hidden></p>
         <div id="image-preview" class="image-preview" hidden>
           <img id="image-preview-thumbnail" alt="Image ready to send">
           <span id="image-preview-name"></span>
@@ -110,7 +111,7 @@
         </div>
         <div class="composer-actions">
           <label class="image-picker" for="image">Add image</label>
-          <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+          <input id="image" name="image" type="file" accept="image/png,image/jpeg" hidden>
           <span id="past-reference-count" class="past-reference-count">0/3 past exchanges</span>
           <button id="undo-story" type="submit" formaction="/story/undo" formnovalidate
                   class="undo-story"
@@ -138,6 +139,7 @@
         <img id="image-lightbox-image" alt="Full image supplied with this prompt">
       </div>
     </div>
+    <script src="/story-images.js"></script>
     <script>
       const conversation = document.getElementById("conversation");
       const imageLightbox = document.getElementById("image-lightbox");
@@ -258,6 +260,7 @@
       const imagePreviewName = document.getElementById("image-preview-name");
       const removeImage = document.getElementById("remove-image");
       const imagePicker = document.querySelector(".image-picker");
+      const imageError = document.getElementById("image-error");
       undoButton.disabled = undoButton.dataset.undoAvailable !== "true";
       let submitting = false;
       actionLinks.forEach(link => link.addEventListener("click", event => {
@@ -281,13 +284,45 @@
       });
       updatePastReferences();
 
+      let imagePreparation = Promise.resolve();
+      let imageSelection = 0;
+      let imagePreviewUrl = null;
+      const clearImage = () => {
+        imageInput.value = "";
+        if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+        imagePreviewUrl = null;
+        imagePreviewThumbnail.removeAttribute("src");
+        imagePreviewThumbnail.hidden = false;
+        imagePreview.hidden = true;
+      };
       const showImage = file => {
-        if (!file || !file.type.startsWith("image/")) {
-          return;
-        }
-        imagePreviewThumbnail.src = URL.createObjectURL(file);
-        imagePreviewName.textContent = file.name || "Pasted image";
-        imagePreview.hidden = false;
+        const selection = ++imageSelection;
+        clearImage();
+        imageError.textContent = "";
+        imageError.hidden = true;
+        if (!file) return;
+        imagePreparation = (async () => {
+          try {
+            const prepared = await StoryImages.prepare(file);
+            if (selection !== imageSelection) return;
+            const transfer = new DataTransfer();
+            transfer.items.add(prepared);
+            imageInput.files = transfer.files;
+            imagePreviewUrl = URL.createObjectURL(prepared);
+            imagePreviewThumbnail.src = imagePreviewUrl;
+            imagePreviewName.textContent = (prepared.name || "Pasted image")
+              + " (" + Math.ceil(prepared.size / 1024) + " KiB)";
+            imagePreview.hidden = false;
+          } catch (error) {
+            if (selection !== imageSelection) return;
+            clearImage();
+            imageError.textContent = error.message;
+            imageError.hidden = false;
+            imagePreviewThumbnail.hidden = true;
+            imagePreviewName.textContent = "Image not attached";
+            imagePreview.hidden = false;
+          }
+        })();
       };
 
       imageInput.addEventListener("change", () => showImage(imageInput.files[0]));
@@ -297,9 +332,10 @@
         }
       });
       removeImage.addEventListener("click", () => {
-        imageInput.value = "";
-        imagePreviewThumbnail.removeAttribute("src");
-        imagePreview.hidden = true;
+        ++imageSelection;
+        clearImage();
+        imageError.textContent = "";
+        imageError.hidden = true;
         prompt.focus();
       });
 
@@ -310,14 +346,27 @@
           return;
         }
         const file = imageItem.getAsFile();
-        const transfer = new DataTransfer();
-        transfer.items.add(file);
-        imageInput.files = transfer.files;
         showImage(file);
         event.preventDefault();
       });
 
+      let imageReadyToSubmit = false;
       composer.addEventListener("submit", event => {
+        if (event.submitter === continueButton && !imageError.hidden) {
+          event.preventDefault();
+          return;
+        }
+        if (!imageReadyToSubmit && event.submitter === continueButton) {
+          event.preventDefault();
+          const selection = imageSelection;
+          imagePreparation.then(() => window.setTimeout(() => {
+            if (selection !== imageSelection || !imageError.hidden || submitting) return;
+            imageReadyToSubmit = true;
+            composer.requestSubmit(continueButton);
+            imageReadyToSubmit = false;
+          }, 0));
+          return;
+        }
         if (submitting) {
           event.preventDefault();
           return;

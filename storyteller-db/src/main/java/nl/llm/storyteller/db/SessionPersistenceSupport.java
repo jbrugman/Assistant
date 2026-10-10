@@ -10,10 +10,10 @@ import static nl.llm.storyteller.db.SessionQueries.INSERT_SESSION;
 final class SessionPersistenceSupport {
   private SessionPersistenceSupport() { }
 
-  static void insertSession(Connection connection, SessionRecord session) throws SQLException {
+  static void insertSession(Connection connection, SessionRecord session, DatabaseEncryption encryption) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(INSERT_SESSION)) {
       statement.setString(1, session.sessionId());
-      statement.setString(2, session.title());
+      statement.setString(2, encryption.encrypt(session.sessionId(), "story_session.title", session.title()));
       statement.setTimestamp(3, Timestamp.from(session.createdAt()));
       statement.setTimestamp(4, Timestamp.from(session.updatedAt()));
       statement.setTimestamp(5, Timestamp.from(session.lastAccessedAt()));

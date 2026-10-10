@@ -74,17 +74,20 @@ class ClipboardImageReaderTest {
   @DisplayName("""
     Given macOS as the operating system,
     When the clipboard command is selected,
-    Then an osascript command writing PNG data to the requested path should be returned
+    Then the clipboard command should write PNG data and resize it to at most 1024 by 768 pixels
     """)
   void buildsMacOsClipboardCommand() {
     Path image = tempDir.resolve("clipboard.png");
 
     String[] command = ClipboardImageReader.command("Mac OS X", image);
 
-    assertEquals("osascript", command[0]);
-    assertEquals("-e", command[1]);
-    assertTrue(command[2].contains(image.toString()));
-    assertTrue(command[2].contains("class PNGf"));
+    assertEquals("/bin/sh", command[0]);
+    assertEquals("-c", command[1]);
+    assertTrue(command[2].contains("osascript -e"));
+    assertTrue(command[2].contains("sips --resampleWidth 1024"));
+    assertTrue(command[2].contains("sips --resampleHeight 768"));
+    assertTrue(command[4].contains("class PNGf"));
+    assertEquals(image.toString(), command[5]);
   }
 
   @Test
@@ -103,6 +106,8 @@ class ClipboardImageReaderTest {
       java.util.Arrays.copyOf(command, 5)
     );
     assertTrue(command[5].contains("clip''board.png"));
+    assertTrue(command[5].contains("[Math]::Min(1024.0/$image.Width,768.0/$image.Height)"));
+    assertTrue(command[5].contains("HighQualityBicubic"));
   }
 
   @Test
@@ -118,6 +123,19 @@ class ClipboardImageReaderTest {
     );
 
     assertEquals("Clipboard images are supported only on macOS and Windows.", exception.getMessage());
+  }
+
+  @Test
+  void rejectsOversizedClipboardImageAndDeletesTemporaryFile() {
+    AtomicReference<Path> temporaryFile = new AtomicReference<>();
+    ClipboardImageReader reader = new ClipboardImageReader(image -> {
+      temporaryFile.set(image);
+      Files.write(image, new byte[nl.llm.storyteller.db.StoryImage.MAX_UPLOAD_BYTES + 1]);
+      return shellProcess("exit 0", image);
+    });
+    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, reader::readPngDataUrl);
+    assertEquals("The pasted image must not exceed 5 MiB.", exception.getMessage());
+    assertFalse(Files.exists(temporaryFile.get()));
   }
 
   private Process shellProcess(String script, Path image) throws java.io.IOException {

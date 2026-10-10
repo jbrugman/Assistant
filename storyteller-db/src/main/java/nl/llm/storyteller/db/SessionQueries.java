@@ -17,7 +17,7 @@ final class SessionQueries {
     """;
   static final String INSERT_TURN_STATE = """
     INSERT INTO turn_state (session_id, trigger_word, started, round_number)
-    VALUES (?, '', FALSE, 0)
+    VALUES (?, ?, FALSE, 0)
     """;
   static final String INSERT_KNOWLEDGE_GRAPH = """
     INSERT INTO knowledge_graph (session_id, schema_version, revision)

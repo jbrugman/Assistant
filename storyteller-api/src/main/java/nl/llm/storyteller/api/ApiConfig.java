@@ -1,5 +1,7 @@
 package nl.llm.storyteller.api;
 
+import nl.llm.storyteller.core.config.MysqlConfig;
+
 import java.nio.file.Path;
 import java.time.Duration;
 
@@ -10,8 +12,25 @@ public record ApiConfig(
   String databaseUsername,
   String databasePassword,
   Duration sessionInactivityTimeout,
-  ApiTlsConfig tls
+  ApiTlsConfig tls,
+  MysqlConfig mysql,
+  String databaseEncryptionKey
 ) {
+  public ApiConfig(
+    String host, int port, Path databasePath, String databaseUsername, String databasePassword,
+    Duration sessionInactivityTimeout, ApiTlsConfig tls, MysqlConfig mysql
+  ) {
+    this(host, port, databasePath, databaseUsername, databasePassword, sessionInactivityTimeout, tls, mysql, "");
+  }
+
+  public ApiConfig(
+    String host, int port, Path databasePath, String databaseUsername, String databasePassword,
+    Duration sessionInactivityTimeout, ApiTlsConfig tls
+  ) {
+    this(host, port, databasePath, databaseUsername, databasePassword, sessionInactivityTimeout, tls,
+      MysqlConfig.disabled());
+  }
+
   public ApiConfig(
     String host,
     int port,
@@ -43,8 +62,22 @@ public record ApiConfig(
     if (tls == null) {
       throw new IllegalArgumentException("API TLS configuration must not be null.");
     }
+    if (mysql == null) {
+      throw new IllegalArgumentException("MySQL configuration must not be null.");
+    }
+    if (mysql.enabled()) {
+      databaseUsername = mysql.username();
+      databasePassword = mysql.password();
+    }
+    databaseEncryptionKey = databaseEncryptionKey == null ? "" : databaseEncryptionKey.trim();
     databaseUsername = databaseUsername == null ? "" : databaseUsername;
     databasePassword = databasePassword == null ? "" : databasePassword;
+  }
+
+  @Override
+  public String toString() {
+    return "ApiConfig[host=" + host + ", port=" + port + ", databaseEncryption="
+      + !databaseEncryptionKey.isBlank() + "]";
   }
 
   public static ApiConfig load() {
@@ -52,6 +85,6 @@ public record ApiConfig(
   }
 
   public String databaseUrl() {
-    return "jdbc:h2:file:" + databasePath.toAbsolutePath().normalize();
+    return mysql.enabled() ? mysql.url() : "jdbc:h2:file:" + databasePath.toAbsolutePath().normalize();
   }
 }

@@ -11,6 +11,7 @@ import nl.llm.storyteller.api.http.ApiErrorHandler;
 import nl.llm.storyteller.api.http.SessionController;
 import nl.llm.storyteller.api.http.StoryController;
 import nl.llm.storyteller.db.Database;
+import nl.llm.storyteller.db.DatabaseEncryption;
 import nl.llm.storyteller.db.JdbcSessionBundleRepository;
 import nl.llm.storyteller.db.JdbcSessionPromptRepository;
 import nl.llm.storyteller.db.JdbcSessionMemoryRepository;
@@ -97,11 +98,14 @@ public final class ApiServer implements AutoCloseable {
     ChatClient backgroundClient,
     ChatClient graphClient
   ) {
-    createDatabaseDirectory(config.databasePath());
+    if (!config.mysql().enabled()) {
+      createDatabaseDirectory(config.databasePath());
+    }
     Database database = new Database(
       config.databaseUrl(),
       config.databaseUsername(),
-      config.databasePassword()
+      config.databasePassword(),
+      DatabaseEncryption.fromBase64(config.databaseEncryptionKey())
     );
     new SchemaInitializer(database).initialize();
 

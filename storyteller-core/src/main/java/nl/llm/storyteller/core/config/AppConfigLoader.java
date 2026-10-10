@@ -94,7 +94,7 @@ public final class AppConfigLoader {
 
   private static Path findRuntimeOverrideFile() {
     if (!NATIVE_IMAGE_KIND_EXECUTABLE.equals(System.getProperty(NATIVE_IMAGE_KIND_PROPERTY))) {
-      return null;
+      return DEFAULT_BASE_DIR.resolve(RUNTIME_OVERRIDE_FILE_NAME);
     }
 
     String command = ProcessHandle.current().info().command().orElse(null);

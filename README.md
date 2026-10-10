@@ -212,3 +212,67 @@ shows the generated mid-term and long-term summaries plus canonical state.
 ## License
 
 Storyteller is available under the [MIT License](LICENSE).
+
+### MySQL storage
+
+H2 remains the default. To use MySQL for both the API and CLI, place an
+`application.config` in the working directory (beside the executable for native distributions):
+
+```properties
+mysql=true
+mysql.url=jdbc:mysql://localhost:3306/storyteller
+mysql.username=storyteller
+mysql.password=your-password
+```
+
+Create the `storyteller` database first and grant this user access to it. The application
+creates its tables on first startup. MySQL 8.0 or newer is required. Set `mysql=false`
+or omit the option to use the existing H2 database again. H2 data is not automatically copied to MySQL.
+Use export/import to move existing sessions between databases.
+
+The normal `mvn clean test` build runs without MySQL, including in CI. The live
+MySQL integration test is excluded from the default test selection. Run it explicitly with:
+
+```bash
+mvn test -pl storyteller-db -am -Dtest=MysqlStorageIT -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dmysql.integration=true -Dmysql.config=/absolute/path/application.config
+```
+
+The test uses a new session and removes that session afterwards.
+
+### Database content encryption
+
+Set `database.encryption.key` in the local, Git-ignored `application.config` to a
+Base64-encoded random 32-byte key (generate one with `openssl rand -base64 32`).
+The API and CLI also read this key from `systemprompts/application.config` in the
+working directory. A setting in the local `application.config` takes precedence,
+even when explicitly empty. The same key is used with both H2 and MySQL. An empty setting
+keeps an existing unencrypted database working as before.
+
+```properties
+# Example only: publicly known demonstration key. Generate your own key for actual use.
+database.encryption.key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+```
+
+On the first startup with a key, the database content is migrated in one transaction.
+Stop other application instances before this first startup. Keep the key with your
+backups: opening an encrypted database without its original key fails; removing or
+changing the setting does not decrypt the database or rotate the key.
+
+AES-256-GCM protects message text, image bytes, titles, stored prompt overrides,
+all three derived memories, trigger words, protagonist names, and knowledge entity
+names and aliases. Session IDs, internal graph IDs and relationships, roles/types,
+counts, model parameters, timestamps, and expiration flags remain readable metadata.
+Internal graph IDs may themselves contain meaningful labels; those IDs are not
+hidden by this implementation. Original configuration/prompt files and exported
+session bundles remain plaintext. This is database content encryption, not encryption
+of the complete database file, transaction logs, or pre-migration backups.
+
+The explicit MySQL encryption integration test uses a separate temporary database
+and removes it afterwards. Its user needs CREATE/DROP privileges for that database;
+it does not migrate the configured Storyteller database. It is excluded from CI:
+
+```bash
+mvn test -pl storyteller-db -am -Dtest=MysqlEncryptionIT -Dsurefire.failIfNoSpecifiedTests=false \
+  -Dmysql.integration=true -Dmysql.config=/absolute/path/application.config
+```

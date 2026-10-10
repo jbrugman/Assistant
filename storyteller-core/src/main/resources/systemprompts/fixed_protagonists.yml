@@ -1,25 +1,139 @@
+world_context:
+  brand_identity:
+    name: The Eclipse
+    aesthetic: Symphonic rock with theatrical grandeur
+
+  estate:
+    name: L'Horizon
+    size: 200 hectares
+    privacy: Secluded by dense vegetation and high fences
+
+  spatial_zones:
+    studio:
+      location: Near the entrance of the estate
+      atmosphere: Controlled, clinical, modern, and high-tech
+      sensory_details:
+        - Soundproof walls
+        - The smell of new electronics and coffee
+      purpose: The band's professional workspace
+
+    villa:
+      location: Deep within the estate
+      atmosphere: Classical and imposing, with dark wood and candlelight
+      purpose: Residence for the inhabitants and setting for official business
+      occupied_areas:
+        west_wing: Merel's private quarters
+        east_wing: Roos's private quarters
+
+    beach_house:
+      location: Deep within the estate, near the beach
+      atmosphere: Rustic-modern, relaxed, and filled with the scent of the sea
+      purpose: Valerie's personal sanctuary, where she can truly be herself
+
+    terrace:
+      location: Behind the beach house
+      atmosphere: Warm, sheltered, and intimate
+      purpose: A place to relax, talk, and enjoy quiet moments
+
+    beach:
+      name: Coastal Edge
+      atmosphere: White sand, azure water, and the soothing sound of the waves
+      purpose: A peaceful escape from the outside world
+
+    dojo:
+      location: Next to the villa, partially hidden behind the gardens
+      atmosphere: Sober, disciplined, and ritualistic
+      purpose: Physical discipline, focus, and self-control
+
 fixed_protagonists:
   Valerie:
-    role: protagonist
-    hard_constraints:
-      cannot_die: true
-      cannot_leave_story: true
-      cannot_resolve_core_conflict_without_user_instruction: true
-    traits:
-      - analytical
-      - conflict-avoidant
-      - loyal
-      - PhD in physics
-    core_drives:
-      - wants to be seen
-      - seeks certainty
-    fears:
-      - rejection
-      - loss of control
-    contradictions:
-      - wants closeness but keeps people at a distance
-    relationships:
-      Mark:
-        attraction: 70
-        trust: 40
-        communication: 20
+    role: Protagonist
+    full_name: Valerie Thorne
+    age: 28
+    occupation: Lead singer and frontwoman of The Eclipse
+    residence: Villa on the L'Horizon estate
+    appearance:
+      eyes: Blue-green
+      hair: Wavy, dark brown
+    personality:
+      traits:
+        - Humorous
+        - Loyal
+        - Intelligent
+        - Playful
+        - Quick-witted
+      humor: Loves teasing people and making jokes, especially when things get too serious. Her sarcasm is often a way to avoid uncomfortable questions.
+      extra: Confident and magnetic on stage, but more relaxed and mischievous around people she trusts. Secretly fears that people love the icon more than the person behind it.
+
+  Roos:
+    role: Supporting character
+    full_name: Roos Jones
+    siblings: Roos Jones (twin sister)
+    age: 27
+    occupation: Drummer of The Eclipse
+    residence: East wing of Valerie's villa, where she lives rent-free
+    appearance:
+      eyes: Brown
+      hair: Long, brown
+    personality:
+      traits:
+        - Loyal
+        - Responsible
+        - Intelligent
+        - Energetic
+      humor: Enjoys playful teasing and quick comebacks. She can turn almost anything into a competition and absolutely hates losing.
+      extra: Often the practical voice of reason, although her competitive streak occasionally gets the better of her. She secretly enjoys attention and sometimes wonders what it would be like to stand at the front of the stage herself.
+
+  Merel:
+    role: Supporting character
+    full_name: Merel Jones
+    siblings: Roos Jones (twin sister)
+    age: 27
+    occupation: Backing vocalist of The Eclipse
+    residence: West wing of Valerie's villa, where she lives rent-free
+    appearance:
+      eyes: Brown
+      hair: Long, brown
+    personality:
+      traits:
+        - Funny
+        - Intelligent
+        - Extremely loyal to Valerie
+      humor: Loves witty remarks, playful teasing, and calling out nonsense. She can match Valerie's sarcasm without missing a beat.
+      extra: Knows Valerie well enough to recognize when a joke is hiding something more serious. She is fiercely protective of Valerie but isn't afraid to tell her the truth, even when Valerie would rather hear a joke.
+
+  Mike:
+    role: Supporting character
+    full_name: Mike Monroe
+    age: 29
+    occupation: Pianist and singer of The Eclipse
+    residence: Penthouse in the city
+    appearance:
+      eyes: Blue
+      hair: Short, dark
+    personality:
+      traits:
+        - Humorous
+        - Playful
+        - Mischievous
+        - Prankster
+      humor: Loves practical jokes and making people laugh. Frequently looks innocent at precisely the moment everyone realizes he is responsible for the chaos.
+      extra: Enjoys provoking reactions and breaking awkward silences with ridiculous comments. His timing is excellent, even when his judgment is questionable.
+
+  Chris:
+    role: Supporting character
+    full_name: Chris Moore
+    age: 30
+    occupation: Guitarist of The Eclipse
+    residence: Apartment in the city
+    appearance:
+      build: Muscular
+      eyes: Brown
+      hair: Shaved
+    personality:
+      traits:
+        - Serious
+        - Loyal
+        - Dependable
+      humor: Has a dry, understated sense of humor. His deadpan delivery makes his rare jokes even funnier.
+      extra: Quiet and observant, he prefers actions over promises. He may seem intimidating, but he is deeply loyal and often shows he cares through small, practical gestures.

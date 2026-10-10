@@ -231,7 +231,8 @@ class ApiServerTest {
         .build(),
       HttpResponse.BodyHandlers.ofString()
     );
-    byte[] png = {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+    byte[] png = java.util.Base64.getDecoder().decode(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jVj8AAAAASUVORK5CYII=");
     String boundary = "storyteller-test-boundary";
     HttpResponse<String> submitted = client.send(
       HttpRequest.newBuilder(uri("/story/turns"))

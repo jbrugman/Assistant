@@ -26,7 +26,11 @@ public final class JdbcApplicationStorageFactory {
   }
 
   public static ApplicationStorage create(AppConfig config, String requestedSessionId) {
-    Database database = new Database("jdbc:h2:file:" + config.databasePath(), "sa", "");
+    var mysql = config.mysql();
+    var encryption = DatabaseEncryption.fromBase64(config.databaseEncryptionKey());
+    Database database = mysql.enabled()
+      ? new Database(mysql.url(), mysql.username(), mysql.password(), encryption)
+      : new Database("jdbc:h2:file:" + config.databasePath(), "sa", "", encryption);
     new SchemaInitializer(database).initialize();
     PredicateCatalog predicates = PredicateCatalog.load(config.baseDir());
     KnowledgeGraphValidator graphValidator = new KnowledgeGraphValidator(predicates);
