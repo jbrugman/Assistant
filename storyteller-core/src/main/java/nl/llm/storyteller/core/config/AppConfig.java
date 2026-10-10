@@ -16,6 +16,8 @@ public final class AppConfig {
   private final Path baseDir;
   private final ModelAccessConfig modelAccess;
   private final FilesConfig files;
+  private final MysqlConfig mysql;
+  private final String databaseEncryptionKey;
   private final ConversationConfig conversation;
   private final ExecutionConfig execution;
   private final RuntimeTextConfig runtimeText;
@@ -25,6 +27,8 @@ public final class AppConfig {
     Path baseDir,
     ModelAccessConfig modelAccess,
     FilesConfig files,
+    MysqlConfig mysql,
+    String databaseEncryptionKey,
     ConversationConfig conversation,
     ExecutionConfig execution,
     RuntimeTextConfig runtimeText,
@@ -33,6 +37,8 @@ public final class AppConfig {
     this.baseDir = baseDir;
     this.modelAccess = modelAccess;
     this.files = files;
+    this.mysql = mysql;
+    this.databaseEncryptionKey = databaseEncryptionKey;
     this.conversation = conversation;
     this.execution = execution;
     this.runtimeText = runtimeText;
@@ -296,6 +302,14 @@ public final class AppConfig {
     return files.turnStateFile();
   }
 
+  public MysqlConfig mysql() {
+    return mysql;
+  }
+
+  public String databaseEncryptionKey() {
+    return databaseEncryptionKey;
+  }
+
   public Path databasePath() {
     return files.databasePath();
   }
@@ -536,6 +550,8 @@ public final class AppConfig {
         source.requiredPath("file.knowledgeGraph"),
         source.requiredPath("database.path")
       ),
+      source.mysqlConfig(),
+      source.optionalTrimmedString("database.encryption.key"),
       new ConversationConfig(
         source.requiredInt("chat.maxRecentTurns"),
         source.requiredInt("recentSummary.maxRecentTurns"),

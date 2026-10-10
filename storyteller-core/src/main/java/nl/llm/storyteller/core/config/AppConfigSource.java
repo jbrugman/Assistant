@@ -12,6 +12,10 @@ final class AppConfigSource {
     this.properties = properties;
   }
 
+  MysqlConfig mysqlConfig() {
+    return MysqlConfig.from(properties);
+  }
+
   Path baseDir() {
     return baseDir;
   }

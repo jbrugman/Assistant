@@ -27,7 +27,7 @@ public final class JdbcSessionPromptRepository implements SessionPromptRepositor
          PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.SELECT_PROMPTS)) {
       statement.setString(1, sessionId);
       try (ResultSet resultSet = statement.executeQuery()) {
-        return SessionPromptPersistenceSupport.readPrompts(resultSet);
+        return SessionPromptPersistenceSupport.readPrompts(resultSet, database.encryption(), sessionId);
       }
     } catch (SQLException ex) {
       throw new DatabaseException("Could not load session prompts.", ex);
@@ -71,17 +71,26 @@ public final class JdbcSessionPromptRepository implements SessionPromptRepositor
   }
 
   private void insertMissing(Connection connection, String name, String content) throws SQLException {
-    try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.INSERT_MISSING_PROMPT)) {
-      statement.setString(1, name);
-      statement.setString(2, content);
-      statement.setString(3, name);
-      statement.executeUpdate();
+    try (PreparedStatement select = connection.prepareStatement(SessionPromptQueries.SELECT_SESSIONS_MISSING_PROMPT);
+         PreparedStatement insert = connection.prepareStatement(SessionPromptQueries.INSERT_PROMPT)) {
+      select.setString(1, name);
+      try (ResultSet sessions = select.executeQuery()) {
+        while (sessions.next()) {
+          String sessionId = sessions.getString("session_id");
+          insert.setString(1, sessionId);
+          insert.setString(2, name);
+          insert.setString(3, database.encryption().encrypt(sessionId,
+            "session_prompt_override.override_content", content));
+          insert.addBatch();
+        }
+      }
+      insert.executeBatch();
     }
   }
 
   private void update(Connection connection, String sessionId, String name, String content) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.UPDATE_PROMPT)) {
-      statement.setString(1, content);
+      statement.setString(1, database.encryption().encrypt(sessionId, "session_prompt_override.override_content", content));
       statement.setString(2, sessionId);
       statement.setString(3, name);
       if (statement.executeUpdate() != 1) {

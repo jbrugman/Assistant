@@ -6,9 +6,8 @@ final class SessionPromptQueries {
     FROM session_prompt_override
     WHERE session_id = ?
     """;
-  static final String INSERT_MISSING_PROMPT = """
-    INSERT INTO session_prompt_override (session_id, override_name, override_content)
-    SELECT session_id, ?, ?
+  static final String SELECT_SESSIONS_MISSING_PROMPT = """
+    SELECT session_id
     FROM story_session
     WHERE NOT EXISTS (
       SELECT 1

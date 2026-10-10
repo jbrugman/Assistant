@@ -11,14 +11,14 @@ final class StoryQueries {
     FROM story_message
     WHERE session_id = ?
     ORDER BY message_index DESC
-    FETCH FIRST ? ROWS ONLY
+    LIMIT ?
     """;
   static final String SELECT_MESSAGES_BEFORE = """
     SELECT message_index, message_role, content, image_media_type, image_content
     FROM story_message
     WHERE session_id = ? AND message_index < ?
     ORDER BY message_index DESC
-    FETCH FIRST ? ROWS ONLY
+    LIMIT ?
     """;
   static final String SELECT_LAST_MESSAGE_INDEX = """
     SELECT MAX(message_index) AS last_message_index

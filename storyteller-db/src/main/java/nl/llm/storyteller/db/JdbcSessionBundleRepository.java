@@ -153,9 +153,9 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
   private void createInTransaction(Connection connection, SessionRecord session, SessionBundle bundle)
     throws SQLException {
     try {
-      insertSession(connection, session);
+      insertSession(connection, session, database.encryption());
       insertSessionId(connection, INSERT_SESSION_CONFIGURATION, session.sessionId());
-      SessionPromptPersistenceSupport.insertPrompts(connection, session.sessionId(), bundle.prompts());
+      SessionPromptPersistenceSupport.insertPrompts(connection, database.encryption(), session.sessionId(), bundle.prompts());
       insertMemory(connection, session.sessionId(), bundle);
       insertTurnState(connection, session.sessionId(), bundle.turnState());
       insertMessages(connection, session.sessionId(), bundle.history().messages());
@@ -175,9 +175,9 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
           throw new SQLException("Session memory does not exist.");
         }
         return new MemoryState(
-          resultSet.getString("summary_content"),
-          resultSet.getString("recent_summary_content"),
-          resultSet.getString("canonical_state_content"),
+          database.encryption().decrypt(sessionId, "session_memory.summary_content", resultSet.getString("summary_content")),
+          database.encryption().decrypt(sessionId, "session_memory.recent_summary_content", resultSet.getString("recent_summary_content")),
+          database.encryption().decrypt(sessionId, "session_memory.canonical_state_content", resultSet.getString("canonical_state_content")),
           resultSet.getInt("summary_cursor"),
           resultSet.getInt("recent_summary_cursor"),
           resultSet.getInt("canonical_state_cursor")
@@ -190,7 +190,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
     try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.SELECT_PROMPTS)) {
       statement.setString(1, sessionId);
       try (ResultSet resultSet = statement.executeQuery()) {
-        return SessionPromptPersistenceSupport.readPrompts(resultSet);
+        return SessionPromptPersistenceSupport.readPrompts(resultSet, database.encryption(), sessionId);
       }
     }
   }
@@ -202,9 +202,9 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
         List<Message> messages = new ArrayList<>();
         while (resultSet.next()) {
           String role = resultSet.getString("message_role");
-          String content = resultSet.getString("content");
+          String content = database.encryption().decrypt(sessionId, "story_message.content", resultSet.getString("content"));
           String mediaType = resultSet.getString("image_media_type");
-          byte[] imageContent = resultSet.getBytes("image_content");
+          byte[] imageContent = database.encryption().decrypt(sessionId, "story_message.image_content", resultSet.getBytes("image_content"));
           messages.add(imageContent == null || mediaType == null
             ? new Message(role, content)
             : Message.withImage(role, content, new StoryImage(mediaType, imageContent).dataUrl()));
@@ -246,7 +246,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
         if (!resultSet.next()) {
           throw new SQLException("Turn state does not exist.");
         }
-        triggerWord = resultSet.getString("trigger_word");
+        triggerWord = database.encryption().decrypt(sessionId, "turn_state.trigger_word", resultSet.getString("trigger_word"));
         started = resultSet.getBoolean("started");
         roundNumber = resultSet.getInt("round_number");
       }
@@ -257,7 +257,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
       statement.setString(1, sessionId);
       try (ResultSet resultSet = statement.executeQuery()) {
         while (resultSet.next()) {
-          String name = resultSet.getString("protagonist_name");
+          String name = database.encryption().decrypt(sessionId, "turn_protagonist.protagonist_name", resultSet.getString("protagonist_name"));
           protagonists.add(name);
           turns.put(name, resultSet.getInt("turns_this_round"));
         }
@@ -273,7 +273,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
       try (ResultSet resultSet = statement.executeQuery()) {
         while (resultSet.next()) {
           aliases.computeIfAbsent(resultSet.getString("entity_id"), _ -> new ArrayList<>())
-            .add(resultSet.getString("alias_name"));
+            .add(database.encryption().decrypt(sessionId, "knowledge_entity_alias.alias_name", resultSet.getString("alias_name")));
         }
       }
     }
@@ -293,7 +293,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
           String entityId = resultSet.getString("entity_id");
           entities.put(entityId, new Entity(
             EntityType.valueOf(resultSet.getString("entity_type")),
-            resultSet.getString("entity_name"),
+            database.encryption().decrypt(sessionId, "knowledge_entity.entity_name", resultSet.getString("entity_name")),
             aliases.getOrDefault(entityId, List.of()),
             FactSource.valueOf(resultSet.getString("entity_source"))
           ));
@@ -331,9 +331,9 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
     HistoryState history = bundle.history();
     try (PreparedStatement statement = connection.prepareStatement(INSERT_MEMORY)) {
       statement.setString(1, sessionId);
-      statement.setString(2, bundle.summary());
-      statement.setString(3, bundle.recentSummary());
-      statement.setString(4, bundle.canonicalState());
+      statement.setString(2, database.encryption().encrypt(sessionId, "session_memory.summary_content", bundle.summary()));
+      statement.setString(3, database.encryption().encrypt(sessionId, "session_memory.recent_summary_content", bundle.recentSummary()));
+      statement.setString(4, database.encryption().encrypt(sessionId, "session_memory.canonical_state_content", bundle.canonicalState()));
       statement.setInt(5, history.summaryCursor());
       statement.setInt(6, history.recentSummaryCursor());
       statement.setInt(7, history.canonicalStateCursor());
@@ -353,11 +353,11 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
         PreparedStatement statement = message.imageDataUrl().isBlank() ? textStatement : imageStatement;
         statement.setInt(2, index);
         statement.setString(3, message.role());
-        statement.setString(4, message.content());
+        statement.setString(4, database.encryption().encrypt(sessionId, "story_message.content", message.content()));
         if (!message.imageDataUrl().isBlank()) {
           StoryImage image = StoryImage.fromDataUrl(message.imageDataUrl());
           statement.setString(5, image.mediaType());
-          statement.setBytes(6, image.content());
+          statement.setBytes(6, database.encryption().encrypt(sessionId, "story_message.image_content", image.content()));
         }
         statement.addBatch();
       }
@@ -369,7 +369,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
   private void insertTurnState(Connection connection, String sessionId, TurnState state) throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(INSERT_TURN_STATE)) {
       statement.setString(1, sessionId);
-      statement.setString(2, state.triggerWord());
+      statement.setString(2, database.encryption().encrypt(sessionId, "turn_state.trigger_word", state.triggerWord()));
       statement.setBoolean(3, state.started());
       statement.setInt(4, state.roundNumber());
       statement.executeUpdate();
@@ -379,7 +379,7 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
       for (int index = 0; index < state.protagonists().size(); index++) {
         String protagonist = state.protagonists().get(index);
         statement.setInt(2, index);
-        statement.setString(3, protagonist);
+        statement.setString(3, database.encryption().encrypt(sessionId, "turn_protagonist.protagonist_name", protagonist));
         statement.setInt(4, state.turnsThisRound().getOrDefault(protagonist, 0));
         statement.addBatch();
       }
@@ -415,13 +415,13 @@ public final class JdbcSessionBundleRepository implements SessionBundleRepositor
         Entity entity = entry.getValue();
         entityStatement.setString(2, entry.getKey());
         entityStatement.setString(3, entity.type().name());
-        entityStatement.setString(4, entity.name());
+        entityStatement.setString(4, database.encryption().encrypt(sessionId, "knowledge_entity.entity_name", entity.name()));
         entityStatement.setString(5, entity.source().name());
         entityStatement.addBatch();
         aliasStatement.setString(2, entry.getKey());
         for (int index = 0; index < entity.aliases().size(); index++) {
           aliasStatement.setInt(3, index);
-          aliasStatement.setString(4, entity.aliases().get(index));
+          aliasStatement.setString(4, database.encryption().encrypt(sessionId, "knowledge_entity_alias.alias_name", entity.aliases().get(index)));
           aliasStatement.addBatch();
         }
       }

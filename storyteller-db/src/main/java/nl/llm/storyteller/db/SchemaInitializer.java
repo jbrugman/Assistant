@@ -41,12 +41,14 @@ public final class SchemaInitializer {
       if (existingSchemaTables.equals(EXPECTED_TABLES)) {
         addInfiniteSessionColumnIfMissing(connection);
         addStoryImageColumnsIfMissing(connection);
+        DatabaseEncryptionMigration.initialize(database, connection, existingTables);
         return;
       }
       if (!existingSchemaTables.isEmpty()) {
         throw new IllegalStateException("Database contains an incomplete Storyteller schema.");
       }
       executeSchema(connection, loadSchema());
+      DatabaseEncryptionMigration.initialize(database, connection, existingTables);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not initialize the Storyteller database schema.", ex);
     }
@@ -54,23 +56,25 @@ public final class SchemaInitializer {
 
   private void addStoryImageColumnsIfMissing(Connection connection) throws SQLException {
     addColumnIfMissing(connection, "STORY_MESSAGE", "IMAGE_MEDIA_TYPE", "image_media_type VARCHAR(64)");
-    addColumnIfMissing(connection, "STORY_MESSAGE", "IMAGE_CONTENT", "image_content BLOB");
+    addColumnIfMissing(connection, "STORY_MESSAGE", "IMAGE_CONTENT", mysql() ? "image_content LONGBLOB" : "image_content BLOB");
   }
 
   private void addColumnIfMissing(Connection connection, String table, String column, String definition)
     throws SQLException {
-    try (ResultSet columns = connection.getMetaData().getColumns(null, null, table, column)) {
+    try (ResultSet columns = connection.getMetaData().getColumns(
+      connection.getCatalog(), null, identifier(connection, table), identifier(connection, column))) {
       if (columns.next()) {
         return;
       }
     }
     try (var statement = connection.createStatement()) {
-      statement.execute("ALTER TABLE " + table + " ADD COLUMN " + definition);
+      statement.execute("ALTER TABLE " + identifier(connection, table) + " ADD COLUMN " + definition);
     }
   }
 
   private void addInfiniteSessionColumnIfMissing(Connection connection) throws SQLException {
-    try (ResultSet columns = connection.getMetaData().getColumns(null, null, "STORY_SESSION", "INFINITE")) {
+    try (ResultSet columns = connection.getMetaData().getColumns(
+      connection.getCatalog(), null, identifier(connection, "STORY_SESSION"), identifier(connection, "INFINITE"))) {
       if (columns.next()) {
         return;
       }
@@ -82,7 +86,7 @@ public final class SchemaInitializer {
 
   private Set<String> existingTables(Connection connection) throws SQLException {
     Set<String> tables = new HashSet<>();
-    try (ResultSet resultSet = connection.getMetaData().getTables(null, null, "%", new String[]{"TABLE"})) {
+    try (ResultSet resultSet = connection.getMetaData().getTables(connection.getCatalog(), null, "%", new String[]{"TABLE"})) {
       while (resultSet.next()) {
         tables.add(resultSet.getString("TABLE_NAME").toLowerCase(Locale.ROOT));
       }
@@ -101,10 +105,20 @@ public final class SchemaInitializer {
     }
   }
 
+  private boolean mysql() {
+    return database.url().startsWith("jdbc:mysql:");
+  }
+
+  private String identifier(Connection connection, String name) throws SQLException {
+    return connection.getMetaData().storesUpperCaseIdentifiers() ? name.toUpperCase(Locale.ROOT)
+      : name.toLowerCase(Locale.ROOT);
+  }
+
   private String loadSchema() {
-    try (var input = SchemaInitializer.class.getResourceAsStream(SCHEMA_RESOURCE)) {
+    String resource = mysql() ? "/db/schema-mysql.sql" : SCHEMA_RESOURCE;
+    try (var input = SchemaInitializer.class.getResourceAsStream(resource)) {
       if (input == null) {
-        throw new IllegalStateException("Missing database schema resource: " + SCHEMA_RESOURCE);
+        throw new IllegalStateException("Missing database schema resource: " + resource);
       }
       return new String(input.readAllBytes(), StandardCharsets.UTF_8);
     } catch (IOException ex) {

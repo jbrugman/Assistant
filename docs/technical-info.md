@@ -155,7 +155,13 @@ The web interface can disable inactivity expiration for the active story with **
 session timeout with **Use timeout**.
 For a vision-capable model, paste an image directly into the story input or select **Add image**, add the accompanying
 instruction, and submit the turn. A preview is shown before submission and a thumbnail remains attached to the stored
-prompt afterward. PNG, JPEG, GIF, and WebP images up to 10 MB are accepted.
+prompt afterward. PNG and JPEG uploads up to 5 MiB are accepted. The browser automatically
+resizes PNG and JPEG images to fit within 1024 × 768 pixels, retaining their
+aspect ratio. JPEG encoding starts at 80% quality and may decrease to 60% to aim for
+500 KiB; PNG screenshots retain lossless encoding. The target is not a hard storage limit.
+The server also checks upload dimensions. Desktop clipboard images fit within the same bounds and remain PNG.
+New GIF and WebP uploads are not accepted; existing images in these formats remain readable.
+Existing stored images and session bundles retain the previous 10 MiB compatibility limit.
 For details that have fallen outside the normal recent-turn context, the web interface can attach up to three older
 prompt-and-response exchanges to the next turn as explicitly marked past story context. Only exchanges outside the
 configured recent context are selectable. The selection is used once and is not added to the stored story history.
@@ -593,6 +599,11 @@ Not yet.
 ```
 
 ## Changelog
+### 2.0.12
+- Added the option to use MySQL as database backend instead of the default H2. 
+- Added a more elaborated example in the fixed_protagonists.yml file to show how to define a more complex story world with multiple characters, locations, and items.
+- Optional encrypt your database content using  `database.encryption.key` in the `application.config` file.
+
 ### 2.0.11
 - Improved mid-term memory and canonical state so the data is not repeated over the knowledge base and summary.
 - Added a new dial to set the chat temperature for your story, so the LLM gets more or less creative in its responses. 

@@ -37,7 +37,7 @@ final class SessionMemoryQueries {
   private static String reset(String contentColumn, String cursorColumn) {
     return """
       UPDATE session_memory
-      SET %s = '', %s = 0
+      SET %s = ?, %s = 0
       WHERE session_id = ?
       """.formatted(contentColumn, cursorColumn);
   }

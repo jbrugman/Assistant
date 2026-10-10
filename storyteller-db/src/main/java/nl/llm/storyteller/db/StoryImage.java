@@ -8,7 +8,9 @@ import java.util.Locale;
 import java.util.Map;
 
 public record StoryImage(String mediaType, byte[] content) {
+  // Retain the old storage limit so existing images and exported bundles remain readable.
   public static final int MAX_BYTES = 10 * 1024 * 1024;
+  public static final int MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
   private static final String BASE64_SEPARATOR = ";base64,";
   private static final Map<String, byte[]> SIGNATURES = Map.of(
     "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a},

@@ -1,5 +1,7 @@
 package nl.llm.storyteller.api;
 
+import nl.llm.storyteller.core.config.MysqlConfig;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
@@ -28,6 +30,13 @@ final class ApiConfigLoader {
   static ApiConfig load(Path baseDirectory, Path overrideFile) {
     Path normalizedBaseDirectory = baseDirectory.toAbsolutePath().normalize();
     Properties properties = loadBundledDefaults();
+    Path storytellerConfigFile = normalizedBaseDirectory.resolve("systemprompts/application.config");
+    if (Files.exists(storytellerConfigFile)) {
+      String encryptionKey = loadProperties(storytellerConfigFile).getProperty("database.encryption.key");
+      if (encryptionKey != null) {
+        properties.setProperty("database.encryption.key", encryptionKey);
+      }
+    }
     Path databaseBaseDirectory = normalizedBaseDirectory;
     if (overrideFile != null && Files.exists(overrideFile)) {
       Path normalizedOverrideFile = overrideFile.toAbsolutePath().normalize();
@@ -49,7 +58,9 @@ final class ApiConfigLoader {
         Integer.parseInt(required(properties, "api.tls.port")),
         resolvePath(databaseBaseDirectory, required(properties, "api.tls.directory")),
         commaSeparated(properties.getProperty("api.tls.subjectAlternativeNames", ""))
-      )
+      ),
+      MysqlConfig.from(properties),
+      properties.getProperty("database.encryption.key", "")
     );
   }
 

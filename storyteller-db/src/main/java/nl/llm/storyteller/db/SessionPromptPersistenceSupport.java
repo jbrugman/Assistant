@@ -11,13 +11,13 @@ final class SessionPromptPersistenceSupport {
   private SessionPromptPersistenceSupport() {
   }
 
-  static void insertPrompts(Connection connection, String sessionId, SessionPrompts prompts)
+  static void insertPrompts(Connection connection, DatabaseEncryption encryption, String sessionId, SessionPrompts prompts)
     throws SQLException {
     try (PreparedStatement statement = connection.prepareStatement(SessionPromptQueries.INSERT_PROMPT)) {
       statement.setString(1, sessionId);
-      addPrompt(statement, SessionPrompts.SYSTEM_PROMPT_NAME, prompts.systemPrompt());
-      addPrompt(statement, SessionPrompts.FIXED_PROTAGONISTS_NAME, prompts.fixedProtagonists());
-      addPrompt(statement, SessionPrompts.RULES_NAME, prompts.rules());
+      addPrompt(statement, SessionPrompts.SYSTEM_PROMPT_NAME, encryption.encrypt(sessionId, "session_prompt_override.override_content", prompts.systemPrompt()));
+      addPrompt(statement, SessionPrompts.FIXED_PROTAGONISTS_NAME, encryption.encrypt(sessionId, "session_prompt_override.override_content", prompts.fixedProtagonists()));
+      addPrompt(statement, SessionPrompts.RULES_NAME, encryption.encrypt(sessionId, "session_prompt_override.override_content", prompts.rules()));
       statement.executeBatch();
     }
   }
@@ -28,10 +28,10 @@ final class SessionPromptPersistenceSupport {
     statement.addBatch();
   }
 
-  static SessionPrompts readPrompts(ResultSet resultSet) throws SQLException {
+  static SessionPrompts readPrompts(ResultSet resultSet, DatabaseEncryption encryption, String sessionId) throws SQLException {
     Map<String, String> values = new LinkedHashMap<>();
     while (resultSet.next()) {
-      values.put(resultSet.getString("override_name"), resultSet.getString("override_content"));
+      values.put(resultSet.getString("override_name"), encryption.decrypt(sessionId, "session_prompt_override.override_content", resultSet.getString("override_content")));
     }
     return new SessionPrompts(
       required(values, SessionPrompts.SYSTEM_PROMPT_NAME),
