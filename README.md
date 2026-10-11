@@ -242,12 +242,11 @@ The test uses a new session and removes that session afterwards.
 
 ### Database content encryption
 
-Set `database.encryption.key` in the local, Git-ignored `application.config` to a
-Base64-encoded random 32-byte key (generate one with `openssl rand -base64 32`).
-The API and CLI also read this key from `systemprompts/application.config` in the
-working directory. A setting in the local `application.config` takes precedence,
-even when explicitly empty. The same key is used with both H2 and MySQL. An empty setting
-keeps an existing unencrypted database working as before.
+Set `database.encryption.key` in `application.config` to a Base64-encoded random 32-byte key 
+(generate one with `openssl rand -base64 32`).  The API and CLI also read this key from 
+`systemprompts/application.config` in the working directory. 
+A setting in `application.config` takes precedence, even when explicitly empty. 
+The same key is used with both H2 and MySQL. An empty setting keeps an existing unencrypted database working as before.
 
 ```properties
 # Example only: publicly known demonstration key. Generate your own key for actual use.
