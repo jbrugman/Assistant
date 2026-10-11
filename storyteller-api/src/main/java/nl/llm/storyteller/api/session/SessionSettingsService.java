@@ -9,6 +9,8 @@ import nl.llm.storyteller.db.SessionPrompts;
 import nl.llm.storyteller.db.SessionSettings;
 import nl.llm.storyteller.db.SessionSettingsRepository;
 
+import java.util.LinkedHashMap;
+
 import static nl.llm.storyteller.api.input.TextInputNormalizer.requiredMultiline;
 
 public final class SessionSettingsService {
@@ -50,6 +52,33 @@ public final class SessionSettingsService {
     } catch (JsonProcessingException ex) {
       throw new IllegalStateException("Could not render the knowledge graph.", ex);
     }
+  }
+
+  public void patchConfiguration(
+    String sessionId,
+    String systemPrompt,
+    String fixedProtagonists,
+    String rules,
+    boolean updateTemperature,
+    Double temperature
+  ) {
+    var prompts = new LinkedHashMap<String, String>();
+    if (systemPrompt != null) {
+      prompts.put(SessionPrompts.SYSTEM_PROMPT_NAME, requiredMultiline(systemPrompt, "System prompt", MAX_PROMPT_LENGTH));
+    }
+    if (fixedProtagonists != null) {
+      String normalized = requiredMultiline(fixedProtagonists, "Fixed protagonists", MAX_PROMPT_LENGTH);
+      FixedProtagonistsValidator.validate(normalized);
+      prompts.put(SessionPrompts.FIXED_PROTAGONISTS_NAME, normalized);
+    }
+    if (rules != null) {
+      prompts.put(SessionPrompts.RULES_NAME, requiredMultiline(rules, "Rules", MAX_PROMPT_LENGTH));
+    }
+    if (updateTemperature && temperature != null
+      && (!Double.isFinite(temperature) || temperature < 0 || temperature > 2)) {
+      throw new IllegalArgumentException("temperature must be a number between 0 and 2, or null.");
+    }
+    repository.patchConfiguration(sessionId, prompts, updateTemperature, temperature);
   }
 
   private KnowledgeGraphDocument parseKnowledgeGraph(String knowledgeGraph) {

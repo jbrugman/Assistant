@@ -1,4 +1,4 @@
-package nl.llm.storyteller.api.web;
+package nl.llm.storyteller.api.input;
 
 import nl.llm.storyteller.db.StoryImage;
 import org.junit.jupiter.api.Test;

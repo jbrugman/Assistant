@@ -1,0 +1,10 @@
+package nl.llm.storyteller.api.http.dto;
+
+public record SessionConfigResponse(
+  String sessionId,
+  String systemPrompt,
+  String fixedProtagonists,
+  String rules,
+  Double temperature,
+  Double effectiveTemperature
+) { }

@@ -1,4 +1,4 @@
-package nl.llm.storyteller.api.web;
+package nl.llm.storyteller.api.input;
 
 import io.javalin.http.UploadedFile;
 import jakarta.servlet.http.Part;

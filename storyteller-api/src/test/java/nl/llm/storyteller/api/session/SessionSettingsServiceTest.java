@@ -115,5 +115,11 @@ class SessionSettingsServiceTest {
     public void setTemperature(String sessionId, Double temperature) {
       // no-op for tests
     }
+
+    @Override
+    public void patchConfiguration(String sessionId, java.util.Map<String, String> prompts,
+                                   boolean updateTemperature, Double temperature) {
+      throw new UnsupportedOperationException();
+    }
   }
 }

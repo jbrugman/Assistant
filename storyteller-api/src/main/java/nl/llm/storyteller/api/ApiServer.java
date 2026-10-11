@@ -9,6 +9,8 @@ import io.javalin.rendering.template.JavalinJte;
 import nl.llm.storyteller.api.bundle.SessionBundleService;
 import nl.llm.storyteller.api.http.ApiErrorHandler;
 import nl.llm.storyteller.api.http.SessionController;
+import nl.llm.storyteller.api.http.SessionDataController;
+import nl.llm.storyteller.api.http.SessionManagementController;
 import nl.llm.storyteller.api.http.StoryController;
 import nl.llm.storyteller.db.Database;
 import nl.llm.storyteller.db.DatabaseEncryption;
@@ -80,7 +82,7 @@ public final class ApiServer implements AutoCloseable {
     );
   }
 
-  private static ApiServer create(
+  static ApiServer create(
     ApiConfig config,
     AppConfig coreConfig,
     ChatClient chatClient,
@@ -140,21 +142,25 @@ public final class ApiServer implements AutoCloseable {
       storyRepository, settingsRepository, memoryRepository, derivedStateService,
       coreConfig, chatClient, validationClient
     );
-    StoryController storyController = new StoryController(
-      sessionService,
-      storyTurnService
-    );
     SessionBundleService bundleService = new SessionBundleService(
       new JdbcSessionBundleRepository(database), config.sessionInactivityTimeout(), defaultPrompts
     );
     StoryService storyService = new StoryService(storyRepository);
+    StoryController storyController = new StoryController(sessionService, storyTurnService, storyService);
+    SessionManagementController sessionManagementController = new SessionManagementController(
+      sessionService, cookieService, bundleService
+    );
+    SessionSettingsService settingsService = new SessionSettingsService(settingsRepository, graphValidator);
+    SessionDataController sessionDataController = new SessionDataController(
+      sessionService, storyService, storyTurnService, settingsService, memoryService, knowledgeGraphService, defaultTemperature
+    );
     WebController webController = new WebController(
       sessionService,
       cookieService,
       storyService,
       storyTurnService,
       bundleService,
-      new SessionSettingsService(settingsRepository, graphValidator),
+      settingsService,
       memoryService,
       knowledgeGraphService,
       defaultTemperature
@@ -184,6 +190,8 @@ public final class ApiServer implements AutoCloseable {
       }
       sessionController.register(javalinConfig);
       storyController.register(javalinConfig);
+      sessionDataController.register(javalinConfig);
+      sessionManagementController.register(javalinConfig);
       webController.register(javalinConfig);
       ApiErrorHandler.register(javalinConfig);
     });

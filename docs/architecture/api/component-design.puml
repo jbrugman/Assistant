@@ -18,6 +18,8 @@ package "storyteller-api" #DBEAFE {
   [SessionService]
   [SessionSettingsService]
   [SessionMemoryService]
+  [SessionKnowledgeGraphService]
+  [StoryService]
   [API StoryTurnService]
   [SessionBundleService]
   [TLS Material]
@@ -47,16 +49,25 @@ Client --> [ApiServer / Javalin] : HTTP / HTTPS
 [WebController] --> [JTE Templates] : server-side rendering
 [REST Controllers] --> [SessionService]
 [REST Controllers] --> [API StoryTurnService]
+[REST Controllers] --> [SessionSettingsService] : config and graph inspection
+[REST Controllers] --> [SessionMemoryService] : state inspection
+[REST Controllers] --> [StoryService] : JSON history
+[REST Controllers] --> [SessionKnowledgeGraphService] : graph operations
+[REST Controllers] --> [SessionBundleService] : ZIP import / export
 [WebController] --> [SessionService]
 [WebController] --> [SessionSettingsService]
-[WebController] --> [JDBC Repositories] : read-only history view
+[WebController] --> [SessionKnowledgeGraphService]
+[WebController] --> [StoryService] : read-only history view
 [WebController] --> [API StoryTurnService]
 [WebController] --> [SessionBundleService] : ZIP import / export
 [SessionService] --> [JDBC Repositories]
 [SessionSettingsService] --> [JDBC Repositories]
+[StoryService] --> [JDBC Repositories]
 [API StoryTurnService] --> [SessionMemoryService] : schedule background refresh
 [SessionMemoryService] --> [JDBC Repositories]
 [SessionMemoryService] --> [OpenAiCompatibleClientFacade]
+[SessionKnowledgeGraphService] --> [JDBC Repositories]
+[SessionKnowledgeGraphService] --> [OpenAiCompatibleClientFacade]
 [API StoryTurnService] --> [JDBC Repositories]
 [SessionBundleService] --> [JDBC Repositories]
 [JDBC Repositories] --> H2 : sessions, prompts, messages, images

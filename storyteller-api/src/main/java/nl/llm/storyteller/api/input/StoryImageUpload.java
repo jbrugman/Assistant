@@ -1,16 +1,16 @@
-package nl.llm.storyteller.api.web;
+package nl.llm.storyteller.api.input;
 
 import io.javalin.http.UploadedFile;
 import nl.llm.storyteller.db.StoryImage;
 
 import java.io.IOException;
-final class StoryImageUpload {
-  static final long MAX_BYTES = StoryImage.MAX_UPLOAD_BYTES;
+public final class StoryImageUpload {
+  public static final long MAX_BYTES = StoryImage.MAX_UPLOAD_BYTES;
 
   private StoryImageUpload() {
   }
 
-  static StoryImage read(UploadedFile upload) throws IOException {
+  public static StoryImage read(UploadedFile upload) throws IOException {
     if (upload == null || upload.size() == 0) {
       return null;
     }

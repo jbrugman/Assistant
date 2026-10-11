@@ -99,7 +99,15 @@ public final class SessionService {
       return Optional.empty();
     }
     SessionRecord session = active.get();
-    boolean infinite = !session.infinite();
+    return updateInfinite(session, !session.infinite());
+  }
+
+  public Optional<SessionRecord> setInfinite(String sessionId, boolean infinite) {
+    return findActive(sessionId).flatMap(session -> updateInfinite(session, infinite));
+  }
+
+  private Optional<SessionRecord> updateInfinite(SessionRecord session, boolean infinite) {
+    String sessionId = session.sessionId();
     Instant expiresAt = clock.instant().plus(inactivityTimeout);
     if (!repository.setInfinite(sessionId, infinite, expiresAt)) {
       return Optional.empty();
