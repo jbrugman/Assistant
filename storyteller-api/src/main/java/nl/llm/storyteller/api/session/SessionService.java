@@ -1,6 +1,5 @@
 package nl.llm.storyteller.api.session;
 
-import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.db.SessionPrompts;
 import nl.llm.storyteller.db.SessionRecord;
 import nl.llm.storyteller.db.SessionRepository;
@@ -9,9 +8,7 @@ import nl.llm.storyteller.db.SessionSettingsRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 import static nl.llm.storyteller.api.input.TextInputNormalizer.optionalSingleLine;
@@ -26,22 +23,6 @@ public final class SessionService {
   private final Supplier<String> idSupplier;
   private final SessionPrompts defaultPrompts;
   private final Double defaultTemperature;
-
-  public SessionService(
-    SessionRepository repository,
-    Duration inactivityTimeout,
-    SessionPrompts defaultPrompts
-  ) {
-    this(
-      repository,
-      null,
-      Clock.systemUTC(),
-      inactivityTimeout,
-      () -> UUID.randomUUID().toString(),
-      defaultPrompts,
-      null
-    );
-  }
 
   public SessionService(
     SessionRepository repository,

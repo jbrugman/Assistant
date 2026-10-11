@@ -247,11 +247,6 @@ class SessionMemoryServiceTest {
     }
 
     @Override
-    public Double getTemperature(String sessionId) {
-      return null;
-    }
-
-    @Override
     public void setTemperature(String sessionId, Double temperature) {
     }
   }

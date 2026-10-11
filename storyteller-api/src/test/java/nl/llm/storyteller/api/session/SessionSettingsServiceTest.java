@@ -112,11 +112,6 @@ class SessionSettingsServiceTest {
     }
 
     @Override
-    public Double getTemperature(String sessionId) {
-      return settings != null ? settings.temperature() : null;
-    }
-
-    @Override
     public void setTemperature(String sessionId, Double temperature) {
       // no-op for tests
     }

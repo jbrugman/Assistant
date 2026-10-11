@@ -43,7 +43,7 @@ public final class JdbcApplicationStorageFactory {
       throw new IllegalArgumentException("Story session does not exist: " + sessionId);
     }
 
-    ApplicationStorage storage = new ApplicationStorage(
+    return new ApplicationStorage(
       new JdbcStoryHistory(database, sessionId),
       new JdbcTextMemory(database, sessionId, JdbcTextMemory.Type.SUMMARY),
       new JdbcTextMemory(database, sessionId, JdbcTextMemory.Type.RECENT_SUMMARY),
@@ -55,7 +55,6 @@ public final class JdbcApplicationStorageFactory {
         return new StoryPrompts(prompts.systemPrompt(), prompts.fixedProtagonists(), prompts.rules());
       }
     );
-    return storage;
   }
 
   private static void createSession(Database database, AppConfig config, KnowledgeGraphValidator graphValidator) {

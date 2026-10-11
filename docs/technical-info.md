@@ -599,6 +599,10 @@ Not yet.
 ```
 
 ## Changelog
+### 2.0.13
+- Dependency updates.
+- Some code cleanup. (No functional changes).
+
 ### 2.0.12
 - Added the option to use MySQL as database backend instead of the default H2. 
 - Added a more elaborated example in the fixed_protagonists.yml file to show how to define a more complex story world with multiple characters, locations, and items.

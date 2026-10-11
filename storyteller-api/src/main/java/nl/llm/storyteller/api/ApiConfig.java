@@ -1,6 +1,7 @@
 package nl.llm.storyteller.api;
 
 import nl.llm.storyteller.core.config.MysqlConfig;
+import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -74,6 +75,7 @@ public record ApiConfig(
     databasePassword = databasePassword == null ? "" : databasePassword;
   }
 
+  @NotNull
   @Override
   public String toString() {
     return "ApiConfig[host=" + host + ", port=" + port + ", databaseEncryption="
