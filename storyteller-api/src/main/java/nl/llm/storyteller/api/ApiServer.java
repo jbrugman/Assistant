@@ -80,16 +80,6 @@ public final class ApiServer implements AutoCloseable {
     );
   }
 
-  static ApiServer create(
-    ApiConfig config,
-    AppConfig coreConfig,
-    ChatClient chatClient,
-    ChatClient validationClient,
-    ChatClient backgroundClient
-  ) {
-    return create(config, coreConfig, chatClient, validationClient, backgroundClient, backgroundClient);
-  }
-
   private static ApiServer create(
     ApiConfig config,
     AppConfig coreConfig,

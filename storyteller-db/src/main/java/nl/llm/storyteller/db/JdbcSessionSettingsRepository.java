@@ -46,15 +46,6 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
   }
 
   @Override
-  public Double getTemperature(String sessionId) {
-    try (Connection connection = database.openConnection()) {
-      return loadTemperature(connection, sessionId);
-    } catch (SQLException ex) {
-      throw new DatabaseException("Could not load temperature for session " + sessionId + ".", ex);
-    }
-  }
-
-  @Override
   public void setTemperature(String sessionId, Double temperature) {
     try (Connection connection = database.openConnection();
          PreparedStatement statement = connection.prepareStatement(UPDATE_SESSION_CONFIGURATION_TEMPERATURE)) {

@@ -5,7 +5,5 @@ public interface SessionSettingsRepository {
 
   void save(String sessionId, SessionSettings settings);
 
-  Double getTemperature(String sessionId);
-
   void setTemperature(String sessionId, Double temperature);
 }

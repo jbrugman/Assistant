@@ -30,7 +30,7 @@ public final class DatabaseEncryption {
     byte[] bytes;
     try {
       bytes = Base64.getDecoder().decode(value.trim());
-    } catch (IllegalArgumentException ex) {
+    } catch (IllegalArgumentException _) {
       throw new IllegalArgumentException(KEY_CONFIGURATION_PROPERTY + " must be a Base64-encoded 32-byte key.");
     }
     if (bytes.length != 32) {
@@ -68,7 +68,7 @@ public final class DatabaseEncryption {
     try {
       return new String(decrypt(sessionId, field, Base64.getDecoder().decode(value.substring(TEXT_PREFIX.length()))),
         StandardCharsets.UTF_8);
-    } catch (IllegalArgumentException ex) {
+    } catch (IllegalArgumentException _) {
       throw failure();
     }
   }
@@ -105,7 +105,7 @@ public final class DatabaseEncryption {
       byte[] nonce = Arrays.copyOfRange(value, BINARY_PREFIX.length, BINARY_PREFIX.length + NONCE_BYTES);
       return cipher(Cipher.DECRYPT_MODE, nonce, sessionId, field)
         .doFinal(value, BINARY_PREFIX.length + NONCE_BYTES, value.length - BINARY_PREFIX.length - NONCE_BYTES);
-    } catch (GeneralSecurityException ex) {
+    } catch (GeneralSecurityException _) {
       throw failure();
     }
   }

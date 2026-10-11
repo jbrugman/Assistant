@@ -197,22 +197,6 @@ export, and backup rather than as live session storage.
 The web **Settings** page edits session prompts and the validated knowledge graph. The read-only **History** page
 shows the generated mid-term and long-term summaries plus canonical state.
 
-## Changelog
-
-- https://github.com/jbrugman/Assistant/wiki/Changelog
-
-## More information
-
-- [Technical information, configuration, commands, benchmarks, architecture, and changelog](docs/technical-info.md)
-- [API design](docs/api_design.md)
-- [Architecture documentation](docs/architecture/)
-- [Web interface design and screenshots](docs/webpages-screenshots/)
-- [Configuration and Hardware Guide](https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide)
-
-## License
-
-Storyteller is available under the [MIT License](LICENSE).
-
 ### MySQL storage
 
 H2 remains the default. To use MySQL for both the API and CLI, place an
@@ -242,10 +226,10 @@ The test uses a new session and removes that session afterwards.
 
 ### Database content encryption
 
-Set `database.encryption.key` in `application.config` to a Base64-encoded random 32-byte key 
-(generate one with `openssl rand -base64 32`).  The API and CLI also read this key from 
-`systemprompts/application.config` in the working directory. 
-A setting in `application.config` takes precedence, even when explicitly empty. 
+Set `database.encryption.key` in `application.config` to a Base64-encoded random 32-byte key
+(generate one with `openssl rand -base64 32`).  The API and CLI also read this key from
+`systemprompts/application.config` in the working directory.
+A setting in `application.config` takes precedence, even when explicitly empty.
 The same key is used with both H2 and MySQL. An empty setting keeps an existing unencrypted database working as before.
 
 ```properties
@@ -275,3 +259,19 @@ it does not migrate the configured Storyteller database. It is excluded from CI:
 mvn test -pl storyteller-db -am -Dtest=MysqlEncryptionIT -Dsurefire.failIfNoSpecifiedTests=false \
   -Dmysql.integration=true -Dmysql.config=/absolute/path/application.config
 ```
+
+## Changelog
+
+- https://github.com/jbrugman/Assistant/wiki/Changelog
+
+## More information
+
+- [Technical information, configuration, commands, benchmarks, architecture, and changelog](docs/technical-info.md)
+- [API design](docs/api_design.md)
+- [Architecture documentation](docs/architecture/)
+- [Web interface design and screenshots](docs/webpages-screenshots/)
+- [Configuration and Hardware Guide](https://github.com/jbrugman/Assistant/wiki/Configuration-&-Hardware-Guide)
+
+## License
+
+Storyteller is available under the [MIT License](LICENSE).

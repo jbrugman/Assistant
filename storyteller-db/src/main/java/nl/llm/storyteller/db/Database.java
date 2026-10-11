@@ -1,5 +1,7 @@
 package nl.llm.storyteller.db;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -18,6 +20,7 @@ public record Database(String url, String username, String password, DatabaseEnc
     java.util.Objects.requireNonNull(encryption, "encryption");
   }
 
+  @NotNull
   @Override
   public String toString() {
     return "Database[username=" + username + ", encryption=" + encryption.enabled() + "]";

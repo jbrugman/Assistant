@@ -419,7 +419,7 @@ public final class WebController {
         return null;
       }
       return d;
-    } catch (NumberFormatException ex) {
+    } catch (NumberFormatException _) {
       return null;
     }
   }

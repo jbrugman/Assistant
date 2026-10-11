@@ -11,10 +11,6 @@ public final class SessionCookieService {
   private final long maxAgeSeconds;
   private final boolean secure;
 
-  public SessionCookieService(Duration inactivityTimeout) {
-    this(inactivityTimeout, false);
-  }
-
   public SessionCookieService(Duration inactivityTimeout, boolean secure) {
     maxAgeSeconds = inactivityTimeout.toSeconds();
     this.secure = secure;
@@ -22,10 +18,6 @@ public final class SessionCookieService {
 
   public String read(Context context) {
     return context.cookie(COOKIE_NAME);
-  }
-
-  public void write(Context context, String sessionId) {
-    context.header("Set-Cookie", cookieValue(sessionId, maxAgeSeconds));
   }
 
   public void write(Context context, String sessionId, boolean infinite) {
