@@ -7,12 +7,35 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class JdbcSessionSettingsRepositoryTest {
   @TempDir
   Path temporaryDirectory;
+
+  @Test
+  @DisplayName("Configuration patches roll back all prompt changes when a later update fails")
+  void shouldRollBackConfigurationPatchOnFailure() {
+    Database database = new Database("jdbc:h2:file:" + temporaryDirectory.resolve("patch"), "sa", "");
+    new SchemaInitializer(database).initialize();
+    Instant now = Instant.parse("2026-09-08T20:00:00Z");
+    new JdbcSessionRepository(database).create(
+      new SessionRecord("session-id", "Story", now, now, now, now.plusSeconds(3600), false),
+      new SessionPrompts("System", "Fixed", "Rules")
+    );
+    JdbcSessionSettingsRepository repository = new JdbcSessionSettingsRepository(database);
+    SessionSettings original = repository.load("session-id");
+    var patch = new LinkedHashMap<String, String>();
+    patch.put(SessionPrompts.SYSTEM_PROMPT_NAME, "Changed");
+    patch.put("missing-prompt", "Will fail");
+
+    assertThrows(DatabaseException.class, () -> repository.patchConfiguration("session-id", patch, true, 0.2));
+
+    assertEquals(original, repository.load("session-id"));
+  }
 
   @Test
   @DisplayName("""

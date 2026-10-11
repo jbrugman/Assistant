@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 
 public final class JdbcSessionSettingsRepository implements SessionSettingsRepository {
   private static final String SELECT_SESSION_CONFIGURATION_TEMPERATURE = """
@@ -55,6 +56,29 @@ public final class JdbcSessionSettingsRepository implements SessionSettingsRepos
       requireUpdated(statement, "Session configuration does not exist: " + sessionId);
     } catch (SQLException ex) {
       throw new DatabaseException("Could not set temperature for session " + sessionId + ".", ex);
+    }
+  }
+
+  @Override
+  public void patchConfiguration(
+    String sessionId, Map<String, String> prompts, boolean updateTemperature, Double temperature
+  ) {
+    try (Connection connection = database.openConnection()) {
+      connection.setAutoCommit(false);
+      try {
+        for (var prompt : prompts.entrySet()) {
+          updatePrompt(connection, sessionId, prompt.getKey(), prompt.getValue());
+        }
+        if (updateTemperature) {
+          updateTemperatureInTransaction(connection, sessionId, temperature);
+        }
+        connection.commit();
+      } catch (SQLException ex) {
+        rollback(connection, ex);
+        throw ex;
+      }
+    } catch (SQLException ex) {
+      throw new DatabaseException("Could not patch configuration for session " + sessionId + ".", ex);
     }
   }
 

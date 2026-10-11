@@ -1,5 +1,11 @@
 package nl.llm.storyteller.api.story;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import nl.llm.storyteller.core.JsonSupport;
+import nl.llm.storyteller.core.graph.model.KnowledgeGraphDocument;
+import nl.llm.storyteller.core.graph.persistence.KnowledgeGraphJsonCodec;
+
 import nl.llm.storyteller.core.config.AppConfig;
 import nl.llm.storyteller.core.graph.KnowledgeGraphValidator;
 import nl.llm.storyteller.core.graph.PredicateCatalog;
@@ -116,6 +122,39 @@ public final class SessionKnowledgeGraphService implements AutoCloseable {
 
   private JdbcKnowledgeGraphRepository repository(String sessionId) {
     return new JdbcKnowledgeGraphRepository(database, sessionId, validator);
+  }
+
+  public void replace(String sessionId, String json) throws InterruptedException {
+    KnowledgeGraphDocument candidate;
+    try {
+      var root = JsonSupport.OBJECT_MAPPER.reader()
+        .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(json);
+      if (root == null || !root.isObject()) {
+        throw new IllegalArgumentException("Knowledge graph must be a JSON object.");
+      }
+      candidate = new KnowledgeGraphJsonCodec().fromJson(root.toString());
+      validator.validate(candidate);
+    } catch (JsonProcessingException ex) {
+      throw new IllegalArgumentException("Invalid knowledge graph JSON.", ex);
+    }
+    try {
+      taskQueue.submitAndWait(() -> {
+        var repository = repository(sessionId);
+        var current = repository.load();
+        if (candidate.revision() != current.revision()) {
+          throw new KnowledgeGraphConflictException();
+        }
+        repository.save(new KnowledgeGraphDocument(
+          candidate.schemaVersion(), current.revision() + 1, candidate.entities(), candidate.facts()
+        ));
+        return null;
+      });
+    } catch (ExecutionException ex) {
+      if (ex.getCause() instanceof RuntimeException runtimeException) {
+        throw runtimeException;
+      }
+      throw new IllegalStateException("Could not replace knowledge graph.", ex.getCause());
+    }
   }
 
   boolean awaitIdle() throws InterruptedException {

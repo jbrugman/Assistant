@@ -121,6 +121,9 @@ The native executable accepts the same option: `./valerie --session <session-id>
 
 ## Use the API and web interface
 
+For a small independent frontend and an introduction to React, see the
+[React + TypeScript example](storyteller-frontend-react/README.md).
+
 After building:
 
 ```bash
@@ -141,6 +144,10 @@ By default, the server listens on:
 
 Open either address in a browser to use the bundled web interface. HTTPS uses a locally generated certificate authority;
 clients must trust that local CA to avoid certificate warnings.
+
+Alternative clients can use the API for session lifetime/deletion/resume, story turns with images and historical
+context, message editing, history, configuration, undo, state inspection, graph management, memory resets, and ZIP
+import/export. See the [implemented API contracts](docs/api_design.md#implemented-json-api).
 
 An infinite web session displays its resume ID. Enter that ID on the start page, or open
 `/story/resume/<session-id>`, to continue the same session in another browser. Sessions with normal inactivity expiry

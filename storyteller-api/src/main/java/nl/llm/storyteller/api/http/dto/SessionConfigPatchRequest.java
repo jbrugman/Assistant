@@ -1,0 +1,10 @@
+package nl.llm.storyteller.api.http.dto;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+public record SessionConfigPatchRequest(
+  JsonNode systemPrompt,
+  JsonNode fixedProtagonists,
+  JsonNode rules,
+  JsonNode temperature
+) { }

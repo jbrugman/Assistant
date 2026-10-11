@@ -599,6 +599,10 @@ Not yet.
 ```
 
 ## Changelog
+### 2.1.0
+- Added remaining missing API endpoints so external clients can fully manage story sessions, including memory and graph.
+- Added a small react-based front-end web interface example to demonstrate the API endpoints and provide a simple web-based story interface.
+
 ### 2.0.13
 - Dependency updates.
 - Some code cleanup. (No functional changes).

@@ -249,6 +249,12 @@ class SessionMemoryServiceTest {
     @Override
     public void setTemperature(String sessionId, Double temperature) {
     }
+
+    @Override
+    public void patchConfiguration(String sessionId, Map<String, String> prompts,
+                                   boolean updateTemperature, Double temperature) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private static final class SequencedChatClient implements ChatClient {

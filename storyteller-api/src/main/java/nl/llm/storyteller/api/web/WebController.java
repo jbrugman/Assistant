@@ -1,5 +1,7 @@
 package nl.llm.storyteller.api.web;
 
+import nl.llm.storyteller.api.input.StoryImageUpload;
+
 import io.javalin.config.JavalinConfig;
 import io.javalin.config.SizeUnit;
 import io.javalin.http.Context;

@@ -31,11 +31,34 @@ if (story turn?) then (yes)
   :Store prompt, response and optional image in H2;
   :Schedule serialized summary and\ncanonical-state refreshes in H2;
   :Render updated JTE page or return JSON;
+elseif (JSON history?) then (yes)
+  :Load complete ordered message history;
+  :Return JSON messages and image-presence flags;
+elseif (JSON config?) then (yes)
+  :Read session configuration or validate patch DTO;
+  :For PATCH, update only supplied fields\nin one repository transaction;
+  :Return stored and effective configuration as JSON;
+elseif (JSON state?) then (yes)
+  :Read stored memory, processing cursors\nand knowledge graph;
+  :Return JSON without waiting for background updates;
+elseif (JSON undo?) then (yes)
+  :Undo latest complete exchange\nusing the existing repository transaction;
+  :Return 204 without invoking the model;
+elseif (JSON graph operation?) then (yes)
+  :Validate replacement and revision or run existing graph action;
+  :Serialize with background extraction using the graph task queue;
+  :Return persisted graph as JSON;
+elseif (JSON memory reset?) then (yes)
+  :Clear only the selected layer and its processing cursor;
+  :Return 204;
+elseif (image download?) then (yes)
+  :Read stored image bytes for the session and message index;
+  :Return the original image media type;
 elseif (history page?) then (yes)
   :Load one older page of exchanges from H2;
   :Render JTE fragment for infinite scrolling;
 elseif (settings?) then (yes)
-  :Load or update session prompts\nand canonical state;
+  :Load or update session prompts,\ntemperature and knowledge graph;
   :Validate fixed protagonists YAML before save;
 elseif (memory history?) then (yes)
   :Render mid-term and long-term\nsummaries read-only from H2;
